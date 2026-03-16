@@ -8,8 +8,8 @@ import {
   Dumbbell,
   ClipboardList,
   Users,
-  MessageSquare,
-  BarChart3,
+  // MessageSquare,  // coming soon
+  // BarChart3,      // coming soon
   Settings,
   Sparkles,
   Activity,
@@ -33,16 +33,16 @@ const clinicianLinks = [
   { href: "/workout-plans", label: "Workout Plans", icon: ClipboardList },
   { href: "/workout-plans/generate", label: "Generate Plan", icon: Sparkles },
   { href: "/patients", label: "Patients", icon: Users },
-  { href: "/messages", label: "Messages", icon: MessageSquare },
-  { href: "/assessments", label: "Assessments", icon: BarChart3 },
+  // { href: "/messages", label: "Messages", icon: MessageSquare },      // coming soon
+  // { href: "/assessments", label: "Assessments", icon: BarChart3 },    // coming soon
 ];
 
 const patientLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/exercises", label: "Exercises", icon: Dumbbell },
   { href: "/workout-plans", label: "My Plans", icon: ClipboardList },
-  { href: "/messages", label: "Messages", icon: MessageSquare },
-  { href: "/assessments", label: "Assessments", icon: BarChart3 },
+  // { href: "/messages", label: "Messages", icon: MessageSquare },      // coming soon
+  // { href: "/assessments", label: "Assessments", icon: BarChart3 },    // coming soon
 ];
 
 export function Sidebar({
