@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { updatePlanStatusAction } from "@/actions/workout-actions";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,7 +77,7 @@ export function PlanStatusActions({ planId, currentStatus }: Props) {
   // Multiple actions — dropdown
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button size="sm" variant="outline" disabled={loading} />}>
+      <DropdownMenuTrigger className={buttonVariants({ size: "sm", variant: "outline" })} disabled={loading}>
         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         Change Status
         <ChevronDown className="ml-1 h-4 w-4" />

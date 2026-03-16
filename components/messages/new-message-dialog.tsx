@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { sendMessageAction } from "@/actions/message-actions";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -67,7 +67,7 @@ export function NewMessageDialog({ contacts }: NewMessageDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button />}>
+      <DialogTrigger className={buttonVariants()}>
         <PenSquare className="mr-2 h-4 w-4" />
         New Message
       </DialogTrigger>

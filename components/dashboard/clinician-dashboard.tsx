@@ -117,10 +117,10 @@ export function ClinicianDashboard({
                       className={
                         fb.rating === "FELT_GOOD"
                           ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                          : fb.rating === "TOO_EASY"
-                            ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                            : fb.rating === "TOO_HARD"
-                              ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                          : fb.rating === "MILD_DISCOMFORT"
+                            ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                            : fb.rating === "UNSURE_HOW_TO_PERFORM"
+                              ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
                               : undefined
                       }
                     >

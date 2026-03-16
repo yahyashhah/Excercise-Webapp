@@ -19,7 +19,10 @@ export async function createAssessmentAction(input: {
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
 
-  // Patients always record for themselves
+  // Patients always record for themselves; clinicians must supply a patientId
+  if (dbUser.role === "CLINICIAN" && !input.patientId) {
+    return { success: false as const, error: "Please select a patient" };
+  }
   const resolvedPatientId =
     dbUser.role === "PATIENT" ? dbUser.id : (input.patientId ?? "");
 
