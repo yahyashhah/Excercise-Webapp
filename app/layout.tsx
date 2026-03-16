@@ -1,32 +1,42 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
+import { ToastProvider } from "@/components/providers/toast-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-plus-jakarta",
   subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
-  title: "AI Home Exercise Platform",
-  description: "Personalized AI-powered home exercise programs for patients and clinicians",
+  title: { default: "RehabAI -- AI-Powered Exercise Platform", template: "%s | RehabAI" },
+  description:
+    "Personalized AI-powered home exercise programs for clinicians and patients. Generate, assign, and track exercise programs in minutes.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {children}
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body
+          className={`${inter.variable} ${plusJakartaSans.variable} font-sans antialiased`}
+        >
+          <TooltipProvider>
+            {children}
+            <ToastProvider />
+          </TooltipProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

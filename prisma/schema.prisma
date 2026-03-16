@@ -1,0 +1,261 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CLINICIAN
+  PATIENT
+}
+
+enum PlanStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum DifficultyLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum BodyRegion {
+  LOWER_BODY
+  UPPER_BODY
+  CORE
+  FULL_BODY
+  BALANCE
+  FLEXIBILITY
+}
+
+enum FeedbackRating {
+  FELT_GOOD
+  MILD_DISCOMFORT
+  PAINFUL
+  UNSURE_HOW_TO_PERFORM
+}
+
+enum SessionStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum ProgressionDirection {
+  PROGRESSION
+  REGRESSION
+}
+
+model User {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  clerkId     String   @unique
+  email       String   @unique
+  firstName   String
+  lastName    String
+  role        UserRole
+  phone       String?
+  dateOfBirth String?
+  imageUrl    String?
+  onboarded   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  patientProfile   PatientProfile?
+  patientLinks     PatientClinicianLink[] @relation("PatientLinks")
+  clinicianLinks   PatientClinicianLink[] @relation("ClinicianLinks")
+  plansAsPatient   WorkoutPlan[]          @relation("PatientPlans")
+  plansCreated     WorkoutPlan[]          @relation("CreatedPlans")
+  feedbackGiven    ExerciseFeedback[]
+  sessions         WorkoutSession[]
+  sentMessages     Message[]              @relation("SentMessages")
+  receivedMessages Message[]              @relation("ReceivedMessages")
+  assessments      Assessment[]           @relation("PatientAssessments")
+  assessedBy       Assessment[]           @relation("AssessedBy")
+  exercisesCreated Exercise[]
+}
+
+model PatientProfile {
+  id                       String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId                   String   @unique @db.ObjectId
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  limitations              String?
+  comorbidities            String?
+  functionalChallenges     String?
+  availableEquipment       String[]
+  fitnessGoals             String[]
+  preferredDurationMinutes Int      @default(25)
+  preferredDaysPerWeek     Int      @default(3)
+  updatedAt                DateTime @updatedAt
+}
+
+model PatientClinicianLink {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  patientId   String   @db.ObjectId
+  clinicianId String   @db.ObjectId
+  patient     User     @relation("PatientLinks", fields: [patientId], references: [id], onDelete: Cascade)
+  clinician   User     @relation("ClinicianLinks", fields: [clinicianId], references: [id], onDelete: Cascade)
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+
+  @@unique([patientId, clinicianId])
+}
+
+model Exercise {
+  id                String          @id @default(auto()) @map("_id") @db.ObjectId
+  name              String
+  description       String?
+  bodyRegion        BodyRegion
+  equipmentRequired String[]
+  difficultyLevel   DifficultyLevel
+  contraindications String[]
+  videoUrl          String?
+  imageUrl          String?
+  instructions      String?
+  isActive          Boolean         @default(true)
+  createdById       String?         @db.ObjectId
+  createdBy         User?           @relation(fields: [createdById], references: [id])
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  planExercises    PlanExercise[]
+  progressionsFrom ExerciseProgression[] @relation("FromExercise")
+  progressionsTo   ExerciseProgression[] @relation("ToExercise")
+  media            ExerciseMedia[]
+}
+
+model ExerciseProgression {
+  id             String               @id @default(auto()) @map("_id") @db.ObjectId
+  exerciseId     String               @db.ObjectId
+  nextExerciseId String               @db.ObjectId
+  exercise       Exercise             @relation("FromExercise", fields: [exerciseId], references: [id], onDelete: Cascade)
+  nextExercise   Exercise             @relation("ToExercise", fields: [nextExerciseId], references: [id], onDelete: Cascade)
+  direction      ProgressionDirection
+  orderIndex     Int
+}
+
+model ExerciseMedia {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  exerciseId   String   @db.ObjectId
+  exercise     Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  mediaType    String
+  url          String
+  thumbnailUrl String?
+  altText      String?
+  createdAt    DateTime @default(now())
+}
+
+model WorkoutPlan {
+  id                 String     @id @default(auto()) @map("_id") @db.ObjectId
+  patientId          String     @db.ObjectId
+  createdById        String     @db.ObjectId
+  patient            User       @relation("PatientPlans", fields: [patientId], references: [id], onDelete: Cascade)
+  createdBy          User       @relation("CreatedPlans", fields: [createdById], references: [id])
+  title              String
+  description        String?
+  status             PlanStatus @default(DRAFT)
+  durationMinutes    Int?
+  daysPerWeek        Int?
+  aiGenerationParams Json?
+  version            Int        @default(1)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  exercises PlanExercise[]
+  sessions  WorkoutSession[]
+  messages  Message[]
+}
+
+model PlanExercise {
+  id              String      @id @default(auto()) @map("_id") @db.ObjectId
+  planId          String      @db.ObjectId
+  exerciseId      String      @db.ObjectId
+  plan            WorkoutPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  exercise        Exercise    @relation(fields: [exerciseId], references: [id])
+  dayOfWeek       Int?
+  orderIndex      Int
+  sets            Int
+  reps            Int?
+  durationSeconds Int?
+  restSeconds     Int?
+  notes           String?
+  isActive        Boolean     @default(true)
+
+  feedback     ExerciseFeedback[]
+  sessionItems SessionExercise[]
+  messages     Message[]
+}
+
+model ExerciseFeedback {
+  id                String         @id @default(auto()) @map("_id") @db.ObjectId
+  planExerciseId    String         @db.ObjectId
+  patientId         String         @db.ObjectId
+  planExercise      PlanExercise   @relation(fields: [planExerciseId], references: [id], onDelete: Cascade)
+  patient           User           @relation(fields: [patientId], references: [id])
+  rating            FeedbackRating
+  comment           String?
+  clinicianResponse String?
+  respondedAt       DateTime?
+  createdAt         DateTime       @default(now())
+}
+
+model WorkoutSession {
+  id               String        @id @default(auto()) @map("_id") @db.ObjectId
+  planId           String        @db.ObjectId
+  patientId        String        @db.ObjectId
+  plan             WorkoutPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  patient          User          @relation(fields: [patientId], references: [id])
+  startedAt        DateTime      @default(now())
+  completedAt      DateTime?
+  status           SessionStatus @default(IN_PROGRESS)
+  overallPainLevel Int?
+  notes            String?
+
+  exercises SessionExercise[]
+}
+
+model SessionExercise {
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId      String         @db.ObjectId
+  planExerciseId String         @db.ObjectId
+  session        WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  planExercise   PlanExercise   @relation(fields: [planExerciseId], references: [id])
+  status         String
+  actualSets     Int?
+  actualReps     Int?
+  completedAt    DateTime?
+}
+
+model Assessment {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  patientId      String   @db.ObjectId
+  assessedById   String?  @db.ObjectId
+  patient        User     @relation("PatientAssessments", fields: [patientId], references: [id], onDelete: Cascade)
+  assessedByUser User?    @relation("AssessedBy", fields: [assessedById], references: [id])
+  assessmentType String
+  value          Float
+  unit           String
+  notes          String?
+  createdAt      DateTime @default(now())
+}
+
+model Message {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  senderId       String        @db.ObjectId
+  recipientId    String        @db.ObjectId
+  sender         User          @relation("SentMessages", fields: [senderId], references: [id])
+  recipient      User          @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  planId         String?       @db.ObjectId
+  planExerciseId String?       @db.ObjectId
+  plan           WorkoutPlan?  @relation(fields: [planId], references: [id])
+  planExercise   PlanExercise? @relation(fields: [planExerciseId], references: [id])
+  content        String
+  isRead         Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+}
