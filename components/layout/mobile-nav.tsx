@@ -28,7 +28,7 @@ const navItems = [
   { label: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard, roles: ["clinician", "patient"] },
   { label: "Exercises", href: ROUTES.EXERCISES, icon: Dumbbell, roles: ["clinician", "patient"] },
   { label: "Workout Plans", href: ROUTES.WORKOUT_PLANS, icon: ClipboardList, roles: ["clinician", "patient"] },
-  { label: "Patients", href: ROUTES.PATIENTS, icon: Users, roles: ["clinician"] },
+  { label: "Clients", href: ROUTES.PATIENTS, icon: Users, roles: ["clinician"] },
   // { label: "Messages", href: ROUTES.MESSAGES, icon: MessageSquare, roles: ["clinician", "patient"] },    // coming soon
   // { label: "Assessments", href: ROUTES.ASSESSMENTS, icon: BarChart3, roles: ["clinician", "patient"] }, // coming soon
   { label: "Settings", href: ROUTES.SETTINGS, icon: Settings, roles: ["clinician", "patient"] },

@@ -11,7 +11,6 @@ import {
   // MessageSquare,  // coming soon
   // BarChart3,      // coming soon
   Settings,
-  Sparkles,
   Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,8 +30,7 @@ const clinicianLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/exercises", label: "Exercises", icon: Dumbbell },
   { href: "/workout-plans", label: "Workout Plans", icon: ClipboardList },
-  { href: "/workout-plans/generate", label: "Generate Plan", icon: Sparkles },
-  { href: "/patients", label: "Patients", icon: Users },
+  { href: "/patients", label: "Clients", icon: Users },
   // { href: "/messages", label: "Messages", icon: MessageSquare },      // coming soon
   // { href: "/assessments", label: "Assessments", icon: BarChart3 },    // coming soon
 ];
@@ -62,7 +60,7 @@ export function Sidebar({
           <Activity className="h-4.5 w-4.5 text-white" />
         </div>
         <span className="text-lg font-bold tracking-tight text-sidebar-foreground">
-          RehabAI
+          INMOTUS RX
         </span>
       </div>
 

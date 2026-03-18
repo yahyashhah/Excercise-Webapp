@@ -6,7 +6,7 @@ const openai = new OpenAI({
 });
 
 interface GenerateWorkoutParams {
-  patientId: string;
+  patientId?: string | null;
   focusAreas: string[];
   durationMinutes: number;
   daysPerWeek: number;
@@ -35,13 +35,13 @@ interface GeneratedPlan {
 export async function generateWorkoutPlan(
   params: GenerateWorkoutParams
 ): Promise<GeneratedPlan> {
-  // Fetch patient profile for context
-  const patient = await prisma.user.findUnique({
-    where: { id: params.patientId },
-    include: { patientProfile: true },
-  });
-
-  if (!patient) throw new Error("Patient not found");
+  // Optionally fetch client profile for context
+  const patient = params.patientId
+    ? await prisma.user.findUnique({
+        where: { id: params.patientId },
+        include: { patientProfile: true },
+      })
+    : null;
 
   // Fetch available exercises from the library
   const exercises = await prisma.exercise.findMany({
@@ -57,20 +57,24 @@ export async function generateWorkoutPlan(
     },
   });
 
-  const profile = patient.patientProfile;
+  const profile = patient?.patientProfile ?? null;
 
   const systemPrompt = `You are a rehabilitation exercise specialist AI assistant. Your role is to create personalized home exercise programs based on patient profiles and available exercises.
 
 You MUST respond with valid JSON only. No markdown, no explanation, just JSON.`;
 
-  const userPrompt = `Create a personalized exercise program for this patient:
-
-Patient: ${patient.firstName} ${patient.lastName}
+  const clientContext = patient
+    ? `Client: ${patient.firstName} ${patient.lastName}
 ${profile?.limitations ? `Limitations: ${profile.limitations}` : ""}
 ${profile?.comorbidities ? `Comorbidities: ${profile.comorbidities}` : ""}
 ${profile?.functionalChallenges ? `Functional Challenges: ${profile.functionalChallenges}` : ""}
 ${profile?.availableEquipment?.length ? `Available Equipment: ${profile.availableEquipment.join(", ")}` : "No equipment"}
-${profile?.fitnessGoals?.length ? `Goals: ${profile.fitnessGoals.join(", ")}` : ""}
+${profile?.fitnessGoals?.length ? `Goals: ${profile.fitnessGoals.join(", ")}` : ""}`
+    : "No specific client assigned. Create a general program suitable for the parameters below.";
+
+  const userPrompt = `Create an exercise program with the following details:
+
+${clientContext}
 
 Program Parameters:
 - Focus Areas: ${params.focusAreas.join(", ")}

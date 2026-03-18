@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { PlanStatus, Prisma } from "@prisma/client";
 
 export async function createPlan(data: {
-  patientId: string;
+  patientId?: string | null;
   createdById: string;
   title: string;
   description?: string;
@@ -20,11 +20,12 @@ export async function createPlan(data: {
     notes?: string;
   }[];
 }) {
-  const { exercises, aiGenerationParams, ...planData } = data;
+  const { exercises, aiGenerationParams, patientId, ...planData } = data;
 
   return prisma.workoutPlan.create({
     data: {
       ...planData,
+      ...(patientId ? { patientId } : {}),
       aiGenerationParams: aiGenerationParams
         ? (aiGenerationParams as Prisma.InputJsonValue)
         : undefined,

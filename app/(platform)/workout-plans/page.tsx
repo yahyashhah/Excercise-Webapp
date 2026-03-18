@@ -62,7 +62,7 @@ export default async function WorkoutPlansPage() {
               exerciseCount={plan._count.exercises}
               sessionCount={plan._count.sessions}
               patientName={
-                "patient" in plan
+                "patient" in plan && plan.patient
                   ? `${plan.patient.firstName} ${plan.patient.lastName}`
                   : undefined
               }

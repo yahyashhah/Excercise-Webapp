@@ -20,7 +20,7 @@ export default async function OnboardingPage() {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500">
             <Activity className="h-5 w-5 text-white" />
           </div>
-          <span className="text-xl font-bold text-white">RehabAI</span>
+          <span className="text-xl font-bold text-white">INMOTUS RX</span>
         </div>
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight text-white">
@@ -31,7 +31,7 @@ export default async function OnboardingPage() {
             monitor outcomes -- all in one platform.
           </p>
         </div>
-        <p className="text-sm text-slate-400">&copy; {new Date().getFullYear()} RehabAI. All rights reserved.</p>
+        <p className="text-sm text-slate-400">&copy; {new Date().getFullYear()} INMOTUS RX. All rights reserved.</p>
       </div>
 
       {/* Right form panel */}
@@ -40,7 +40,7 @@ export default async function OnboardingPage() {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500">
             <Activity className="h-5 w-5 text-white" />
           </div>
-          <span className="text-xl font-bold">RehabAI</span>
+          <span className="text-xl font-bold">INMOTUS RX</span>
         </div>
         <div className="w-full max-w-lg">
           <OnboardingForm />

@@ -19,7 +19,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: { default: "RehabAI -- AI-Powered Exercise Platform", template: "%s | RehabAI" },
+  title: { default: "INMOTUS RX", template: "%s | INMOTUS RX" },
   description:
     "Personalized AI-powered home exercise programs for clinicians and patients. Generate, assign, and track exercise programs in minutes.",
 };

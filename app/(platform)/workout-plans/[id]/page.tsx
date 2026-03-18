@@ -16,6 +16,8 @@ import {
 } from "@/lib/utils/formatting";
 import { ArrowLeft, Edit, Play } from "lucide-react";
 import { PlanStatusActions } from "@/components/workout/plan-status-actions";
+import { AssignClientDialog } from "@/components/workout/assign-client-dialog";
+import { getPatientsForClinician } from "@/lib/services/patient.service";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -27,6 +29,11 @@ export default async function PlanDetailPage({ params }: Props) {
   const plan = await getPlanById(id);
 
   if (!plan) notFound();
+
+  const clients =
+    user.role === "CLINICIAN"
+      ? await getPatientsForClinician(user.id)
+      : [];
 
   // FIX 7: Verify access — patient must be assigned, clinician must be creator
   if (user.role === "PATIENT" && plan.patientId !== user.id) notFound();
@@ -131,16 +138,36 @@ export default async function PlanDetailPage({ params }: Props) {
         </CardHeader>
       </Card>
 
-      {/* Patient info */}
+      {/* Client info */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Patient</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Client</CardTitle>
+            {user.role === "CLINICIAN" && (
+              <AssignClientDialog
+                planId={plan.id}
+                currentPatientId={plan.patientId}
+                clients={clients.map((c) => ({
+                  id: c.id,
+                  firstName: c.firstName,
+                  lastName: c.lastName,
+                  email: c.email,
+                }))}
+              />
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <p className="font-medium text-slate-900">
-            {plan.patient.firstName} {plan.patient.lastName}
-          </p>
-          <p className="text-sm text-slate-500">{plan.patient.email}</p>
+          {plan.patient ? (
+            <>
+              <p className="font-medium text-slate-900">
+                {plan.patient.firstName} {plan.patient.lastName}
+              </p>
+              <p className="text-sm text-slate-500">{plan.patient.email}</p>
+            </>
+          ) : (
+            <p className="text-sm text-slate-500 italic">No client assigned yet.</p>
+          )}
         </CardContent>
       </Card>
 

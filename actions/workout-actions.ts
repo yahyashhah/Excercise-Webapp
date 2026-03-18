@@ -8,7 +8,7 @@ import * as aiService from "@/lib/services/ai.service";
 import type { PlanStatus } from "@prisma/client";
 
 export async function createPlanAction(input: {
-  patientId: string;
+  patientId?: string | null;
   title: string;
   description?: string;
   durationMinutes?: number;
@@ -46,7 +46,7 @@ export async function createPlanAction(input: {
 }
 
 export async function generatePlanAction(input: {
-  patientId: string;
+  patientId?: string | null;
   focusAreas: string[];
   durationMinutes: number;
   daysPerWeek: number;
@@ -163,5 +163,35 @@ export async function swapExerciseAction(planExerciseId: string, newExerciseId: 
   } catch (error) {
     console.error("Failed to swap exercise:", error);
     return { success: false as const, error: "Failed to swap exercise" };
+  }
+}
+
+export async function assignClientToPlanAction(planId: string, patientId: string | null) {
+  const { userId } = await auth();
+  if (!userId) return { success: false as const, error: "Unauthorized" };
+
+  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!dbUser) return { success: false as const, error: "User not found" };
+  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+
+  const plan = await prisma.workoutPlan.findUnique({
+    where: { id: planId },
+    select: { createdById: true },
+  });
+  if (!plan || plan.createdById !== dbUser.id) {
+    return { success: false as const, error: "Forbidden" };
+  }
+
+  try {
+    await prisma.workoutPlan.update({
+      where: { id: planId },
+      data: { patientId: patientId ?? null },
+    });
+    revalidatePath(`/workout-plans/${planId}`);
+    revalidatePath("/workout-plans");
+    return { success: true as const };
+  } catch (error) {
+    console.error("Failed to assign client:", error);
+    return { success: false as const, error: "Failed to assign client" };
   }
 }

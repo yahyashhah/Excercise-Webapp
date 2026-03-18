@@ -21,7 +21,7 @@ function getPageTitle(pathname: string): string {
     "/exercises/new": "New Exercise",
     "/workout-plans": "Workout Plans",
     "/workout-plans/generate": "Generate Plan",
-    "/patients": "Patients",
+    "/patients": "Clients",
     "/messages": "Messages",
     "/assessments": "Assessments",
     "/assessments/new": "New Assessment",
@@ -38,10 +38,10 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith("/workout-plans/")) return "Plan Details";
   if (pathname.startsWith("/patients/") && pathname.endsWith("/adherence")) return "Adherence";
   if (pathname.startsWith("/patients/") && pathname.endsWith("/outcomes")) return "Outcomes";
-  if (pathname.startsWith("/patients/")) return "Patient Details";
+  if (pathname.startsWith("/patients/")) return "Client Details";
   if (pathname.startsWith("/messages/")) return "Conversation";
 
-  return "RehabAI";
+  return "INMOTUS RX";
 }
 
 export function Header({ user, unreadMessageCount }: HeaderProps) {
@@ -73,7 +73,7 @@ export function Header({ user, unreadMessageCount }: HeaderProps) {
       {/* Breadcrumb-style page title */}
       <div className="flex items-center gap-2">
         <span className="hidden text-sm font-semibold text-primary sm:inline-block">
-          RehabAI
+          INMOTUS RX
         </span>
         <span className="hidden text-muted-foreground/40 sm:inline-block">/</span>
         <h1 className="text-sm font-semibold sm:text-base">{pageTitle}</h1>
@@ -94,7 +94,7 @@ export function Header({ user, unreadMessageCount }: HeaderProps) {
       <Button variant="ghost" size="icon" className="relative">
         <Bell className="h-4.5 w-4.5 text-muted-foreground" />
         {unreadMessageCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
             {unreadMessageCount}
           </span>
         )}

@@ -88,8 +88,8 @@ export function OnboardingForm() {
       {step === 1 && (
         <div className="space-y-4">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-slate-900">Welcome to RehabAI</h2>
-            <p className="mt-1 text-slate-600">Let us set up your account. How will you use RehabAI?</p>
+            <h2 className="text-2xl font-bold text-slate-900">Welcome to INMOTUS RX</h2>
+            <p className="mt-1 text-slate-600">Let us set up your account. How will you use INMOTUS RX?</p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

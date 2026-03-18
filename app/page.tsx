@@ -37,9 +37,9 @@ const features = [
   },
   {
     icon: Users,
-    title: "Patient Portal",
+    title: "Client Portal",
     description:
-      "Patients access their programs, complete guided sessions, and communicate with their clinician.",
+      "Clients access their programs, complete guided sessions, and communicate with their clinician.",
     gradient: "from-violet-500/10 to-purple-500/10",
     iconColor: "text-violet-600",
   },
@@ -47,7 +47,7 @@ const features = [
     icon: MessageSquare,
     title: "Feedback System",
     description:
-      "Patients rate every exercise. Clinicians get real-time alerts on pain or difficulty reports.",
+      "Clients rate every exercise. Clinicians get real-time alerts on pain or difficulty reports.",
     gradient: "from-amber-500/10 to-orange-500/10",
     iconColor: "text-amber-600",
   },
@@ -95,12 +95,12 @@ const testimonials = [
     name: "Dr. Sarah Chen",
     role: "Physical Therapist",
     quote:
-      "RehabAI cut my program creation time from 45 minutes to under 2 minutes. The AI understands contraindications and creates thoughtful progressions.",
+      "INMOTUS RX cut my program creation time from 45 minutes to under 2 minutes. The AI understands contraindications and creates thoughtful progressions.",
     avatar: "SC",
   },
   {
     name: "James Rodriguez",
-    role: "Patient",
+    role: "Client",
     quote:
       "Having a guided workout on my phone with clear instructions made me actually stick with my exercises. My therapist can see my progress too.",
     avatar: "JR",
@@ -109,7 +109,7 @@ const testimonials = [
     name: "Dr. Emily Thompson",
     role: "Orthopedic Surgeon",
     quote:
-      "I refer patients to clinicians on RehabAI because I can see adherence data and outcomes. It closes the feedback loop beautifully.",
+      "I refer clients to clinicians on INMOTUS RX because I can see adherence data and outcomes. It closes the feedback loop beautifully.",
     avatar: "ET",
   },
 ];
@@ -176,7 +176,7 @@ export default function LandingPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500">
               <Activity className="h-4.5 w-4.5 text-white" />
             </div>
-            <span className="text-lg font-bold tracking-tight text-white">RehabAI</span>
+            <span className="text-lg font-bold tracking-tight text-white">INMOTUS RX</span>
           </div>
           <div className="hidden items-center gap-8 md:flex">
             <a href="#features" className="text-sm text-slate-300 transition-colors hover:text-white">
@@ -291,7 +291,7 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 px-4 sm:grid-cols-4 sm:px-6 lg:px-8">
           {[
             { value: "500+", label: "Clinicians" },
-            { value: "10,000+", label: "Patients" },
+            { value: "10,000+", label: "Clients" },
             { value: "95%", label: "Adherence Rate" },
             { value: "2 min", label: "Program Generation" },
           ].map((stat) => (
@@ -488,7 +488,7 @@ export default function LandingPage() {
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500">
                   <Activity className="h-4 w-4 text-white" />
                 </div>
-                <span className="text-lg font-bold text-slate-900">RehabAI</span>
+                <span className="text-lg font-bold text-slate-900">INMOTUS RX</span>
               </div>
               <p className="mt-3 text-sm text-slate-600">
                 AI-powered home exercise programs for modern rehabilitation.
@@ -551,7 +551,7 @@ export default function LandingPage() {
           </div>
           <div className="mt-12 border-t border-slate-200 pt-8">
             <p className="text-center text-sm text-slate-500">
-              &copy; {new Date().getFullYear()} RehabAI. All rights reserved.
+              &copy; {new Date().getFullYear()} INMOTUS RX. All rights reserved.
             </p>
           </div>
         </div>

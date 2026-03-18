@@ -32,10 +32,6 @@ export function GeneratePlanForm({ patients }: GeneratePlanFormProps) {
 
   async function handleGenerate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!selectedPatient) {
-      toast.error("Please select a patient");
-      return;
-    }
     if (selectedAreas.length === 0) {
       toast.error("Please select at least one focus area");
       return;
@@ -45,7 +41,7 @@ export function GeneratePlanForm({ patients }: GeneratePlanFormProps) {
     const formData = new FormData(e.currentTarget);
 
     const result = await generatePlanAction({
-      patientId: selectedPatient,
+      patientId: selectedPatient || null,
       focusAreas: selectedAreas,
       durationMinutes: duration,
       daysPerWeek,
@@ -73,16 +69,15 @@ export function GeneratePlanForm({ patients }: GeneratePlanFormProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Patient selection */}
+          {/* Client selection (optional) */}
           <div className="space-y-2">
-            <Label>Patient *</Label>
+            <Label>Client <span className="text-muted-foreground font-normal">(optional)</span></Label>
             <select
               className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm"
               value={selectedPatient}
               onChange={(e) => setSelectedPatient(e.target.value)}
-              required
             >
-              <option value="">Select a patient</option>
+              <option value="">No client — general program</option>
               {patients.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.firstName} {p.lastName}

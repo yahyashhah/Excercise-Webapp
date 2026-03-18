@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find /d/exercise-webapp -name *assessment-actions* -o -name *formatting*)"
+      "Bash(find /d/exercise-webapp -name *assessment-actions* -o -name *formatting*)",
+      "Bash(npm run:*)"
     ]
   }
 }

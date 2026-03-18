@@ -6,7 +6,7 @@ export default function SignInPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
-          <p className="text-slate-600 mt-1">Sign in to your RehabAI account</p>
+          <p className="text-slate-600 mt-1">Sign in to your INMOTUS RX account</p>
         </div>
         <SignIn forceRedirectUrl="/onboarding" />
       </div>

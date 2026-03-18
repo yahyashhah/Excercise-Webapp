@@ -153,9 +153,9 @@ model ExerciseMedia {
 
 model WorkoutPlan {
   id                 String     @id @default(auto()) @map("_id") @db.ObjectId
-  patientId          String     @db.ObjectId
+  patientId          String?    @db.ObjectId
   createdById        String     @db.ObjectId
-  patient            User       @relation("PatientPlans", fields: [patientId], references: [id], onDelete: Cascade)
+  patient            User?      @relation("PatientPlans", fields: [patientId], references: [id], onDelete: SetNull)
   createdBy          User       @relation("CreatedPlans", fields: [createdById], references: [id])
   title              String
   description        String?
