@@ -8,8 +8,8 @@ import {
   Dumbbell,
   ClipboardList,
   Users,
-  // MessageSquare,  // coming soon
-  // BarChart3,      // coming soon
+  MessageSquare,
+  BarChart3,
   Settings,
   Activity,
 } from "lucide-react";
@@ -29,8 +29,8 @@ const navItems = [
   { label: "Exercises", href: ROUTES.EXERCISES, icon: Dumbbell, roles: ["clinician", "patient"] },
   { label: "Workout Plans", href: ROUTES.WORKOUT_PLANS, icon: ClipboardList, roles: ["clinician", "patient"] },
   { label: "Clients", href: ROUTES.PATIENTS, icon: Users, roles: ["clinician"] },
-  // { label: "Messages", href: ROUTES.MESSAGES, icon: MessageSquare, roles: ["clinician", "patient"] },    // coming soon
-  // { label: "Assessments", href: ROUTES.ASSESSMENTS, icon: BarChart3, roles: ["clinician", "patient"] }, // coming soon
+  { label: "Messages", href: ROUTES.MESSAGES, icon: MessageSquare, roles: ["clinician", "patient"] },
+  { label: "Assessments", href: ROUTES.ASSESSMENTS, icon: BarChart3, roles: ["clinician", "patient"] },
   { label: "Settings", href: ROUTES.SETTINGS, icon: Settings, roles: ["clinician", "patient"] },
 ];
 
@@ -72,14 +72,14 @@ export function MobileNav({ open, onOpenChange, unreadCount }: MobileNavProps) {
               >
                 <item.icon className="h-4 w-4" />
                 {item.label}
-                {/* {item.href === ROUTES.MESSAGES && unreadCount > 0 && (
+                {item.href === ROUTES.MESSAGES && unreadCount > 0 && (
                   <Badge
                     variant="destructive"
                     className="ml-auto h-5 min-w-[20px] px-1 text-xs"
                   >
                     {unreadCount}
                   </Badge>
-                )} */}
+                )}
               </Link>
             );
           })}

@@ -8,8 +8,8 @@ import {
   Dumbbell,
   ClipboardList,
   Users,
-  // MessageSquare,  // coming soon
-  // BarChart3,      // coming soon
+  MessageSquare,
+  BarChart3,
   Settings,
   Activity,
 } from "lucide-react";
@@ -31,16 +31,16 @@ const clinicianLinks = [
   { href: "/exercises", label: "Exercises", icon: Dumbbell },
   { href: "/workout-plans", label: "Workout Plans", icon: ClipboardList },
   { href: "/patients", label: "Clients", icon: Users },
-  // { href: "/messages", label: "Messages", icon: MessageSquare },      // coming soon
-  // { href: "/assessments", label: "Assessments", icon: BarChart3 },    // coming soon
+  { href: "/messages", label: "Messages", icon: MessageSquare },
+  { href: "/assessments", label: "Assessments", icon: BarChart3 },
 ];
 
 const patientLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/exercises", label: "Exercises", icon: Dumbbell },
   { href: "/workout-plans", label: "My Plans", icon: ClipboardList },
-  // { href: "/messages", label: "Messages", icon: MessageSquare },      // coming soon
-  // { href: "/assessments", label: "Assessments", icon: BarChart3 },    // coming soon
+  { href: "/messages", label: "Messages", icon: MessageSquare },
+  { href: "/assessments", label: "Assessments", icon: BarChart3 },
 ];
 
 export function Sidebar({
