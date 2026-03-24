@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(find /d/exercise-webapp -name *assessment-actions* -o -name *formatting*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(npx prisma:*)",
+      "Bash(ls d:/exercise-webapp/app/\\\\\\(platform\\\\\\)/settings/)",
+      "Bash(npx tsx:*)",
+      "Bash(taskkill /F /IM node.exe /FI \"WINDOWTITLE eq *seed*\")",
+      "Bash(node -e \":*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

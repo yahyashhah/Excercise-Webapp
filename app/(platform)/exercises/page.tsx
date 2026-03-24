@@ -62,8 +62,13 @@ export default async function ExercisesPage({ searchParams }: Props) {
               name={exercise.name}
               bodyRegion={exercise.bodyRegion}
               difficultyLevel={exercise.difficultyLevel}
+              exercisePhase={exercise.exercisePhase}
               equipmentRequired={exercise.equipmentRequired}
               description={exercise.description}
+              imageUrl={exercise.imageUrl}
+              videoUrl={exercise.videoUrl}
+              isActive={exercise.isActive}
+              isClinician={user.role === "CLINICIAN"}
             />
           ))}
         </div>

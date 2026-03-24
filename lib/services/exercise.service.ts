@@ -70,6 +70,7 @@ export async function updateExercise(
     instructions: string;
     videoUrl: string;
     imageUrl: string;
+    isActive: boolean;
   }>
 ) {
   return prisma.exercise.update({ where: { id }, data });
