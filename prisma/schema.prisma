@@ -35,6 +35,14 @@ enum BodyRegion {
   FLEXIBILITY
 }
 
+enum ExercisePhase {
+  WARMUP
+  ACTIVATION
+  STRENGTHENING
+  MOBILITY
+  COOLDOWN
+}
+
 enum FeedbackRating {
   FELT_GOOD
   MILD_DISCOMFORT
@@ -79,6 +87,7 @@ model User {
   assessments      Assessment[]           @relation("PatientAssessments")
   assessedBy       Assessment[]           @relation("AssessedBy")
   exercisesCreated Exercise[]
+  clinicProfile    ClinicProfile?
 }
 
 model PatientProfile {
@@ -92,6 +101,14 @@ model PatientProfile {
   fitnessGoals             String[]
   preferredDurationMinutes Int      @default(25)
   preferredDaysPerWeek     Int      @default(3)
+  primaryDiagnosis         String?
+  secondaryDiagnoses       String[]
+  painScore                Int?
+  activityLevel            String?
+  injuryDate               DateTime?
+  surgeryHistory           String?
+  occupation               String?
+  priorInjuries            String[]
   updatedAt                DateTime @updatedAt
 }
 
@@ -118,6 +135,13 @@ model Exercise {
   videoUrl          String?
   imageUrl          String?
   instructions      String?
+  musclesTargeted    String[]
+  exercisePhase      ExercisePhase?
+  commonMistakes     String?
+  defaultSets        Int?
+  defaultReps        Int?
+  defaultHoldSeconds Int?
+  cuesThumbnail      String?
   isActive          Boolean         @default(true)
   createdById       String?         @db.ObjectId
   createdBy         User?           @relation(fields: [createdById], references: [id])
@@ -258,4 +282,19 @@ model Message {
   content        String
   isRead         Boolean       @default(false)
   createdAt      DateTime      @default(now())
+}
+
+model ClinicProfile {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  clinicianId String   @unique @db.ObjectId
+  clinician   User     @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
+  clinicName  String
+  tagline     String?
+  logoUrl     String?
+  phone       String?
+  email       String?
+  website     String?
+  address     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

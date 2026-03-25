@@ -16,6 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { ExerciseImageLightbox } from "@/components/exercises/exercise-image-lightbox";
+import { ExerciseVideoPlayer } from "@/components/exercises/exercise-video-player";
 import {
   Dialog,
   DialogContent,
@@ -25,11 +27,11 @@ import {
 } from "@/components/ui/dialog";
 import { Check, SkipForward, X, Play, Loader2 } from "lucide-react";
 import { ROUTES } from "@/lib/utils/constants";
-import type { PlanExercise, Exercise, WorkoutPlan } from "@prisma/client";
+import type { PlanExercise, Exercise, ExerciseMedia, WorkoutPlan } from "@prisma/client";
 
 interface WorkoutSessionTrackerProps {
   plan: WorkoutPlan & {
-    exercises: Array<PlanExercise & { exercise: Exercise }>;
+    exercises: Array<PlanExercise & { exercise: Exercise & { media: ExerciseMedia[] } }>;
   };
 }
 
@@ -191,6 +193,15 @@ export function WorkoutSessionTracker({ plan }: WorkoutSessionTrackerProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <ExerciseImageLightbox
+              src={currentExercise.exercise.imageUrl}
+              videoUrl={currentExercise.exercise.videoUrl}
+              alt={currentExercise.exercise.name}
+              bodyRegion={currentExercise.exercise.bodyRegion}
+              label={currentExercise.exercise.name.split(" ").slice(0, 2).join(" ")}
+              thumbnailClassName="relative h-52 w-full overflow-hidden rounded-lg"
+            />
+
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="p-2 bg-muted rounded">
                 <p className="text-2xl font-bold">{currentExercise.sets}</p>
@@ -226,6 +237,18 @@ export function WorkoutSessionTracker({ plan }: WorkoutSessionTrackerProps) {
               <p className="text-sm italic text-muted-foreground">
                 Note: {currentExercise.notes}
               </p>
+            )}
+
+            {(currentExercise.exercise.videoUrl || currentExercise.exercise.media.length > 0) && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Tutorial
+                </p>
+                <ExerciseVideoPlayer
+                  videoUrl={currentExercise.exercise.videoUrl}
+                  mediaItems={currentExercise.exercise.media}
+                />
+              </div>
             )}
 
             <div className="flex gap-3">

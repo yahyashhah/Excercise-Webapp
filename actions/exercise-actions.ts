@@ -75,6 +75,57 @@ export async function updateExerciseAction(
   }
 }
 
+export async function addExerciseMediaAction(
+  exerciseId: string,
+  media: { mediaType: "image" | "video"; url: string; altText?: string }
+) {
+  const { userId } = await auth();
+  if (!userId) return { success: false as const, error: "Unauthorized" };
+
+  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!dbUser) return { success: false as const, error: "User not found" };
+  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+
+  try {
+    const item = await prisma.exerciseMedia.create({
+      data: {
+        exerciseId,
+        mediaType: media.mediaType,
+        url: media.url,
+        altText: media.altText ?? null,
+      },
+    });
+    revalidatePath(`/exercises/${exerciseId}`);
+    revalidatePath(`/exercises/${exerciseId}/edit`);
+    return { success: true as const, data: item };
+  } catch (error) {
+    console.error("Failed to add media:", error);
+    return { success: false as const, error: "Failed to add media" };
+  }
+}
+
+export async function deleteExerciseMediaAction(
+  exerciseId: string,
+  mediaId: string
+) {
+  const { userId } = await auth();
+  if (!userId) return { success: false as const, error: "Unauthorized" };
+
+  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!dbUser) return { success: false as const, error: "User not found" };
+  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+
+  try {
+    await prisma.exerciseMedia.delete({ where: { id: mediaId } });
+    revalidatePath(`/exercises/${exerciseId}`);
+    revalidatePath(`/exercises/${exerciseId}/edit`);
+    return { success: true as const };
+  } catch (error) {
+    console.error("Failed to delete media:", error);
+    return { success: false as const, error: "Failed to delete media" };
+  }
+}
+
 export async function deleteExerciseAction(exerciseId: string) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };

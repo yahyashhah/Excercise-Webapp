@@ -17,6 +17,12 @@ export async function completeOnboarding(data: {
   fitnessGoals?: string[];
   preferredDurationMinutes?: number;
   preferredDaysPerWeek?: number;
+  primaryDiagnosis?: string;
+  painScore?: number;
+  activityLevel?: string;
+  injuryDate?: string;
+  surgeryHistory?: string;
+  occupation?: string;
 }) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
@@ -48,27 +54,30 @@ export async function completeOnboarding(data: {
   });
 
   if (data.role === "PATIENT") {
-    await prisma.patientProfile.upsert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const profileData: any = {
+      limitations: data.limitations,
+      comorbidities: data.comorbidities,
+      functionalChallenges: data.functionalChallenges,
+      availableEquipment: data.availableEquipment || [],
+      fitnessGoals: data.fitnessGoals || [],
+      preferredDurationMinutes: data.preferredDurationMinutes || 25,
+      preferredDaysPerWeek: data.preferredDaysPerWeek || 3,
+      primaryDiagnosis: data.primaryDiagnosis,
+      secondaryDiagnoses: [],
+      painScore: data.painScore,
+      activityLevel: data.activityLevel,
+      injuryDate: data.injuryDate ? new Date(data.injuryDate) : undefined,
+      surgeryHistory: data.surgeryHistory,
+      occupation: data.occupation,
+      priorInjuries: [],
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (prisma.patientProfile as any).upsert({
       where: { userId: user.id },
-      update: {
-        limitations: data.limitations,
-        comorbidities: data.comorbidities,
-        functionalChallenges: data.functionalChallenges,
-        availableEquipment: data.availableEquipment || [],
-        fitnessGoals: data.fitnessGoals || [],
-        preferredDurationMinutes: data.preferredDurationMinutes || 25,
-        preferredDaysPerWeek: data.preferredDaysPerWeek || 3,
-      },
-      create: {
-        userId: user.id,
-        limitations: data.limitations,
-        comorbidities: data.comorbidities,
-        functionalChallenges: data.functionalChallenges,
-        availableEquipment: data.availableEquipment || [],
-        fitnessGoals: data.fitnessGoals || [],
-        preferredDurationMinutes: data.preferredDurationMinutes || 25,
-        preferredDaysPerWeek: data.preferredDaysPerWeek || 3,
-      },
+      update: profileData,
+      create: { userId: user.id, ...profileData },
     });
   }
 

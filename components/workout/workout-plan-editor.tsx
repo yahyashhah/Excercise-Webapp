@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { updatePlanExerciseAction as updatePlanExercise, updatePlanExerciseAction as deletePlanExercise } from "@/actions/workout-actions";
+import { updatePlanExerciseAction as updatePlanExercise } from "@/actions/workout-actions";
 import { ExerciseSlot } from "./exercise-slot";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,7 @@ export function WorkoutPlanEditor({ plan }: WorkoutPlanEditorProps) {
   };
 
   const handleRemove = async (planExerciseId: string) => {
-    const result = await deletePlanExercise(planExerciseId, { isActive: false });
+    const result = await updatePlanExercise(planExerciseId, { isActive: false });
     if (result.success) {
       setExercises((prev) => prev.filter((e) => e.id !== planExerciseId));
       toast.success("Exercise removed");

@@ -76,9 +76,80 @@ export default async function PatientDetailPage({ params }: Props) {
       {patient.patientProfile && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Health Profile</CardTitle>
+            <CardTitle className="text-base">Clinical Profile</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {(patient.patientProfile as any).primaryDiagnosis && (
+              <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2">
+                <span className="font-semibold text-blue-800">Primary Diagnosis: </span>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                <span className="text-blue-700">{(patient.patientProfile as any).primaryDiagnosis}</span>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {(patient.patientProfile as any).secondaryDiagnoses?.length > 0 && (
+                  <p className="mt-0.5 text-xs text-blue-600">
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    Also: {(patient.patientProfile as any).secondaryDiagnoses.join(", ")}
+                  </p>
+                )}
+              </div>
+            )}
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {(patient.patientProfile as any).painScore != null && (
+              <div className="flex items-center gap-3">
+                <span className="font-medium text-slate-700">Pain Score:</span>
+                <div className="flex items-center gap-1.5">
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+                        i < (patient.patientProfile as any).painScore
+                          ? i < 3 ? "bg-green-400" : i < 6 ? "bg-amber-400" : "bg-red-500"
+                          : "bg-slate-200"
+                      }`}
+                    />
+                  ))}
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  <span className="ml-1 text-slate-600">{(patient.patientProfile as any).painScore}/10</span>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {(patient.patientProfile as any).activityLevel && (
+                <div>
+                  <span className="font-medium text-slate-700">Activity Level: </span>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  <span className="text-slate-600 capitalize">{((patient.patientProfile as any).activityLevel as string).toLowerCase()}</span>
+                </div>
+              )}
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {(patient.patientProfile as any).occupation && (
+                <div>
+                  <span className="font-medium text-slate-700">Occupation: </span>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  <span className="text-slate-600">{(patient.patientProfile as any).occupation}</span>
+                </div>
+              )}
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {(patient.patientProfile as any).injuryDate && (
+                <div>
+                  <span className="font-medium text-slate-700">Injury Date: </span>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  <span className="text-slate-600">{new Date((patient.patientProfile as any).injuryDate).toLocaleDateString()}</span>
+                </div>
+              )}
+            </div>
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {(patient.patientProfile as any).surgeryHistory && (
+              <div>
+                <span className="font-medium text-slate-700">Surgery History: </span>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                <span className="text-slate-600">{(patient.patientProfile as any).surgeryHistory}</span>
+              </div>
+            )}
             {patient.patientProfile.limitations && (
               <div>
                 <span className="font-medium text-slate-700">Limitations: </span>
@@ -87,7 +158,7 @@ export default async function PatientDetailPage({ params }: Props) {
             )}
             {patient.patientProfile.comorbidities && (
               <div>
-                <span className="font-medium text-slate-700">Conditions: </span>
+                <span className="font-medium text-slate-700">Comorbidities: </span>
                 <span className="text-slate-600">{patient.patientProfile.comorbidities}</span>
               </div>
             )}

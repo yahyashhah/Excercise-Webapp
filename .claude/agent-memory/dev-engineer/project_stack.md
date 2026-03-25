@@ -44,3 +44,19 @@ All Prisma enums are UPPERCASE: CLINICIAN, PATIENT, ACTIVE, DRAFT, FELT_GOOD, LO
 
 - Middleware file convention deprecated in favor of "proxy" — shows warning but still works
 - `searchParams` and `params` in page components are Promises — must `await` them
+- `NextResponse` requires `new Uint8Array(buffer)` not raw `Buffer` as body (TS strict)
+
+## @react-pdf/renderer Notes
+
+- v4.3.2 installed, works with React 19
+- `renderToBuffer()` has strict typing: use `React.createElement(HEPDocument, props)` then cast `as any` to avoid DocumentProps type mismatch
+- PDF components use `@react-pdf/renderer` primitives: Document, Page, View, Text, Image, StyleSheet
+- Image src for buffers: `{ data: buffer, format: "png" }`
+
+## Models Added (Phase 1-4, 2026-03-24)
+
+- `ExercisePhase` enum: WARMUP, ACTIVATION, STRENGTHENING, MOBILITY, COOLDOWN
+- `Exercise` model extended: musclesTargeted[], exercisePhase, commonMistakes, defaultSets, defaultReps, defaultHoldSeconds, cuesThumbnail
+- `ClinicProfile` model: clinicianId (unique), clinicName, tagline, logoUrl, phone, email, website, address
+- 103 seed exercises in `lib/db/seed/exercises-v2.ts` (all isActive: false)
+- Seed script uses findFirst/update pattern (not upsert) because Exercise.name is not @unique

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,16 +15,37 @@ export function ExerciseFilters() {
   const currentSearch = searchParams.get("search") || "";
   const currentRegion = searchParams.get("bodyRegion") || "";
   const currentDifficulty = searchParams.get("difficultyLevel") || "";
+  const [searchValue, setSearchValue] = useState(currentSearch);
 
-  function updateParam(key: string, value: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (value) {
-      params.set(key, value);
-    } else {
-      params.delete(key);
-    }
-    router.push(`/exercises?${params.toString()}`);
-  }
+  const updateParam = useCallback(
+    (key: string, value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+
+      const nextQuery = params.toString();
+      const nextRoute = nextQuery ? `/exercises?${nextQuery}` : "/exercises";
+      router.push(nextRoute);
+    },
+    [router, searchParams]
+  );
+
+  useEffect(() => {
+    setSearchValue(currentSearch);
+  }, [currentSearch]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (searchValue !== currentSearch) {
+        updateParam("search", searchValue);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [searchValue, currentSearch, updateParam]);
 
   function clearFilters() {
     router.push("/exercises");
@@ -40,13 +62,8 @@ export function ExerciseFilters() {
         <Input
           id="search"
           placeholder="Search exercises..."
-          defaultValue={currentSearch}
-          onChange={(e) => {
-            const timeout = setTimeout(() => {
-              updateParam("search", e.target.value);
-            }, 300);
-            return () => clearTimeout(timeout);
-          }}
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
         />
       </div>
 

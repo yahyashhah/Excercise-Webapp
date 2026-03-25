@@ -12,7 +12,9 @@ export const createExerciseSchema = z.object({
   imageUrl: z.string().url().optional().or(z.literal("")),
 });
 
-export const updateExerciseSchema = createExerciseSchema.partial();
+export const updateExerciseSchema = createExerciseSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
 
 export const exerciseFilterSchema = z.object({
   search: z.string().optional(),
