@@ -1,11 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 import { exercisesV2 } from "./exercises-v2";
+import { exercisesV3 } from "./exercises-v3";
 
 const prisma = new PrismaClient();
+const allExercises = [...exercisesV2, ...exercisesV3];
 
 const CONCURRENCY = 10;
 
-async function upsertExercise(exercise: (typeof exercisesV2)[0]): Promise<"created" | "updated"> {
+async function upsertExercise(exercise: (typeof allExercises)[0]): Promise<"created" | "updated"> {
   const existing = await prisma.exercise.findFirst({ where: { name: exercise.name }, select: { id: true } });
   if (existing) {
     await prisma.exercise.update({
@@ -34,14 +36,14 @@ async function upsertExercise(exercise: (typeof exercisesV2)[0]): Promise<"creat
 }
 
 async function main() {
-  console.log(`Seeding exercise library with ${exercisesV2.length} exercises (${CONCURRENCY} at a time)...`);
+  console.log(`Seeding exercise library with ${allExercises.length} exercises (v2: ${exercisesV2.length}, v3: ${exercisesV3.length}) — ${CONCURRENCY} at a time...`);
 
   let created = 0;
   let updated = 0;
 
   // Process in batches of CONCURRENCY to avoid overwhelming the connection pool
-  for (let i = 0; i < exercisesV2.length; i += CONCURRENCY) {
-    const batch = exercisesV2.slice(i, i + CONCURRENCY);
+  for (let i = 0; i < allExercises.length; i += CONCURRENCY) {
+    const batch = allExercises.slice(i, i + CONCURRENCY);
     const results = await Promise.allSettled(batch.map(upsertExercise));
     for (const result of results) {
       if (result.status === "fulfilled") {
@@ -51,10 +53,10 @@ async function main() {
         console.error("Failed to seed exercise:", result.reason);
       }
     }
-    console.log(`  Progress: ${Math.min(i + CONCURRENCY, exercisesV2.length)}/${exercisesV2.length}`);
+    console.log(`  Progress: ${Math.min(i + CONCURRENCY, allExercises.length)}/${allExercises.length}`);
   }
 
-  console.log(`\nDone: ${created} created, ${updated} updated. Total: ${exercisesV2.length}`);
+  console.log(`\nDone: ${created} created, ${updated} updated. Total: ${allExercises.length}`);
 }
 
 main()

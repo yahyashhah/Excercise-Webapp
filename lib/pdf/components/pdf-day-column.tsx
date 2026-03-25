@@ -3,20 +3,25 @@ import { PdfExerciseCard } from "./pdf-exercise-card";
 
 const styles = StyleSheet.create({
   column: {
-    flex: 1,
     padding: 8,
-    borderWidth: 0.5,
+    borderWidth: 0.8,
     borderColor: "#E5E7EB",
-    borderRadius: 4,
+    borderRadius: 6,
+    backgroundColor: "#FFFFFF",
   },
   dayHeader: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "bold",
     color: "#1F2937",
-    marginBottom: 8,
-    paddingBottom: 4,
-    borderBottomWidth: 1,
+    marginBottom: 7,
+    paddingBottom: 5,
+    borderBottomWidth: 0.8,
     borderBottomColor: "#3B82F6",
+  },
+  emptyText: {
+    fontSize: 8,
+    color: "#6B7280",
+    fontStyle: "italic",
   },
 });
 
@@ -60,13 +65,17 @@ export function PdfDayColumn({
       <Text style={styles.dayHeader}>
         DAY {dayNumber} -- {dayName.toUpperCase()}
       </Text>
-      {exercises.map((exercise, idx) => (
-        <PdfExerciseCard
-          key={idx}
-          {...exercise}
-          placeholderBuffer={placeholderBuffer}
-        />
-      ))}
+      {exercises.length === 0 ? (
+        <Text style={styles.emptyText}>No exercises assigned for this day.</Text>
+      ) : (
+        exercises.map((exercise, idx) => (
+          <PdfExerciseCard
+            key={idx}
+            {...exercise}
+            placeholderBuffer={placeholderBuffer}
+          />
+        ))
+      )}
     </View>
   );
 }

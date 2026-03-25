@@ -2,10 +2,7 @@ import { View, Text, StyleSheet } from "@react-pdf/renderer";
 
 const styles = StyleSheet.create({
   footer: {
-    position: "absolute",
-    bottom: 30,
-    left: 40,
-    right: 40,
+    marginTop: 10,
     borderTopWidth: 0.5,
     borderTopColor: "#E5E7EB",
     paddingTop: 8,
@@ -20,6 +17,7 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: "#9CA3AF",
     textAlign: "center",
+    lineHeight: 1.25,
   },
 });
 
@@ -28,14 +26,16 @@ interface PdfFooterProps {
 }
 
 export function PdfFooter({ description }: PdfFooterProps) {
+  const safeDescription = description ? description.slice(0, 320) : null;
+
   return (
-    <View style={styles.footer} fixed>
+    <View style={styles.footer}>
       <Text style={styles.safetyText}>
         Keep pain &lt;= 3/10 &bull; Move slow &amp; controlled &bull; Breathe
         &bull; Stop if sharp pain
       </Text>
-      {description && (
-        <Text style={styles.scheduleText}>{description}</Text>
+      {safeDescription && (
+        <Text style={styles.scheduleText}>{safeDescription}</Text>
       )}
     </View>
   );

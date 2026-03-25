@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { formatBodyRegion, formatDifficulty } from "@/lib/utils/formatting";
 import { ArrowLeft, ArrowRight, Edit } from "lucide-react";
 import { ExerciseVideoPlayer } from "@/components/exercises/exercise-video-player";
+import { ExerciseImage } from "@/components/exercises/exercise-image";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -17,6 +18,9 @@ export default async function ExerciseDetailPage({ params }: Props) {
   const { id } = await params;
   const user = await getCurrentUser();
   const exercise = await getExerciseById(id);
+  const hasAttachedVideo = exercise?.media?.some(
+    (item) => item.mediaType?.toLowerCase() === "video"
+  );
 
   if (!exercise) notFound();
 
@@ -58,34 +62,30 @@ export default async function ExerciseDetailPage({ params }: Props) {
         </CardHeader>
         <CardContent className="space-y-6">
 
-          {/* Primary Image + Video */}
-          {(exercise.imageUrl || exercise.videoUrl) && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {exercise.imageUrl && (
-                <div>
-                  <h3 className="mb-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">Photo</h3>
-                  <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-slate-100">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={exercise.imageUrl!}
-                      alt={exercise.name}
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
-                  </div>
-                </div>
-              )}
-              {exercise.videoUrl && (
-                <div>
-                  <h3 className="mb-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">Video Demo</h3>
-                  <ExerciseVideoPlayer
-                    videoUrl={exercise.videoUrl}
-                    mediaItems={[]}
-                    className="w-full"
-                  />
-                </div>
-              )}
+          {/* Primary Image + Video — attached video has priority over fallback videoUrl */}
+          <div className={`grid gap-4 ${exercise.videoUrl || hasAttachedVideo ? "sm:grid-cols-2" : "sm:grid-cols-1 max-w-sm"}`}>
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">Photo</h3>
+              <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-slate-100">
+                <ExerciseImage
+                  src={exercise.imageUrl}
+                  alt={exercise.name}
+                  bodyRegion={exercise.bodyRegion}
+                  videoUrl={exercise.videoUrl}
+                />
+              </div>
             </div>
-          )}
+            {(exercise.videoUrl || hasAttachedVideo) && (
+              <div>
+                <h3 className="mb-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">Video Demo</h3>
+                <ExerciseVideoPlayer
+                  videoUrl={exercise.videoUrl}
+                  mediaItems={exercise.media}
+                  className="w-full"
+                />
+              </div>
+            )}
+          </div>
 
           {/* Additional media gallery */}
           {exercise.media.length > 0 && (
@@ -95,11 +95,12 @@ export default async function ExerciseDetailPage({ params }: Props) {
                 {exercise.media.map((item) => (
                   <div key={item.id} className="rounded-lg overflow-hidden bg-slate-100">
                     {item.mediaType === "image" ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <ExerciseImage
                         src={item.url}
                         alt={item.altText ?? exercise.name}
+                        bodyRegion={exercise.bodyRegion}
                         className="h-32 w-full object-cover"
+                        gradientClassName="h-32 w-full flex items-center justify-center"
                       />
                     ) : (
                       <ExerciseVideoPlayer

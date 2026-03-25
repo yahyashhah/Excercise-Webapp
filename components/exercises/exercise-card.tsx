@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Edit, Video } from "lucide-react";
+import { ExerciseImage } from "@/components/exercises/exercise-image";
 import { formatBodyRegion, formatDifficulty } from "@/lib/utils/formatting";
 
 interface ExerciseCardProps {
@@ -33,15 +34,6 @@ const phaseColors: Record<string, string> = {
   COOLDOWN: "bg-teal-100 text-teal-700",
 };
 
-const regionPlaceholders: Record<string, string> = {
-  LOWER_BODY: "from-blue-400 to-blue-600",
-  UPPER_BODY: "from-green-400 to-green-600",
-  CORE: "from-amber-400 to-amber-600",
-  FULL_BODY: "from-purple-400 to-purple-600",
-  BALANCE: "from-teal-400 to-teal-600",
-  FLEXIBILITY: "from-pink-400 to-pink-600",
-};
-// Note: bg-linear-to-br is Tailwind v4 canonical form of bg-gradient-to-br
 
 export function ExerciseCard({
   id,
@@ -61,20 +53,13 @@ export function ExerciseCard({
       {/* Thumbnail */}
       <Link href={`/exercises/${id}`}>
         <div className="relative h-40 w-full bg-slate-100 flex items-center justify-center">
-          {imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={imageUrl}
-              alt={name}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          ) : (
-            <div className={`absolute inset-0 bg-linear-to-br ${regionPlaceholders[bodyRegion] ?? "from-slate-400 to-slate-600"} flex items-center justify-center`}>
-              <span className="text-center text-white text-xs font-semibold px-2 opacity-90 leading-tight">
-                {name.split(" ").slice(0, 3).join(" ")}
-              </span>
-            </div>
-          )}
+          <ExerciseImage
+            src={imageUrl}
+            alt={name}
+            bodyRegion={bodyRegion}
+            videoUrl={videoUrl}
+            label={name.split(" ").slice(0, 3).join(" ")}
+          />
           {/* Phase badge overlaid on image */}
           {exercisePhase && (
             <span className={`absolute bottom-2 left-2 rounded-full px-2 py-0.5 text-xs font-medium ${phaseColors[exercisePhase] ?? "bg-slate-100 text-slate-700"}`}>

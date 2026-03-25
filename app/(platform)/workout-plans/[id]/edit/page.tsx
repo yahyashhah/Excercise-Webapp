@@ -5,6 +5,7 @@ import { getPlanById } from "@/lib/services/workout-plan.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { WorkoutPlanEditor } from "@/components/workout/workout-plan-editor";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -33,9 +34,7 @@ export default async function EditPlanPage({ params }: Props) {
           <CardTitle>Edit: {plan.title}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-slate-600">
-            Plan editing interface coming soon. You can manage exercises and settings from the plan detail view.
-          </p>
+          <WorkoutPlanEditor plan={plan} />
         </CardContent>
       </Card>
     </div>

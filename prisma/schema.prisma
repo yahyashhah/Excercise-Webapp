@@ -101,6 +101,14 @@ model PatientProfile {
   fitnessGoals             String[]
   preferredDurationMinutes Int      @default(25)
   preferredDaysPerWeek     Int      @default(3)
+  primaryDiagnosis         String?
+  secondaryDiagnoses       String[]
+  painScore                Int?
+  activityLevel            String?
+  injuryDate               DateTime?
+  surgeryHistory           String?
+  occupation               String?
+  priorInjuries            String[]
   updatedAt                DateTime @updatedAt
 }
 

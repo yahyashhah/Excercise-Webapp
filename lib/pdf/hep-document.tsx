@@ -6,16 +6,16 @@ import { PdfFooter } from "./components/pdf-footer";
 
 const styles = StyleSheet.create({
   page: {
-    padding: 40,
-    paddingBottom: 60,
+    padding: 28,
+    paddingBottom: 28,
     fontSize: 10,
     fontFamily: "Helvetica",
   },
-  dayGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 10,
+  dayList: {
+    marginTop: 6,
+  },
+  dayItem: {
+    marginBottom: 10,
   },
 });
 
@@ -63,12 +63,6 @@ export function HEPDocument({
   const days = Array.from(exercisesByDay.entries()).sort(
     ([a], [b]) => a - b
   );
-  const numDays = days.length;
-
-  // Calculate column width percentages
-  // 1-2 days: 2 columns, 3+ days: 3 columns flowing to rows
-  const columnsPerRow = numDays <= 2 ? 2 : 3;
-  const columnWidthPercent = `${Math.floor(100 / columnsPerRow) - 2}%`;
 
   return (
     <Document>
@@ -86,12 +80,9 @@ export function HEPDocument({
           daysPerWeek={daysPerWeek}
           durationMinutes={durationMinutes}
         />
-        <View style={styles.dayGrid}>
+        <View style={styles.dayList}>
           {days.map(([dayNum, exercises]) => (
-            <View
-              key={dayNum}
-              style={{ width: columnWidthPercent } as Record<string, string>}
-            >
+            <View key={dayNum} style={styles.dayItem} wrap={false}>
               <PdfDayColumn
                 dayNumber={dayNum}
                 exercises={exercises.map((ex) => ({

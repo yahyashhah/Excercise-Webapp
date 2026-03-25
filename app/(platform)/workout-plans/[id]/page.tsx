@@ -14,8 +14,9 @@ import {
   formatDifficulty,
   formatFeedbackRating,
 } from "@/lib/utils/formatting";
-import { ArrowLeft, Edit, Play, FileText, Download } from "lucide-react";
+import { ArrowLeft, Edit, Play, Download } from "lucide-react";
 import { ExerciseVideoPlayer } from "@/components/exercises/exercise-video-player";
+import { ExerciseImageLightbox } from "@/components/exercises/exercise-image-lightbox";
 import { PlanStatusActions } from "@/components/workout/plan-status-actions";
 import { AssignClientDialog } from "@/components/workout/assign-client-dialog";
 import { getPatientsForClinician } from "@/lib/services/patient.service";
@@ -122,15 +123,6 @@ export default async function PlanDetailPage({ params }: Props) {
                     <Link href={`/workout-plans/${plan.id}/edit`}>
                       <Edit className="mr-1 h-4 w-4" />
                       Edit
-                    </Link>
-                  </Button>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link
-                      href={`/workout-plans/${plan.id}/print`}
-                      target="_blank"
-                    >
-                      <FileText className="mr-1 h-4 w-4" />
-                      Print Preview
                     </Link>
                   </Button>
                   <Button variant="outline" size="sm" asChild>
@@ -264,25 +256,17 @@ export default async function PlanDetailPage({ params }: Props) {
                           >
                             {/* Exercise header with image */}
                             <div className="flex items-stretch">
-                              {/* Thumbnail */}
-                              <div className="relative shrink-0 w-24 h-24 bg-slate-100 flex items-center justify-center">
-                                {pe.exercise.imageUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={pe.exercise.imageUrl}
-                                    alt={pe.exercise.name}
-                                    className="absolute inset-0 h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  <div className={`absolute inset-0 bg-linear-to-br ${
-                                    { LOWER_BODY: "from-blue-400 to-blue-600", UPPER_BODY: "from-green-400 to-green-600", CORE: "from-amber-400 to-amber-600", FULL_BODY: "from-purple-400 to-purple-600", BALANCE: "from-teal-400 to-teal-600", FLEXIBILITY: "from-pink-400 to-pink-600" }[pe.exercise.bodyRegion] ?? "from-slate-400 to-slate-600"
-                                  } flex items-center justify-center`}>
-                                    <span className="text-white text-xs font-semibold px-1 text-center leading-tight opacity-90">
-                                      {pe.exercise.name.split(" ").slice(0, 2).join(" ")}
-                                    </span>
-                                  </div>
-                                )}
-                                <span className="absolute top-1 left-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow">
+                              {/* Thumbnail — click to enlarge */}
+                              <div className="relative shrink-0">
+                                <ExerciseImageLightbox
+                                  src={pe.exercise.imageUrl}
+                                  videoUrl={pe.exercise.videoUrl}
+                                  alt={pe.exercise.name}
+                                  bodyRegion={pe.exercise.bodyRegion}
+                                  label={pe.exercise.name.split(" ").slice(0, 2).join(" ")}
+                                  thumbnailClassName="relative h-28 w-28 shrink-0 md:h-32 md:w-32"
+                                />
+                                <span className="absolute top-1 left-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow z-10 pointer-events-none">
                                   {index + 1}
                                 </span>
                               </div>

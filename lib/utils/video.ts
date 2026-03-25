@@ -49,3 +49,10 @@ export function getYouTubeThumbnail(videoId: string): string {
 export function getYouTubeEmbedUrl(videoId: string): string {
   return `https://www.youtube-nocookie.com/embed/${videoId}`;
 }
+
+export function buildYouTubeSearchUrl(query: string): string {
+  const params = new URLSearchParams({
+    search_query: `${query} physical therapy exercise tutorial`,
+  });
+  return `https://www.youtube.com/results?${params.toString()}`;
+}

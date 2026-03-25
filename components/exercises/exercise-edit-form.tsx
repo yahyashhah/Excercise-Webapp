@@ -15,6 +15,12 @@ import { UploadButton } from "@uploadthing/react";
 import type { OurFileRouter } from "@/lib/uploadthing";
 import { ExerciseVideoPlayer } from "@/components/exercises/exercise-video-player";
 
+const uploadButtonAppearance = {
+  button:
+    "ut-ready:bg-slate-900 ut-ready:text-white ut-uploading:bg-slate-500 ut-uploading:text-white",
+  allowedContent: "text-slate-500",
+};
+
 interface MediaItem {
   id: string;
   mediaType: string;
@@ -228,7 +234,7 @@ export function ExerciseEditForm({ exercise }: Props) {
             <div>
               <h3 className="font-semibold text-slate-900">Video Demo</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Paste a YouTube link so clients can watch the exercise demo inline in their plan
+                Paste a YouTube link — it plays inline in the client&apos;s plan. The <span className="font-medium text-blue-600">YouTube thumbnail auto-becomes the exercise image</span> if no photo is set.
               </p>
             </div>
 
@@ -264,7 +270,7 @@ export function ExerciseEditForm({ exercise }: Props) {
             {/* Uploaded video indicator */}
             {videoUrl && !videoUrl.includes("youtube") && !videoUrl.includes("youtu.be") && (
               <div className="flex items-center gap-2 rounded-md bg-green-50 border border-green-200 px-3 py-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
                 <span className="text-xs text-green-700 truncate flex-1">{videoUrl}</span>
                 <button type="button" onClick={() => setVideoUrl("")}>
                   <X className="h-3.5 w-3.5 text-green-600" />
@@ -287,6 +293,7 @@ export function ExerciseEditForm({ exercise }: Props) {
                 setVideoUploading(false);
                 toast.error(`Upload failed: ${error.message}`);
               }}
+              appearance={uploadButtonAppearance}
             />
             {videoUploading && (
               <p className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -361,6 +368,7 @@ export function ExerciseEditForm({ exercise }: Props) {
                 setImageUploading(false);
                 toast.error(`Upload failed: ${error.message}`);
               }}
+              appearance={uploadButtonAppearance}
             />
             {imageUploading && (
               <p className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -442,7 +450,7 @@ export function ExerciseEditForm({ exercise }: Props) {
                   setMediaUploading(false);
                   toast.error(`Upload failed: ${error.message}`);
                 }}
-                appearance={{ button: "ut-ready:bg-slate-700 ut-uploading:bg-slate-400" }}
+                appearance={uploadButtonAppearance}
               />
             </div>
 
@@ -469,7 +477,7 @@ export function ExerciseEditForm({ exercise }: Props) {
                   setMediaUploading(false);
                   toast.error(`Upload failed: ${error.message}`);
                 }}
-                appearance={{ button: "ut-ready:bg-slate-700 ut-uploading:bg-slate-400" }}
+                appearance={uploadButtonAppearance}
               />
             </div>
 

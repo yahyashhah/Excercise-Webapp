@@ -189,26 +189,45 @@ export async function generateWorkoutPlan(
     );
   }
 
-  const systemPrompt = `You are a licensed rehabilitation specialist creating evidence-based home exercise programs (HEPs). You produce programs following clinical exercise prescription standards:
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const profileExtended = profile as any;
 
-1. Every session must follow this EXACT phase order by orderIndex: WARMUP (1-2 exercises) -> ACTIVATION (1-2 exercises) -> STRENGTHENING (2-4 exercises) -> MOBILITY (1-2 exercises) -> COOLDOWN (1 exercise).
-2. NEVER repeat the same exercise across different days in the same program.
-3. Vary muscle groups across days. Day 1 targeting hip abductors must not have Day 2 also targeting hip abductors as primary muscles.
-4. Provide 2-3 specific clinical form cues per exercise in the notes field, referencing common mistakes to avoid.
-5. Use the exercise's defaultSets/defaultReps/defaultHoldSeconds as baseline. Adjust down 20% for BEGINNER, use as-is for INTERMEDIATE, adjust up 20% for ADVANCED.
-6. For stretch/isometric exercises (COOLDOWN, MOBILITY phase), use durationSeconds not reps. For dynamic exercises, use reps not durationSeconds.
-7. Rest periods: WARMUP 15s, ACTIVATION 30s, STRENGTHENING 60s, MOBILITY 20s, COOLDOWN 0s.
-8. Total session time must be within 5 minutes of the requested duration.
+  function calculateWeeksSince(date: Date): number {
+    return Math.round((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24 * 7));
+  }
+
+  const systemPrompt = `You are a licensed rehabilitation specialist (PT, DPT) creating evidence-based Home Exercise Programs (HEPs) for clinical use. Follow APTA and evidence-based rehabilitation standards.
+
+CLINICAL PRESCRIPTION RULES:
+1. PHASE ORDERING is mandatory every session: WARMUP (1-2 exercises) → ACTIVATION (1-2 exercises) → STRENGTHENING (2-4 exercises) → MOBILITY (1-2 exercises) → COOLDOWN (1 exercise).
+2. DIAGNOSIS-SPECIFIC SELECTION: When a diagnosis is provided, prioritize exercises that target the specific impairments. Post-surgical: gentle activation and protected mobility. Chronic pain: graded exposure, avoid provocative positions. Neurological: motor control and balance focus.
+3. PAIN SCORE ADJUSTMENT: Pain 7-10/10 → gentle non-aggravating exercises only, fewer sets. Pain 4-6/10 → moderate intensity, monitor. Pain 0-3/10 → full program at prescribed difficulty.
+4. ABSOLUTE CONTRAINDICATION COMPLIANCE: Zero tolerance — NEVER prescribe exercises with a matching contraindication to the patient's profile.
+5. EQUIPMENT COMPLIANCE: ONLY prescribe exercises using equipment listed as available. Default to bodyweight if none listed.
+6. VOLUME SCALING: BEGINNER: 2 sets, 60% default reps. INTERMEDIATE: 3 sets, 100% default reps. ADVANCED: 4 sets, 120% default reps.
+7. VARIETY: NEVER repeat the same exercise across different days. Rotate primary muscle groups between days.
+8. CLINICAL NOTES: Write 2-3 specific coaching cues per exercise, tailored to this patient's diagnosis and limitations — not generic advice.
+9. TIME MANAGEMENT: Total session time within 5 minutes of requested duration. Estimate: sets × reps × 4 sec + rest.
+10. PROGRESSION LOGIC: Earlier phase post-surgery → more ACTIVATION and MOBILITY. Later phase → shift toward STRENGTHENING and BALANCE.
 
 Respond with valid JSON only. No markdown, no explanation.`;
 
   const clientContext = patient
-    ? `Client: ${patient.firstName} ${patient.lastName}
-${profile?.limitations ? `Limitations: ${profile.limitations}` : ""}
-${profile?.comorbidities ? `Comorbidities: ${profile.comorbidities}` : ""}
-${profile?.functionalChallenges ? `Functional Challenges: ${profile.functionalChallenges}` : ""}
-${profile?.availableEquipment?.length ? `Available Equipment: ${profile.availableEquipment.join(", ")}` : "No equipment"}
-${profile?.fitnessGoals?.length ? `Goals: ${profile.fitnessGoals.join(", ")}` : ""}`
+    ? `CLIENT PROFILE:
+Name: ${patient.firstName} ${patient.lastName}
+Primary Diagnosis: ${profileExtended?.primaryDiagnosis ?? "Not specified"}
+Secondary Conditions: ${profileExtended?.secondaryDiagnoses?.length ? profileExtended.secondaryDiagnoses.join(", ") : "None"}
+Current Pain Score: ${profileExtended?.painScore != null ? `${profileExtended.painScore}/10` : "Not assessed"}
+Activity Level: ${profileExtended?.activityLevel ?? "Not assessed"}
+Physical Limitations: ${profile?.limitations ?? "None documented"}
+Comorbidities: ${profile?.comorbidities ?? "None"}
+Functional Challenges: ${profile?.functionalChallenges ?? "None"}
+Surgery/Injury History: ${profileExtended?.surgeryHistory ?? "None documented"}
+Occupation: ${profileExtended?.occupation ?? "Not specified"}
+Time Since Injury/Surgery: ${profileExtended?.injuryDate ? calculateWeeksSince(new Date(profileExtended.injuryDate)) + " weeks ago" : "Not specified"}
+Prior Injuries: ${profileExtended?.priorInjuries?.length ? profileExtended.priorInjuries.join(", ") : "None"}
+Available Equipment: ${profile?.availableEquipment?.length ? profile.availableEquipment.join(", ") : "Bodyweight only"}
+Fitness Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ") : "General rehabilitation"}`
     : "No specific client assigned. Create a general program suitable for the parameters below.";
 
   const exerciseListStr = exercises

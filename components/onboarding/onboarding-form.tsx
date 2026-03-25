@@ -24,6 +24,12 @@ export function OnboardingForm() {
   const [functionalChallenges, setFunctionalChallenges] = useState("");
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
+  const [primaryDiagnosis, setPrimaryDiagnosis] = useState("");
+  const [painScore, setPainScore] = useState<string>("");
+  const [activityLevel, setActivityLevel] = useState("");
+  const [injuryDate, setInjuryDate] = useState("");
+  const [surgeryHistory, setSurgeryHistory] = useState("");
+  const [occupation, setOccupation] = useState("");
 
   function toggleEquipment(item: string) {
     setSelectedEquipment((prev) =>
@@ -60,6 +66,12 @@ export function OnboardingForm() {
       functionalChallenges: functionalChallenges || undefined,
       availableEquipment: selectedEquipment,
       fitnessGoals: selectedGoals,
+      primaryDiagnosis: primaryDiagnosis || undefined,
+      painScore: painScore ? parseInt(painScore) : undefined,
+      activityLevel: activityLevel || undefined,
+      injuryDate: injuryDate || undefined,
+      surgeryHistory: surgeryHistory || undefined,
+      occupation: occupation || undefined,
     });
 
     setLoading(false);
@@ -217,17 +229,89 @@ export function OnboardingForm() {
       {step === 3 && role === "PATIENT" && (
         <Card>
           <CardHeader>
-            <CardTitle>Health Profile</CardTitle>
-            <CardDescription>This helps us personalize your exercise programs</CardDescription>
+            <CardTitle>Clinical Profile</CardTitle>
+            <CardDescription>This information helps your clinician personalize your exercise program</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="limitations">Limitations or Injuries</Label>
+              <Label htmlFor="primaryDiagnosis">Primary Diagnosis / Reason for Referral</Label>
+              <Input
+                id="primaryDiagnosis"
+                value={primaryDiagnosis}
+                onChange={(e) => setPrimaryDiagnosis(e.target.value)}
+                placeholder="e.g., ACL Tear Post-Op, Rotator Cuff Tendinopathy, Low Back Pain"
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="painScore">Current Pain Score (0–10)</Label>
+                <Input
+                  id="painScore"
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={painScore}
+                  onChange={(e) => setPainScore(e.target.value)}
+                  placeholder="0 = no pain, 10 = worst"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="activityLevel">Activity Level</Label>
+                <select
+                  id="activityLevel"
+                  value={activityLevel}
+                  onChange={(e) => setActivityLevel(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Select level</option>
+                  <option value="SEDENTARY">Sedentary (desk job, minimal activity)</option>
+                  <option value="LIGHT">Light (walks occasionally)</option>
+                  <option value="MODERATE">Moderate (exercises 1-3x/week)</option>
+                  <option value="ACTIVE">Active (exercises 4+ x/week)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="injuryDate">Date of Injury / Surgery</Label>
+                <Input
+                  id="injuryDate"
+                  type="date"
+                  value={injuryDate}
+                  onChange={(e) => setInjuryDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="occupation">Occupation</Label>
+                <Input
+                  id="occupation"
+                  value={occupation}
+                  onChange={(e) => setOccupation(e.target.value)}
+                  placeholder="e.g., Nurse, Office worker, Builder"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="surgeryHistory">Surgery / Procedure History</Label>
+              <Textarea
+                id="surgeryHistory"
+                value={surgeryHistory}
+                onChange={(e) => setSurgeryHistory(e.target.value)}
+                placeholder="e.g., Right ACL reconstruction Jan 2024, Left shoulder arthroscopy 2022"
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="limitations">Physical Limitations</Label>
               <Textarea
                 id="limitations"
                 value={limitations}
                 onChange={(e) => setLimitations(e.target.value)}
-                placeholder="e.g., Left knee surgery 3 months ago, limited range of motion"
+                placeholder="e.g., Cannot fully straighten knee, limited shoulder overhead reach"
                 rows={2}
               />
             </div>
@@ -238,7 +322,7 @@ export function OnboardingForm() {
                 id="comorbidities"
                 value={comorbidities}
                 onChange={(e) => setComorbidities(e.target.value)}
-                placeholder="e.g., Osteoarthritis, diabetes"
+                placeholder="e.g., Osteoarthritis, Type 2 diabetes, Hypertension"
                 rows={2}
               />
             </div>
@@ -272,7 +356,7 @@ export function OnboardingForm() {
             </div>
 
             <div className="space-y-2">
-              <Label>Fitness Goals</Label>
+              <Label>Rehabilitation Goals</Label>
               <div className="flex flex-wrap gap-2">
                 {FITNESS_GOALS.map((goal) => (
                   <Button

@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import type { BodyRegion, DifficultyLevel } from "@prisma/client";
+import {
+  buildYouTubeSearchUrl,
+  extractYouTubeId,
+  getYouTubeThumbnail,
+} from "@/lib/utils/video";
 
 export interface ExerciseFilters {
   search?: string;
@@ -55,7 +60,23 @@ export async function createExercise(data: {
   imageUrl?: string;
   createdById: string;
 }) {
-  return prisma.exercise.create({ data });
+  const videoUrl = data.videoUrl?.trim() || buildYouTubeSearchUrl(data.name);
+  let imageUrl = data.imageUrl?.trim() || undefined;
+
+  if (!imageUrl) {
+    const ytId = extractYouTubeId(videoUrl);
+    if (ytId) {
+      imageUrl = getYouTubeThumbnail(ytId);
+    }
+  }
+
+  return prisma.exercise.create({
+    data: {
+      ...data,
+      videoUrl,
+      imageUrl,
+    },
+  });
 }
 
 export async function updateExercise(
@@ -73,7 +94,34 @@ export async function updateExercise(
     isActive: boolean;
   }>
 ) {
-  return prisma.exercise.update({ where: { id }, data });
+  const nextData = { ...data };
+
+  if (typeof nextData.videoUrl === "string") {
+    nextData.videoUrl = nextData.videoUrl.trim();
+  }
+  if (typeof nextData.imageUrl === "string") {
+    nextData.imageUrl = nextData.imageUrl.trim();
+  }
+
+  if (nextData.videoUrl === "") {
+    nextData.videoUrl = undefined;
+  }
+  if (nextData.imageUrl === "") {
+    nextData.imageUrl = undefined;
+  }
+
+  if (!nextData.videoUrl && typeof nextData.name === "string" && nextData.name.trim()) {
+    nextData.videoUrl = buildYouTubeSearchUrl(nextData.name);
+  }
+
+  if (!nextData.imageUrl && nextData.videoUrl) {
+    const ytId = extractYouTubeId(nextData.videoUrl);
+    if (ytId) {
+      nextData.imageUrl = getYouTubeThumbnail(ytId);
+    }
+  }
+
+  return prisma.exercise.update({ where: { id }, data: nextData });
 }
 
 export async function deleteExercise(id: string) {

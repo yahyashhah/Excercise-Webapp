@@ -3,7 +3,6 @@
 import {
   isYouTubeUrl,
   extractYouTubeId,
-  getYouTubeEmbedUrl,
 } from "@/lib/utils/video";
 
 interface MediaItem {
@@ -51,24 +50,19 @@ export function ExerciseVideoPlayer({
   mediaItems,
   className = "",
 }: ExerciseVideoPlayerProps) {
-  // Priority 1: Uploadthing-hosted video
-  const uploadedVideo = mediaItems?.find((item) => item.mediaType === "video");
-  if (uploadedVideo) {
-    return (
-      <ResponsiveVideoWrapper className={className}>
-        <video
-          src={uploadedVideo.url}
-          controls
-          style={{ width: "100%", height: "100%", objectFit: "contain", background: "#000" }}
-          preload="metadata"
-        />
-      </ResponsiveVideoWrapper>
-    );
+  // Priority 1: exercise media table video, then fallback to exercise.videoUrl
+  const mediaVideo = mediaItems?.find(
+    (item) => item.mediaType?.toLowerCase() === "video" && !!item.url
+  );
+  const effectiveVideoUrl = mediaVideo?.url ?? videoUrl;
+
+  if (!effectiveVideoUrl) {
+    return null;
   }
 
   // Priority 2: YouTube URL → embed iframe
-  if (videoUrl && isYouTubeUrl(videoUrl)) {
-    const videoId = extractYouTubeId(videoUrl);
+  if (isYouTubeUrl(effectiveVideoUrl)) {
+    const videoId = extractYouTubeId(effectiveVideoUrl);
     if (videoId) {
       return (
         <ResponsiveVideoWrapper className={className}>
@@ -82,21 +76,45 @@ export function ExerciseVideoPlayer({
         </ResponsiveVideoWrapper>
       );
     }
-  }
 
-  // Priority 3: Direct video file URL (non-YouTube)
-  if (videoUrl) {
+    // Backfill may store a YouTube search URL. Render the first search result inline.
+    try {
+      const parsed = new URL(effectiveVideoUrl);
+      const searchQuery = parsed.searchParams.get("search_query")?.trim();
+      if (searchQuery) {
+        const embedSearch = `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(searchQuery)}&rel=0`;
+        return (
+          <ResponsiveVideoWrapper className={className}>
+            <iframe
+              src={embedSearch}
+              style={{ width: "100%", height: "100%", border: "none" }}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              title="Exercise video demo"
+            />
+          </ResponsiveVideoWrapper>
+        );
+      }
+    } catch {
+      // Fall through to warning below
+    }
+
     return (
-      <ResponsiveVideoWrapper className={className}>
-        <video
-          src={videoUrl}
-          controls
-          style={{ width: "100%", height: "100%", objectFit: "contain", background: "#000" }}
-          preload="metadata"
-        />
-      </ResponsiveVideoWrapper>
+      <div className="rounded-md border bg-slate-50 px-3 py-2 text-sm text-slate-600">
+        Video URL is set but could not be embedded. Please update to a direct YouTube video link.
+      </div>
     );
   }
 
-  return null;
+  // Priority 3: Non-YouTube URL rendered as in-app HTML5 video
+  return (
+    <ResponsiveVideoWrapper className={className}>
+      <video
+        src={effectiveVideoUrl}
+        controls
+        style={{ width: "100%", height: "100%", objectFit: "contain", background: "#000" }}
+        preload="metadata"
+      />
+    </ResponsiveVideoWrapper>
+  );
 }
