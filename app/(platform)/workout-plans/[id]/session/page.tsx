@@ -18,7 +18,7 @@ export default async function SessionPage({ params }: Props) {
   if (plan.patientId !== user.id) notFound();
 
   return (
-    <div className="py-4">
+    <div className="px-4 py-4 sm:px-6">
       <WorkoutSessionTracker plan={plan} />
     </div>
   );
