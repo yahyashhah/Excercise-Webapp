@@ -2,9 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import { Bell, Menu, Search, Activity } from "lucide-react";
+import { Bell, Menu, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
 import type { User } from "@prisma/client";
@@ -49,13 +48,13 @@ export function Header({ user, unreadMessageCount }: HeaderProps) {
   const pageTitle = getPageTitle(pathname);
 
   return (
-    <header className="flex h-16 items-center gap-4 border-b border-border bg-card px-6">
+    <header className="flex h-14 items-center gap-4 border-b border-border bg-card/80 backdrop-blur-sm px-5 sticky top-0 z-10">
       {/* Mobile menu */}
       <Sheet>
         <SheetTrigger
-          className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent text-sm font-medium transition-all outline-none select-none hover:bg-muted hover:text-foreground size-8 lg:hidden"
+          className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent text-muted-foreground transition-all outline-none select-none hover:bg-muted hover:text-foreground size-8 lg:hidden"
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-4.5 w-4.5" />
         </SheetTrigger>
         <SheetContent side="left" className="w-64 p-0">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
@@ -70,37 +69,33 @@ export function Header({ user, unreadMessageCount }: HeaderProps) {
         </SheetContent>
       </Sheet>
 
-      {/* Breadcrumb-style page title */}
-      <div className="flex items-center gap-2">
-        <span className="hidden text-sm font-semibold text-primary sm:inline-block">
-          INMOTUS RX
-        </span>
-        <span className="hidden text-muted-foreground/40 sm:inline-block">/</span>
-        <h1 className="text-sm font-semibold sm:text-base">{pageTitle}</h1>
+      {/* Brand + breadcrumb */}
+      <div className="flex items-center gap-1.5 min-w-0">
+        <div className="hidden items-center gap-1.5 lg:flex">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-linear-to-br from-blue-400 to-indigo-500">
+            <Activity className="h-3.5 w-3.5 text-white" />
+          </div>
+          <span className="text-xs font-semibold text-muted-foreground/60">INMOTUS RX</span>
+          <span className="text-muted-foreground/30">/</span>
+        </div>
+        <h1 className="text-sm font-semibold text-foreground truncate">{pageTitle}</h1>
       </div>
 
       <div className="flex-1" />
 
-      {/* Search placeholder */}
-      <Button variant="outline" size="sm" className="hidden gap-2 text-muted-foreground sm:flex">
-        <Search className="h-3.5 w-3.5" />
-        <span className="text-xs">Search...</span>
-        <kbd className="pointer-events-none ml-2 hidden rounded border border-border bg-muted px-1.5 text-[10px] font-medium text-muted-foreground sm:inline-block">
-          /
-        </kbd>
-      </Button>
-
       {/* Notifications */}
-      <Button variant="ghost" size="icon" className="relative">
-        <Bell className="h-4.5 w-4.5 text-muted-foreground" />
-        {unreadMessageCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
-            {unreadMessageCount}
-          </span>
-        )}
+      <Button variant="ghost" size="icon" className="relative h-8 w-8 text-muted-foreground hover:text-foreground" asChild>
+        <a href="/messages">
+          <Bell className="h-4 w-4" />
+          {unreadMessageCount > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500 px-1 text-[9px] font-bold text-white shadow">
+              {unreadMessageCount > 9 ? "9+" : unreadMessageCount}
+            </span>
+          )}
+        </a>
       </Button>
 
-      {/* User button (visible on desktop alongside sidebar) */}
+      {/* User button — desktop only */}
       <div className="hidden lg:block">
         <UserButton signInUrl="/sign-in" />
       </div>

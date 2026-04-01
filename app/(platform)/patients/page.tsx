@@ -3,7 +3,8 @@ import { requireRole } from "@/lib/current-user";
 import { getPatientsForClinician } from "@/lib/services/patient.service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Users, ChevronRight, Mail } from "lucide-react";
 import { AddPatientDialog } from "@/components/patients/add-patient-dialog";
 
 export default async function PatientsPage() {
@@ -12,43 +13,52 @@ export default async function PatientsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Page header */}
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Patients</h2>
-          <p className="text-muted-foreground">{patients.length} patient{patients.length !== 1 ? "s" : ""} linked</p>
+          <h1 className="text-2xl font-bold tracking-tight">Clients</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {patients.length} client{patients.length !== 1 ? "s" : ""} linked to your account
+          </p>
         </div>
         <AddPatientDialog />
       </div>
 
       {patients.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-12 text-center">
-          <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <h3 className="mt-4 font-semibold">No patients yet</h3>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-            Click &quot;Add Patient&quot; above to link a patient by their email
-            address. They must have signed up first.
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+            <Users className="h-7 w-7 text-muted-foreground/50" />
+          </div>
+          <h3 className="mt-4 text-base font-semibold">No clients yet</h3>
+          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+            Link a client by their email address. They must have signed up on INMOTUS RX first.
           </p>
+          <div className="mt-5">
+            <AddPatientDialog />
+          </div>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {patients.map((patient) => (
-            <Link key={patient.id} href={`/patients/${patient.id}`}>
-              <Card className="transition-all hover:shadow-md hover:border-primary/20">
+            <Link key={patient.id} href={`/patients/${patient.id}`} className="group block">
+              <Card className="border-border/60 transition-all duration-200 hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5">
                 <CardContent className="flex items-center gap-4 p-5">
-                  <Avatar className="h-12 w-12 border-2 border-primary/10">
+                  <Avatar className="h-12 w-12 shrink-0 ring-2 ring-border/40 group-hover:ring-primary/20 transition-all">
                     <AvatarImage src={patient.imageUrl || undefined} />
-                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                      {patient.firstName[0]}
-                      {patient.lastName[0]}
+                    <AvatarFallback className="bg-primary/8 text-primary font-semibold text-sm">
+                      {patient.firstName[0]}{patient.lastName[0]}
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium">
+                    <p className="font-semibold text-foreground truncate">
                       {patient.firstName} {patient.lastName}
                     </p>
-                    <p className="truncate text-sm text-muted-foreground">{patient.email}</p>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Mail className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{patient.email}</span>
+                    </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground/50" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40 group-hover:text-primary transition-colors" />
                 </CardContent>
               </Card>
             </Link>

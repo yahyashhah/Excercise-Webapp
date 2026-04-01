@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { getPlansForPatient, getPlansCreatedBy } from "@/lib/services/workout-plan.service";
 import { PlanCard } from "@/components/workout/plan-card";
 import { Button } from "@/components/ui/button";
-import { Plus, Sparkles } from "lucide-react";
+import { ClipboardList, Plus, Sparkles } from "lucide-react";
 
 export default async function WorkoutPlansPage() {
   const user = await getCurrentUser();
@@ -13,39 +13,50 @@ export default async function WorkoutPlansPage() {
       ? await getPlansCreatedBy(user.id)
       : await getPlansForPatient(user.id);
 
+  const isClinician = user.role === "CLINICIAN";
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Page header */}
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">
-            {user.role === "CLINICIAN" ? "Workout Plans" : "My Plans"}
-          </h2>
-          <p className="text-slate-600">{plans.length} plans</p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {isClinician ? "Workout Plans" : "My Plans"}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {plans.length} plan{plans.length !== 1 ? "s" : ""}
+            {isClinician ? " created" : " assigned to you"}
+          </p>
         </div>
-        {user.role === "CLINICIAN" && (
-          <div className="flex gap-2">
-            <Button variant="outline" asChild>
-              <Link href="/workout-plans/generate">
-                <Sparkles className="mr-2 h-4 w-4" />
-                Generate with AI
-              </Link>
-            </Button>
-          </div>
+        {isClinician && (
+          <Button asChild className="shrink-0">
+            <Link href="/workout-plans/generate">
+              <Sparkles className="mr-2 h-4 w-4" />
+              Generate with AI
+            </Link>
+          </Button>
         )}
       </div>
 
+      {/* Content */}
       {plans.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 p-12 text-center">
-          <p className="text-slate-500">
-            {user.role === "CLINICIAN"
-              ? "You have not created any plans yet."
-              : "No plans assigned to you yet."}
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+            <ClipboardList className="h-7 w-7 text-muted-foreground/50" />
+          </div>
+          <h3 className="mt-4 text-base font-semibold">
+            {isClinician ? "No plans created yet" : "No plans assigned yet"}
+          </h3>
+          <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+            {isClinician
+              ? "Use AI to generate a personalised workout plan for a client in seconds."
+              : "Your clinician will assign a plan to you soon. Check back later."}
           </p>
-          {user.role === "CLINICIAN" && (
-            <Button className="mt-4" asChild>
+          {isClinician && (
+            <Button className="mt-5" asChild>
               <Link href="/workout-plans/generate">
                 <Sparkles className="mr-2 h-4 w-4" />
-                Generate Your First Plan
+                Generate First Plan
               </Link>
             </Button>
           )}

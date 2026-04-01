@@ -40,7 +40,7 @@ export function MessagePreview({ thread }: MessagePreviewProps) {
           </p>
         </div>
         {thread.unreadCount > 0 && (
-          <Badge variant="destructive" className="h-5 min-w-[20px] px-1.5 text-xs">
+          <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-xs">
             {thread.unreadCount}
           </Badge>
         )}

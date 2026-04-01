@@ -78,7 +78,7 @@ export function MessageThread({
             const isOwn = msg.senderId === currentUserId;
             return (
               <div key={msg.id} className={`flex gap-3 ${isOwn ? "flex-row-reverse" : ""}`}>
-                <Avatar className="h-8 w-8 flex-shrink-0">
+                <Avatar className="h-8 w-8 shrink-0">
                   <AvatarImage src={msg.sender.imageUrl || undefined} />
                   <AvatarFallback className="text-xs">
                     {msg.sender.firstName[0]}{msg.sender.lastName[0]}

@@ -177,12 +177,12 @@ export function ExerciseForm() {
             <div className="space-y-2">
               {videoUrl && videoUrl.startsWith("blob") === false && (
                 <div className="flex items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
-                  <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
                   <span className="truncate">{videoUrl}</span>
                   <button
                     type="button"
                     onClick={() => setVideoUrl("")}
-                    className="ml-auto flex-shrink-0"
+                    className="ml-auto shrink-0"
                   >
                     <X className="h-3 w-3" />
                   </button>

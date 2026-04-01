@@ -3,10 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { BODY_REGIONS, DIFFICULTY_LEVELS } from "@/lib/utils/constants";
-import { X } from "lucide-react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 
 export function ExerciseFilters() {
   const router = useRouter();
@@ -20,15 +26,13 @@ export function ExerciseFilters() {
   const updateParam = useCallback(
     (key: string, value: string) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (value) {
+      if (value && value !== "all") {
         params.set(key, value);
       } else {
         params.delete(key);
       }
-
       const nextQuery = params.toString();
-      const nextRoute = nextQuery ? `/exercises?${nextQuery}` : "/exercises";
-      router.push(nextRoute);
+      router.push(nextQuery ? `/exercises?${nextQuery}` : "/exercises");
     },
     [router, searchParams]
   );
@@ -43,68 +47,92 @@ export function ExerciseFilters() {
         updateParam("search", searchValue);
       }
     }, 300);
-
     return () => clearTimeout(timeout);
   }, [searchValue, currentSearch, updateParam]);
 
   function clearFilters() {
+    setSearchValue("");
     router.push("/exercises");
   }
 
   const hasFilters = currentSearch || currentRegion || currentDifficulty;
+  const activeFilterCount = [currentSearch, currentRegion, currentDifficulty].filter(Boolean).length;
 
   return (
-    <div className="flex flex-wrap items-end gap-4">
-      <div className="w-64">
-        <Label htmlFor="search" className="text-sm text-slate-600">
-          Search
-        </Label>
+    <div className="flex flex-wrap items-center gap-3">
+      {/* Search */}
+      <div className="relative flex-1 min-w-56 max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         <Input
-          id="search"
           placeholder="Search exercises..."
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
+          className="pl-9 h-9"
         />
       </div>
 
-      <div>
-        <Label className="text-sm text-slate-600">Body Region</Label>
-        <select
-          className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          value={currentRegion}
-          onChange={(e) => updateParam("bodyRegion", e.target.value)}
-        >
-          <option value="">All Regions</option>
-          {BODY_REGIONS.map((r) => (
-            <option key={r.value} value={r.value}>
-              {r.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Divider on larger screens */}
+      <div className="hidden h-5 w-px bg-border sm:block" />
 
-      <div>
-        <Label className="text-sm text-slate-600">Difficulty</Label>
-        <select
-          className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          value={currentDifficulty}
-          onChange={(e) => updateParam("difficultyLevel", e.target.value)}
-        >
-          <option value="">All Levels</option>
-          {DIFFICULTY_LEVELS.map((d) => (
-            <option key={d.value} value={d.value}>
-              {d.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline font-medium">Filter:</span>
+        </div>
 
-      {hasFilters && (
-        <Button variant="ghost" size="sm" onClick={clearFilters}>
-          <X className="mr-1 h-4 w-4" />
-          Clear
-        </Button>
-      )}
+        {/* Body Region */}
+        <Select
+          value={currentRegion || "all"}
+          onValueChange={(v) => updateParam("bodyRegion", v)}
+        >
+          <SelectTrigger className="h-9 w-40 text-sm">
+            <SelectValue placeholder="Body Region" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Regions</SelectItem>
+            {BODY_REGIONS.map((r) => (
+              <SelectItem key={r.value} value={r.value}>
+                {r.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Difficulty */}
+        <Select
+          value={currentDifficulty || "all"}
+          onValueChange={(v) => updateParam("difficultyLevel", v)}
+        >
+          <SelectTrigger className="h-9 w-36 text-sm">
+            <SelectValue placeholder="Difficulty" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Levels</SelectItem>
+            {DIFFICULTY_LEVELS.map((d) => (
+              <SelectItem key={d.value} value={d.value}>
+                {d.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {hasFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-9 gap-1.5 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear
+            {activeFilterCount > 0 && (
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

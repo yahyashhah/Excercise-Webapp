@@ -14,7 +14,6 @@ import {
   Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ROUTES } from "@/lib/utils/constants";
 
@@ -45,14 +44,14 @@ export function MobileNav({ open, onOpenChange, unreadCount }: MobileNavProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="w-64 p-0">
-        <SheetHeader className="p-6 border-b">
-          <SheetTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-primary" />
-            ExerciseAI
-          </SheetTitle>
+      <SheetContent side="left" className="w-64 p-0 bg-sidebar">
+        <SheetHeader className="flex h-16 flex-row items-center gap-3 border-b border-sidebar-border px-5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-blue-400 to-indigo-500 shadow-sm">
+            <Activity className="h-5 w-5 text-white" />
+          </div>
+          <SheetTitle className="text-base font-bold text-sidebar-foreground">INMOTUS RX</SheetTitle>
         </SheetHeader>
-        <nav className="p-4 space-y-1">
+        <nav className="p-3 space-y-0.5">
           {filteredNav.map((item) => {
             const isActive =
               pathname === item.href ||
@@ -64,21 +63,18 @@ export function MobileNav({ open, onOpenChange, unreadCount }: MobileNavProps) {
                 href={item.href}
                 onClick={() => onOpenChange(false)}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
                   isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-sidebar-primary/15 text-sidebar-primary"
+                    : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
                 )}
               >
-                <item.icon className="h-4 w-4" />
-                {item.label}
+                <item.icon className={cn("h-4.5 w-4.5 shrink-0", isActive ? "text-sidebar-primary" : "text-sidebar-foreground/40")} />
+                <span className="flex-1">{item.label}</span>
                 {item.href === ROUTES.MESSAGES && unreadCount > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="ml-auto h-5 min-w-[20px] px-1 text-xs"
-                  >
-                    {unreadCount}
-                  </Badge>
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-500 px-1.5 text-[10px] font-bold text-white">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
                 )}
               </Link>
             );

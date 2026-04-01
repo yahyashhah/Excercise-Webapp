@@ -173,7 +173,7 @@ export default function LandingPage() {
       <nav className="sticky top-0 z-50 border-b border-white/10 bg-[#0f172a]/95 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-blue-400 to-indigo-500">
               <Activity className="h-4.5 w-4.5 text-white" />
             </div>
             <span className="text-lg font-bold tracking-tight text-white">INMOTUS RX</span>
@@ -193,7 +193,7 @@ export default function LandingPage() {
             <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white hover:bg-white/10" asChild>
               <Link href="/sign-in">Sign In</Link>
             </Button>
-            <Button size="sm" className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 border-0" asChild>
+            <Button size="sm" className="bg-linear-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 border-0" asChild>
               <Link href="/sign-up">Get Started</Link>
             </Button>
           </div>
@@ -201,7 +201,7 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#0f172a] via-[#1e3a5f] to-[#0c4a6e] py-24 sm:py-36">
+      <section className="relative overflow-hidden bg-linear-to-br from-[#0f172a] via-[#1e3a5f] to-[#0c4a6e] py-24 sm:py-36">
         {/* Background decoration */}
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-blue-500/10 blur-3xl" />
@@ -217,7 +217,7 @@ export default function LandingPage() {
             </Badge>
             <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-6xl lg:text-7xl">
               Home Exercise Programs That{" "}
-              <span className="bg-gradient-to-r from-blue-300 via-cyan-300 to-teal-300 bg-clip-text text-transparent">
+              <span className="bg-linear-to-r from-blue-300 via-cyan-300 to-teal-300 bg-clip-text text-transparent">
                 Actually Work
               </span>
             </h1>
@@ -226,7 +226,7 @@ export default function LandingPage() {
               get guided workouts with progress tracking. Everyone wins.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Button size="lg" className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 border-0 px-8 h-12 text-base" asChild>
+              <Button size="lg" className="bg-linear-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 border-0 px-8 h-12 text-base" asChild>
                 <Link href="/sign-up">
                   Start Free Trial <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
@@ -264,17 +264,17 @@ export default function LandingPage() {
                   <div className="ml-4 h-5 w-48 rounded bg-slate-100" />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
+                  <div className="rounded-xl bg-linear-to-br from-blue-50 to-indigo-50 p-6">
                     <p className="text-sm font-medium text-blue-600">Active Patients</p>
                     <p className="mt-2 text-3xl font-bold text-slate-900">127</p>
                     <p className="mt-1 text-xs text-emerald-600">+12 this week</p>
                   </div>
-                  <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 p-6">
+                  <div className="rounded-xl bg-linear-to-br from-emerald-50 to-teal-50 p-6">
                     <p className="text-sm font-medium text-emerald-600">Plans Generated</p>
                     <p className="mt-2 text-3xl font-bold text-slate-900">342</p>
                     <p className="mt-1 text-xs text-emerald-600">+28 this week</p>
                   </div>
-                  <div className="rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 p-6">
+                  <div className="rounded-xl bg-linear-to-br from-violet-50 to-purple-50 p-6">
                     <p className="text-sm font-medium text-violet-600">Adherence Rate</p>
                     <p className="mt-2 text-3xl font-bold text-slate-900">94%</p>
                     <p className="mt-1 text-xs text-emerald-600">+3% vs last month</p>
@@ -321,7 +321,7 @@ export default function LandingPage() {
               return (
                 <Card key={feature.title} className="group border-slate-200 transition-all hover:shadow-lg hover:border-slate-300 hover:-translate-y-0.5">
                   <CardContent className="p-6">
-                    <div className={`mb-4 inline-flex rounded-xl bg-gradient-to-br ${feature.gradient} p-3`}>
+                    <div className={`mb-4 inline-flex rounded-xl bg-linear-to-br ${feature.gradient} p-3`}>
                       <Icon className={`h-6 w-6 ${feature.iconColor}`} />
                     </div>
                     <h3 className="mb-2 text-lg font-semibold text-slate-900">{feature.title}</h3>
@@ -335,7 +335,7 @@ export default function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section id="how-it-works" className="bg-gradient-to-b from-slate-50 to-white py-20 sm:py-28">
+      <section id="how-it-works" className="bg-linear-to-b from-slate-50 to-white py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <Badge className="mb-4 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200">Simple Process</Badge>
@@ -349,7 +349,7 @@ export default function LandingPage() {
           <div className="mt-16 grid gap-8 lg:grid-cols-3">
             {steps.map((step, idx) => (
               <div key={step.number} className="relative rounded-2xl bg-white p-8 shadow-sm border border-slate-100 transition-all hover:shadow-md">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-lg font-bold text-white">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-blue-500 to-indigo-500 text-lg font-bold text-white">
                   {step.number}
                 </div>
                 <h3 className="mt-4 text-xl font-semibold text-slate-900">{step.title}</h3>
@@ -385,7 +385,7 @@ export default function LandingPage() {
                     &ldquo;{t.quote}&rdquo;
                   </p>
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-sm font-semibold text-white">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-linear-to-br from-blue-500 to-indigo-500 text-sm font-semibold text-white">
                       {t.avatar}
                     </div>
                     <div>
@@ -401,7 +401,7 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="bg-gradient-to-b from-slate-50 to-white py-20 sm:py-28">
+      <section id="pricing" className="bg-linear-to-b from-slate-50 to-white py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <Badge className="mb-4 bg-violet-50 text-violet-700 hover:bg-violet-100 border-violet-200">Pricing</Badge>
@@ -422,7 +422,7 @@ export default function LandingPage() {
               >
                 {plan.highlighted && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white border-0 shadow-md">Most Popular</Badge>
+                    <Badge className="bg-linear-to-r from-blue-500 to-indigo-500 text-white border-0 shadow-md">Most Popular</Badge>
                   </div>
                 )}
                 <CardHeader>
@@ -447,7 +447,7 @@ export default function LandingPage() {
                   <Button
                     className={`mt-6 w-full ${
                       plan.highlighted
-                        ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 border-0"
+                        ? "bg-linear-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 border-0"
                         : ""
                     }`}
                     variant={plan.highlighted ? "default" : "outline"}
@@ -463,7 +463,7 @@ export default function LandingPage() {
       </section>
 
       {/* CTA Banner */}
-      <section className="bg-gradient-to-r from-[#0f172a] via-[#1e3a5f] to-[#0c4a6e] py-20">
+      <section className="bg-linear-to-r from-[#0f172a] via-[#1e3a5f] to-[#0c4a6e] py-20">
         <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
           <h2 className="text-3xl font-extrabold text-white sm:text-4xl">
             Ready to transform patient care?
@@ -485,7 +485,7 @@ export default function LandingPage() {
           <div className="grid gap-8 lg:grid-cols-4">
             <div>
               <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-linear-to-br from-blue-500 to-indigo-500">
                   <Activity className="h-4 w-4 text-white" />
                 </div>
                 <span className="text-lg font-bold text-slate-900">INMOTUS RX</span>

@@ -15,9 +15,9 @@ export default async function OnboardingPage() {
   return (
     <div className="flex min-h-screen">
       {/* Left branding panel */}
-      <div className="hidden w-1/2 flex-col justify-between bg-gradient-to-br from-[#0f172a] via-[#1e3a5f] to-[#0c4a6e] p-12 lg:flex">
+      <div className="hidden w-1/2 flex-col justify-between bg-linear-to-br from-[#0f172a] via-[#1e3a5f] to-[#0c4a6e] p-12 lg:flex">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-linear-to-br from-blue-400 to-indigo-500">
             <Activity className="h-5 w-5 text-white" />
           </div>
           <span className="text-xl font-bold text-white">INMOTUS RX</span>
@@ -37,7 +37,7 @@ export default async function OnboardingPage() {
       {/* Right form panel */}
       <div className="flex flex-1 flex-col items-center justify-center bg-[oklch(0.97_0.005_247)] p-6 sm:p-12">
         <div className="flex items-center gap-2.5 mb-8 lg:hidden">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-linear-to-br from-blue-400 to-indigo-500">
             <Activity className="h-5 w-5 text-white" />
           </div>
           <span className="text-xl font-bold">INMOTUS RX</span>
