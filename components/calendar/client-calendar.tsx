@@ -68,7 +68,16 @@ interface SessionEvent {
   exerciseCount: number;
   workoutName: string;
   resource: SessionSummary;
-    allDay?: boolean;
+  allDay?: boolean;
+}
+
+type PanelState =
+  | { mode: "closed" }
+  | { mode: "creating"; date: Date }
+  | { mode: "editing"; sessionId: string };
+
+interface ClientCalendarProps {
+  patientId: string;
   clinicianId: string;
   initialSessions: SessionSummary[];
   exerciseLibrary: ExerciseSummary[];
