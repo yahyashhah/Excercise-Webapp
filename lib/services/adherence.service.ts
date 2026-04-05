@@ -24,6 +24,8 @@ export async function completeSessionExercise(
     status: string;
     actualSets?: number;
     actualReps?: number;
+    actualWeight?: number;
+    actualRPE?: number;
   }
 ) {
   return prisma.sessionExercise.create({
@@ -33,6 +35,8 @@ export async function completeSessionExercise(
       status: data.status,
       actualSets: data.actualSets,
       actualReps: data.actualReps,
+      actualWeight: data.actualWeight,
+      actualRPE: data.actualRPE,
       completedAt: data.status === "completed" ? new Date() : undefined,
     },
   });

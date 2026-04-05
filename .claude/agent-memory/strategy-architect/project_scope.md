@@ -1,24 +1,18 @@
 ---
 name: Product Scope
-description: AI Home Exercise Platform for clinicians prescribing rehab programs to patients/clients
+description: AI Home Exercise Platform evolving into TrueCoach-competitive coaching platform for clinicians and patients
 type: project
 ---
 
-Platform for physiotherapists/clinicians to create AI-generated home exercise programs (HEPs) for their clients.
+Platform for physiotherapists/clinicians to create AI-generated home exercise programs (HEPs) for their clients. Actively evolving into a full TrueCoach competitor.
 
-**Key models:** User (CLINICIAN/PATIENT roles), Exercise (56 seed entries), WorkoutPlan, PlanExercise, ExerciseFeedback, WorkoutSession, SessionExercise, Assessment, Message, ExerciseMedia, ExerciseProgression.
+**Key models (current):** User (CLINICIAN/PATIENT roles), Exercise (56 seed entries), WorkoutPlan, PlanExercise, ExerciseFeedback, WorkoutSession, SessionExercise, Assessment, Message, ExerciseMedia, ExerciseProgression, ClinicProfile.
 
-**Current seed library:** 56 exercises across LOWER_BODY, UPPER_BODY, CORE, BALANCE, FLEXIBILITY, FULL_BODY. Seed script at lib/db/seed/seed.ts. No musclesTargeted, exercisePhase, commonMistakes, or images seeded yet.
+**V2 hierarchy (planned):** Program > Workout > WorkoutBlockV2 > BlockExerciseV2 > ExerciseSet. New domains: CheckIns, BodyMetrics, ProgressPhotos, Habits, Nutrition, Notifications, Billing (Stripe Connect), CoachBranding.
 
-**AI generation:** lib/services/ai.service.ts — fetches all active exercises, sends flat list to GPT-4o, returns JSON plan. No phase structuring, no variety enforcement.
+**Active strategy doc:** `TRUECOACH_COMPETITIVE_STRATEGY.md` — authoritative reference for all phases.
 
-**Key domain concepts:**
-- Exercise Library (curated, not AI-invented)
-- AI workout generation constrained to library exercises
-- Progression/regression chains
-- Adherence tracking, feedback loops
-- Patient-clinician messaging
-- HIPAA considerations
+**5 Phases:** (1) Calendar + Program Builder, (2) Client Portal + Session Logging, (3) Progress/Check-ins/Habits, (4) Nutrition/Analytics, (5) Billing/Branding/Notifications.
 
-**Why:** Anchors all architectural decisions to the actual product.
-**How to apply:** Every technical recommendation must trace back to concrete product requirements.
+**Why:** Anchors all architectural decisions to the actual product trajectory.
+**How to apply:** Every technical recommendation must trace back to concrete product requirements. V2 models coexist with V1 during migration.

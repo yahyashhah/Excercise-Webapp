@@ -31,6 +31,22 @@ export async function getExercises(filters: ExerciseFilters = {}) {
   });
 }
 
+export async function getExercisesForPicker() {
+  return prisma.exercise.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      name: true,
+      bodyRegion: true,
+      difficultyLevel: true,
+      defaultReps: true,
+      musclesTargeted: true,
+      imageUrl: true,
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
 export async function getExerciseById(id: string) {
   return prisma.exercise.findUnique({
     where: { id },
@@ -57,27 +73,29 @@ export async function createExercise(data: {
   contraindications: string[];
   instructions?: string;
   videoUrl?: string;
-  imageUrl?: string;
-  createdById: string;
-}) {
-  const videoUrl = data.videoUrl?.trim() || buildYouTubeSearchUrl(data.name);
-  let imageUrl = data.imageUrl?.trim() || undefined;
+    videoProvider?: string;
+    imageUrl?: string;
+    createdById: string;
+  }) {
+    const videoUrl = data.videoUrl?.trim() || buildYouTubeSearchUrl(data.name);
+    let imageUrl = data.imageUrl?.trim() || undefined;
 
-  if (!imageUrl) {
-    const ytId = extractYouTubeId(videoUrl);
-    if (ytId) {
-      imageUrl = getYouTubeThumbnail(ytId);
+    if (!imageUrl) {
+      const ytId = extractYouTubeId(videoUrl);
+      if (ytId) {
+        imageUrl = getYouTubeThumbnail(ytId);
+      }
     }
-  }
 
-  return prisma.exercise.create({
-    data: {
-      ...data,
-      videoUrl,
-      imageUrl,
-    },
-  });
-}
+    return prisma.exercise.create({
+      data: {
+        ...data,
+        videoUrl,
+        videoProvider: data.videoProvider,
+        imageUrl,
+      },
+    });
+  }
 
 export async function updateExercise(
   id: string,
@@ -90,22 +108,15 @@ export async function updateExercise(
     contraindications: string[];
     instructions: string;
     videoUrl: string;
-    imageUrl: string;
-    isActive: boolean;
-  }>
-) {
-  const nextData = { ...data };
-
-  if (typeof nextData.videoUrl === "string") {
-    nextData.videoUrl = nextData.videoUrl.trim();
-  }
-  if (typeof nextData.imageUrl === "string") {
-    nextData.imageUrl = nextData.imageUrl.trim();
-  }
-
-  if (nextData.videoUrl === "") {
-    nextData.videoUrl = undefined;
-  }
+      videoProvider: string;
+      imageUrl: string;
+      isActive: boolean;
+    }>
+  ) {
+    const nextData = { ...data };
+    if (typeof nextData.videoProvider === "string") {
+      nextData.videoProvider = nextData.videoProvider.trim();
+    }
   if (nextData.imageUrl === "") {
     nextData.imageUrl = undefined;
   }

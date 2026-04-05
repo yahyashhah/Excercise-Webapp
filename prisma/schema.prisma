@@ -56,6 +56,23 @@ enum SessionStatus {
   ABANDONED
 }
 
+enum BlockType {
+  NORMAL
+  WARMUP
+  COOLDOWN
+  SUPERSET
+  CIRCUIT
+  AMRAP
+  EMOM
+}
+
+enum SetType {
+  NORMAL
+  WARMUP
+  DROP_SET
+  FAILURE
+}
+
 enum ProgressionDirection {
   PROGRESSION
   REGRESSION
@@ -88,19 +105,35 @@ model User {
   assessedBy       Assessment[]           @relation("AssessedBy")
   exercisesCreated Exercise[]
   clinicProfile    ClinicProfile?
+
+  programsCreated    Program[]            @relation("ProgramsCreated")
+  programsAssigned   Program[]            @relation("ProgramsAssigned")
+  sessionsV2         WorkoutSessionV2[]   @relation("SessionsV2")
+  checkInTemplates   CheckInTemplate[]    @relation("CheckInTemplatesCreated")
+  checkInAssignments CheckInAssignment[]  @relation("CheckInAssignments")
+  checkInResponses   CheckInResponse[]    @relation("CheckInResponses")
+  bodyMetrics        BodyMetric[]         @relation("BodyMetrics")
+  progressPhotos     ProgressPhoto[]      @relation("ProgressPhotos")
+  habits             HabitDefinition[]    @relation("Habits")
+  nutritionTarget    NutritionTarget?     @relation("NutritionTarget")
+  nutritionLogs      NutritionLog[]       @relation("NutritionLogs")
+  notifications      Notification[]       @relation("Notifications")
+  packages           CoachPackage[]       @relation("Packages")
+  subscriptions      ClientSubscription[] @relation("Subscriptions")
+  branding           CoachBranding?       @relation("Branding")
 }
 
 model PatientProfile {
-  id                       String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId                   String   @unique @db.ObjectId
-  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                       String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId                   String    @unique @db.ObjectId
+  user                     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   limitations              String?
   comorbidities            String?
   functionalChallenges     String?
   availableEquipment       String[]
   fitnessGoals             String[]
-  preferredDurationMinutes Int      @default(25)
-  preferredDaysPerWeek     Int      @default(3)
+  preferredDurationMinutes Int       @default(25)
+  preferredDaysPerWeek     Int       @default(3)
   primaryDiagnosis         String?
   secondaryDiagnoses       String[]
   painScore                Int?
@@ -109,7 +142,7 @@ model PatientProfile {
   surgeryHistory           String?
   occupation               String?
   priorInjuries            String[]
-  updatedAt                DateTime @updatedAt
+  updatedAt                DateTime  @updatedAt
 }
 
 model PatientClinicianLink {
@@ -125,16 +158,17 @@ model PatientClinicianLink {
 }
 
 model Exercise {
-  id                String          @id @default(auto()) @map("_id") @db.ObjectId
-  name              String
-  description       String?
-  bodyRegion        BodyRegion
-  equipmentRequired String[]
-  difficultyLevel   DifficultyLevel
-  contraindications String[]
-  videoUrl          String?
-  imageUrl          String?
-  instructions      String?
+  id                 String          @id @default(auto()) @map("_id") @db.ObjectId
+  name               String
+  description        String?
+  bodyRegion         BodyRegion
+  equipmentRequired  String[]
+  difficultyLevel    DifficultyLevel
+  contraindications  String[]
+  videoUrl           String?
+  videoProvider      String?
+  imageUrl           String?
+  instructions       String?
   musclesTargeted    String[]
   exercisePhase      ExercisePhase?
   commonMistakes     String?
@@ -142,16 +176,18 @@ model Exercise {
   defaultReps        Int?
   defaultHoldSeconds Int?
   cuesThumbnail      String?
-  isActive          Boolean         @default(true)
-  createdById       String?         @db.ObjectId
-  createdBy         User?           @relation(fields: [createdById], references: [id])
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  isActive           Boolean         @default(true)
+  createdById        String?         @db.ObjectId
+  createdBy          User?           @relation(fields: [createdById], references: [id])
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
   planExercises    PlanExercise[]
+  blockExercises   BlockExercise[]
   progressionsFrom ExerciseProgression[] @relation("FromExercise")
   progressionsTo   ExerciseProgression[] @relation("ToExercise")
   media            ExerciseMedia[]
+  blockExercisesV2 BlockExerciseV2[]     @relation("BlockExercisesV2")
 }
 
 model ExerciseProgression {
@@ -188,10 +224,13 @@ model WorkoutPlan {
   daysPerWeek        Int?
   aiGenerationParams Json?
   version            Int        @default(1)
+  isTemplate         Boolean    @default(false)
+  tags               String[]
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 
   exercises PlanExercise[]
+  blocks    WorkoutBlock[]
   sessions  WorkoutSession[]
   messages  Message[]
 }
@@ -216,6 +255,36 @@ model PlanExercise {
   messages     Message[]
 }
 
+model WorkoutBlock {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  planId      String      @db.ObjectId
+  plan        WorkoutPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  orderIndex  Int
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  exercises BlockExercise[]
+}
+
+model BlockExercise {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  blockId         String       @db.ObjectId
+  exerciseId      String       @db.ObjectId
+  block           WorkoutBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  exercise        Exercise     @relation(fields: [exerciseId], references: [id])
+  orderIndex      Int
+  sets            Int?
+  reps            Int?
+  durationSeconds Int?
+  restSeconds     Int?
+  notes           String?
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
 model ExerciseFeedback {
   id                String         @id @default(auto()) @map("_id") @db.ObjectId
   planExerciseId    String         @db.ObjectId
@@ -235,6 +304,7 @@ model WorkoutSession {
   patientId        String        @db.ObjectId
   plan             WorkoutPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
   patient          User          @relation(fields: [patientId], references: [id])
+  scheduledDate    DateTime?
   startedAt        DateTime      @default(now())
   completedAt      DateTime?
   status           SessionStatus @default(IN_PROGRESS)
@@ -253,6 +323,8 @@ model SessionExercise {
   status         String
   actualSets     Int?
   actualReps     Int?
+  actualWeight   Float?
+  actualRPE      Int?
   completedAt    DateTime?
 }
 
@@ -297,4 +369,375 @@ model ClinicProfile {
   address     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// --- Phase 1 Models ---
+
+model Program {
+  id               String     @id @default(auto()) @map("_id") @db.ObjectId
+  name             String
+  description      String?
+  isTemplate       Boolean    @default(false)
+  sourceTemplateId String?    @db.ObjectId
+  clinicianId      String     @db.ObjectId
+  clinician        User       @relation("ProgramsCreated", fields: [clinicianId], references: [id])
+  patientId        String?    @db.ObjectId
+  patient          User?      @relation("ProgramsAssigned", fields: [patientId], references: [id])
+  status           PlanStatus @default(DRAFT)
+  durationWeeks    Int?
+  daysPerWeek      Int?
+  tags             String[]
+  aiGenerationParams Json?
+  startDate        DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  workouts         Workout[]
+
+  @@index([clinicianId])
+  @@index([patientId])
+}
+
+model Workout {
+  id               String           @id @default(auto()) @map("_id") @db.ObjectId
+  programId        String           @db.ObjectId
+  program          Program          @relation(fields: [programId], references: [id], onDelete: Cascade)
+  name             String
+  description      String?
+  dayIndex         Int
+  weekIndex        Int              @default(0)
+  orderIndex       Int
+  estimatedMinutes Int?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  blocks           WorkoutBlockV2[]
+  sessions         WorkoutSessionV2[]
+}
+
+model WorkoutBlockV2 {
+  id                String           @id @default(auto()) @map("_id") @db.ObjectId
+  workoutId         String           @db.ObjectId
+  workout           Workout          @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  name              String?
+  type              String           @default("NORMAL")
+  orderIndex        Int
+  rounds            Int              @default(1)
+  restBetweenRounds Int?
+  timeCap           Int?
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  exercises         BlockExerciseV2[]
+}
+
+model BlockExerciseV2 {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  blockId       String         @db.ObjectId
+  block         WorkoutBlockV2 @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  exerciseId    String         @db.ObjectId
+  exercise      Exercise       @relation("BlockExercisesV2", fields: [exerciseId], references: [id])
+  orderIndex    Int
+  restSeconds   Int?
+  notes         String?
+  supersetGroup String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sets          ExerciseSet[]
+}
+
+model ExerciseSet {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  blockExerciseId String          @db.ObjectId
+  blockExercise   BlockExerciseV2 @relation(fields: [blockExerciseId], references: [id], onDelete: Cascade)
+  orderIndex      Int
+  setType         String          @default("NORMAL")
+  targetReps      Int?
+  targetWeight    Float?
+  targetDuration  Int?
+  targetDistance   Float?
+  targetRPE       Int?
+  targetPercentage1RM Float?
+  tempo           String?
+  restAfter       Int?
+}
+
+model WorkoutSessionV2 {
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  workoutId       String              @db.ObjectId
+  workout         Workout             @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  patientId       String              @db.ObjectId
+  patient         User                @relation("SessionsV2", fields: [patientId], references: [id])
+  scheduledDate   DateTime
+  startedAt       DateTime?
+  completedAt     DateTime?
+  status          String              @default("SCHEDULED")
+  overallRPE      Int?
+  overallNotes    String?
+  durationMinutes Int?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  exerciseLogs    SessionExerciseLog[]
+  feedback        SessionFeedback[]
+
+  @@index([patientId, scheduledDate])
+}
+
+model SessionExerciseLog {
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId       String           @db.ObjectId
+  session         WorkoutSessionV2 @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  blockExerciseId String           @db.ObjectId
+  orderIndex      Int
+  status          String           @default("PENDING")
+  completedAt     DateTime?
+  setLogs         SetLog[]
+}
+
+model SetLog {
+  id                   String             @id @default(auto()) @map("_id") @db.ObjectId
+  sessionExerciseLogId String             @db.ObjectId
+  sessionExerciseLog   SessionExerciseLog @relation(fields: [sessionExerciseLogId], references: [id], onDelete: Cascade)
+  setIndex             Int
+  actualReps           Int?
+  actualWeight         Float?
+  actualDuration       Int?
+  actualRPE            Int?
+  completedAt          DateTime?
+  notes                String?
+}
+
+model SessionFeedback {
+  id                String           @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId         String           @db.ObjectId
+  session           WorkoutSessionV2 @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  patientId         String           @db.ObjectId
+  rating            FeedbackRating
+  comment           String?
+  clinicianResponse String?
+  respondedAt       DateTime?
+  createdAt         DateTime         @default(now())
+}
+
+// --- Phase 3 Models ---
+
+model CheckInTemplate {
+  id           String              @id @default(auto()) @map("_id") @db.ObjectId
+  clinicianId  String              @db.ObjectId
+  clinician    User                @relation("CheckInTemplatesCreated", fields: [clinicianId], references: [id])
+  name         String
+  description  String?
+  frequency    String              @default("WEEKLY")
+  customDays   Int?
+  isActive     Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  questions    CheckInQuestion[]
+  assignments  CheckInAssignment[]
+}
+
+model CheckInQuestion {
+  id           String          @id @default(auto()) @map("_id") @db.ObjectId
+  templateId   String          @db.ObjectId
+  template     CheckInTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  orderIndex   Int
+  questionText String
+  questionType String
+  options      String[]
+  isRequired   Boolean         @default(true)
+}
+
+model CheckInAssignment {
+  id          String            @id @default(auto()) @map("_id") @db.ObjectId
+  templateId  String            @db.ObjectId
+  template    CheckInTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  patientId   String            @db.ObjectId
+  patient     User              @relation("CheckInAssignments", fields: [patientId], references: [id])
+  clinicianId String            @db.ObjectId
+  startDate   DateTime
+  endDate     DateTime?
+  isActive    Boolean           @default(true)
+  nextDueDate DateTime
+  createdAt   DateTime          @default(now())
+  responses   CheckInResponse[]
+}
+
+model CheckInResponse {
+  id           String            @id @default(auto()) @map("_id") @db.ObjectId
+  assignmentId String            @db.ObjectId
+  assignment   CheckInAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  patientId    String            @db.ObjectId
+  patient      User              @relation("CheckInResponses", fields: [patientId], references: [id])
+  submittedAt  DateTime          @default(now())
+  answers      Json
+  aiSummary    String?
+  coachNotes   String?
+  isReviewed   Boolean           @default(false)
+  reviewedAt   DateTime?
+
+  @@index([patientId, submittedAt])
+}
+
+model BodyMetric {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  patientId  String   @db.ObjectId
+  patient    User     @relation("BodyMetrics", fields: [patientId], references: [id])
+  metricType String
+  value      Float
+  unit       String
+  notes      String?
+  recordedAt DateTime @default(now())
+
+  @@index([patientId, metricType, recordedAt])
+}
+
+model ProgressPhoto {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  patientId  String   @db.ObjectId
+  patient    User     @relation("ProgressPhotos", fields: [patientId], references: [id])
+  imageUrl   String
+  angle      String?
+  notes      String?
+  isPrivate  Boolean  @default(true)
+  recordedAt DateTime @default(now())
+}
+
+model HabitDefinition {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  patientId   String    @db.ObjectId
+  patient     User      @relation("Habits", fields: [patientId], references: [id])
+  clinicianId String?   @db.ObjectId
+  name        String
+  icon        String?
+  targetValue Float?
+  unit        String?
+  frequency   String    @default("DAILY")
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  logs        HabitLog[]
+}
+
+model HabitLog {
+  id        String          @id @default(auto()) @map("_id") @db.ObjectId
+  habitId   String          @db.ObjectId
+  habit     HabitDefinition @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  date      DateTime
+  value     Float           @default(1)
+  completed Boolean         @default(false)
+  notes     String?
+  createdAt DateTime        @default(now())
+
+  @@unique([habitId, date])
+}
+
+// --- Phase 4 Models ---
+
+model NutritionTarget {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  patientId String   @unique @db.ObjectId
+  patient   User     @relation("NutritionTarget", fields: [patientId], references: [id])
+  calories  Int?
+  proteinG  Int?
+  carbsG    Int?
+  fatG      Int?
+  fiberG    Int?
+  waterMl   Int?
+  updatedAt DateTime @updatedAt
+}
+
+model NutritionLog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  patientId   String   @db.ObjectId
+  patient     User     @relation("NutritionLogs", fields: [patientId], references: [id])
+  date        DateTime
+  mealType    String
+  description String
+  calories    Int?
+  proteinG    Float?
+  carbsG      Float?
+  fatG        Float?
+  photoUrl    String?
+  createdAt   DateTime @default(now())
+
+  @@index([patientId, date])
+}
+
+// --- Phase 5 Models ---
+
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation("Notifications", fields: [userId], references: [id])
+  type      String
+  title     String
+  body      String?
+  link      String?
+  isRead    Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead, createdAt])
+}
+
+model CoachPackage {
+  id             String              @id @default(auto()) @map("_id") @db.ObjectId
+  clinicianId    String              @db.ObjectId
+  clinician      User                @relation("Packages", fields: [clinicianId], references: [id])
+  name           String
+  description    String?
+  priceInCents   Int
+  currency       String              @default("usd")
+  intervalMonths Int                 @default(1)
+  isActive       Boolean             @default(true)
+  stripePriceId  String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  subscriptions  ClientSubscription[]
+}
+
+model ClientSubscription {
+  id                   String       @id @default(auto()) @map("_id") @db.ObjectId
+  packageId            String       @db.ObjectId
+  package              CoachPackage @relation(fields: [packageId], references: [id])
+  patientId            String       @db.ObjectId
+  patient              User         @relation("Subscriptions", fields: [patientId], references: [id])
+  clinicianId          String       @db.ObjectId
+  status               String       @default("ACTIVE")
+  stripeSubscriptionId String?
+  stripeCustomerId     String?
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelledAt          DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  invoices             Invoice[]
+
+  @@index([clinicianId, status])
+  @@index([patientId])
+}
+
+model Invoice {
+  id              String             @id @default(auto()) @map("_id") @db.ObjectId
+  subscriptionId  String             @db.ObjectId
+  subscription    ClientSubscription @relation(fields: [subscriptionId], references: [id])
+  amountInCents   Int
+  currency        String             @default("usd")
+  status          String             @default("DRAFT")
+  stripeInvoiceId String?
+  paidAt          DateTime?
+  dueDate         DateTime
+  createdAt       DateTime           @default(now())
+}
+
+model CoachBranding {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  clinicianId    String   @unique @db.ObjectId
+  clinician      User     @relation("Branding", fields: [clinicianId], references: [id])
+  primaryColor   String   @default("#2563eb")
+  accentColor    String   @default("#f59e0b")
+  fontFamily     String   @default("Inter")
+  logoUrl        String?
+  faviconUrl     String?
+  welcomeMessage String?
+  customDomain   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

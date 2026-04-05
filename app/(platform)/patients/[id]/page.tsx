@@ -2,12 +2,17 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireRole } from "@/lib/current-user";
 import { getPatientDetail } from "@/lib/services/patient.service";
+import * as sessionService from "@/lib/services/session.service";
+import * as programService from "@/lib/services/program.service";
+import { getExercisesForPicker } from "@/lib/services/exercise.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlanStatusBadge } from "@/components/workout/plan-status-badge";
 import { ArrowLeft, BarChart3, Activity, MessageSquare } from "lucide-react";
+import { ClientCalendar } from "@/components/calendar/client-calendar";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -15,10 +20,31 @@ interface Props {
 
 export default async function PatientDetailPage({ params }: Props) {
   const { id } = await params;
-  await requireRole("CLINICIAN");
+  const user = await requireRole("CLINICIAN");
   const patient = await getPatientDetail(id);
 
   if (!patient) notFound();
+
+  // Fetch V2 sessions, programs, and exercise library for the calendar
+  const [v2Sessions, assignedPrograms, exerciseLibrary] = await Promise.all([
+    sessionService.getSessionsForPatient(patient.id),
+    programService.getProgramsForPatient(patient.id),
+    getExercisesForPicker(),
+  ]);
+
+  // Transform sessions to the shape the calendar expects
+  const calendarSessions = v2Sessions.map((s) => ({
+    id: s.id,
+    scheduledDate: s.scheduledDate,
+    status: s.status,
+    workout: {
+      id: s.workout.id,
+      name: s.workout.name,
+      blocks: s.workout.blocks.map((b) => ({
+        exercises: b.exercises.map((e) => ({ id: e.id })),
+      })),
+    },
+  }));
 
   return (
     <div className="space-y-6">
@@ -186,35 +212,63 @@ export default async function PatientDetailPage({ params }: Props) {
         </Card>
       )}
 
-      {/* Plans */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Workout Plans</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {patient.plansAsPatient.length === 0 ? (
-            <p className="text-sm text-slate-500">No plans assigned.</p>
-          ) : (
-            <div className="space-y-3">
-              {patient.plansAsPatient.map((plan) => (
-                <Link
-                  key={plan.id}
-                  href={`/workout-plans/${plan.id}`}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 p-3 hover:bg-slate-50"
-                >
-                  <div>
-                    <p className="font-medium text-slate-900">{plan.title}</p>
-                    <p className="text-xs text-slate-500">
-                      {plan._count.exercises} exercises | {plan._count.sessions} sessions
-                    </p>
-                  </div>
-                  <PlanStatusBadge status={plan.status} />
-                </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Tabbed content: Calendar (default), Programs, Plans */}
+      <Tabs defaultValue="calendar">
+        <TabsList>
+          <TabsTrigger value="calendar">Calendar</TabsTrigger>
+          <TabsTrigger value="programs">Programs ({assignedPrograms.length})</TabsTrigger>
+          </TabsList>
+
+        <TabsContent value="calendar" className="mt-4">
+          <ClientCalendar
+            patientId={patient.id}
+            clinicianId={user.id}
+            initialSessions={calendarSessions}
+            exerciseLibrary={exerciseLibrary}
+          />
+        </TabsContent>
+
+        <TabsContent value="programs" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Assigned Programs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {assignedPrograms.length === 0 ? (
+                <p className="text-sm text-slate-500">No programs assigned yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {assignedPrograms.map((prog) => (
+                    <Link
+                      key={prog.id}
+                      href={`/programs/${prog.id}`}
+                      className="flex items-center justify-between rounded-lg border border-slate-200 p-3 hover:bg-slate-50"
+                    >
+                      <div>
+                        <p className="font-medium text-slate-900">{prog.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {prog._count.workouts} workouts
+                        </p>
+                      </div>
+                      <Badge
+                        className={
+                          prog.status === "ACTIVE"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-gray-100 text-gray-700"
+                        }
+                      >
+                        {prog.status}
+                      </Badge>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        
+      </Tabs>
     </div>
   );
 }

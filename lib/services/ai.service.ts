@@ -347,3 +347,72 @@ Rules:
     exercises: sortedExercises,
   };
 }
+
+
+export interface GeneratedProgramWorkoutBlock {
+  type: string;
+  orderIndex: number;
+  exercises: {
+    exerciseId: string;
+    orderIndex: number;
+    sets: number;
+    reps: string;
+  }[];
+}
+
+export interface GeneratedProgramWorkout {
+  name: string;
+  dayIndex: number;
+  blocks: GeneratedProgramWorkoutBlock[];
+}
+
+export interface GeneratedProgram {
+  name: string;
+  description?: string;
+  workouts: GeneratedProgramWorkout[];
+}
+
+export async function generateProgram(
+  params: GenerateWorkoutParams
+): Promise<GeneratedProgram> {
+  const generatedPlan = await generateWorkoutPlan(params);
+
+  const workoutsMap = new Map<number, GeneratedProgramWorkout>();
+
+  generatedPlan.exercises.forEach((ex) => {
+    const day = ex.dayOfWeek || 1;
+    if (!workoutsMap.has(day)) {
+      workoutsMap.set(day, {
+        name: `Day ${day} Workout`,
+        dayIndex: day,
+        blocks: [],
+      });
+    }
+    const workout = workoutsMap.get(day)!;
+
+    let block = workout.blocks.find((b) => b.type === ex.phase.toUpperCase() || b.type === "NORMAL");
+    if (!block) {
+      block = {
+        type: ["WARMUP", "ACTIVATION", "STRENGTHENING", "MOBILITY", "COOLDOWN"].includes(ex.phase.toUpperCase()) ? ex.phase.toUpperCase() : "NORMAL",
+        orderIndex: workout.blocks.length,
+        exercises: [],
+      };
+      workout.blocks.push(block);
+    }
+    
+    block.exercises.push({
+      exerciseId: ex.exerciseId,
+      orderIndex: block.exercises.length,
+      sets: ex.sets || 3,
+      reps: ex.reps?.toString() || "10",
+    });
+  });
+
+  const workouts = Array.from(workoutsMap.values()).sort((a, b) => a.dayIndex - b.dayIndex);
+
+  return {
+    name: generatedPlan.title || "AI Generated Program",
+    description: generatedPlan.description,
+    workouts,
+  };
+}
