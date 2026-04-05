@@ -16,9 +16,9 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Dumbbell, ChevronLeft, ChevronRight } from "lucide-react";
 import { rescheduleSessionAction } from "@/actions/session-actions";
 import { createAdHocWorkout } from "@/actions/calendar-workout-actions";
-import { WorkoutEditorPanel } from "@/components/calendar/workout-editor-panel";import { AssignProgramDialog } from "@/components/calendar/assign-program-dialog";import { useRouter } from "next/navigation";
-import "react-big-calendar/lib/css/react-big-calendar.css";
-import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
+import { WorkoutEditorPanel } from "@/components/calendar/workout-editor-panel";
+import { AssignProgramDialog } from "@/components/calendar/assign-program-dialog";
+import { useRouter } from "next/navigation";
 
 // ---------------------------------------------------------------------------
 // Calendar setup
