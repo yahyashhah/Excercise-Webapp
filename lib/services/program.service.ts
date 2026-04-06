@@ -228,7 +228,7 @@ export async function duplicateProgram(
     estimatedMinutes: w.estimatedMinutes,
     blocks: w.blocks.map((b, bi) => ({
       name: b.name,
-      type: b.type as "NORMAL" | "SUPERSET" | "CIRCUIT" | "AMRAP" | "EMOM",
+      type: b.type as "NORMAL" | "WARMUP" | "COOLDOWN" | "SUPERSET" | "CIRCUIT" | "AMRAP" | "EMOM",
       orderIndex: bi,
       rounds: b.rounds,
       restBetweenRounds: b.restBetweenRounds,

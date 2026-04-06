@@ -28,7 +28,7 @@ export const blockExerciseSchema = z.object({
 export const workoutBlockSchema = z.object({
   id: z.string().optional(),
   name: z.string().max(100).optional().nullable(),
-  type: z.enum(["NORMAL", "SUPERSET", "CIRCUIT", "AMRAP", "EMOM"]).default("NORMAL"),
+  type: z.enum(["NORMAL", "WARMUP", "COOLDOWN", "SUPERSET", "CIRCUIT", "AMRAP", "EMOM"]).default("NORMAL"),
   orderIndex: z.number().int().min(0),
   rounds: z.number().int().min(1).default(1),
   restBetweenRounds: z.number().int().min(0).optional().nullable(),

@@ -46,9 +46,6 @@ type BaseExercise = {
 type SetLog = {
   id: string;
   setIndex: number;
-  actualReps?: number | null;
-  actualWeight?: number | null;
-  actualDuration?: number | null;
 };
 
 type BlockExerciseSet = {
@@ -136,34 +133,6 @@ export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
   const progress = totalExercises > 0 ? (doneCount / totalExercises) * 100 : 0;
   const currentExercise = activeExercises[currentIndex];
 
-  const [activeSetLogs, setActiveSetLogs] = useState<Record<number, {
-    actualReps?: number;
-    actualWeight?: number;
-    actualDuration?: number;
-    completed: boolean;
-  }>>({});
-  const [loggingSet, setLoggingSet] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (currentExercise) {
-      const initial: Record<number, any> = {};
-      const sessionLog = session.exerciseLogs.find(
-        (log) => log.blockExerciseId === currentExercise.id
-      );
-      
-      currentExercise.sets.forEach((set, i) => {
-        const existingLog = sessionLog?.setLogs.find((sl) => sl.setIndex === i);
-        initial[i] = {
-          actualReps: existingLog?.actualReps ?? set.reps ?? undefined,
-          actualWeight: existingLog?.actualWeight ?? set.weight ?? undefined,
-          actualDuration: existingLog?.actualDuration ?? set.duration ?? undefined,
-          completed: !!existingLog || completedIds.has(currentExercise.id),
-        };
-      });
-      setActiveSetLogs(initial);
-    }
-  }, [currentExercise, session.exerciseLogs, completedIds]);
-
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (timerActive) {
@@ -192,61 +161,26 @@ export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
     setIsLoading(false);
   };
 
-  const handleSetInputChange = (index: number, field: string, value: string) => {
-    const numValue = value === "" ? undefined : Number(value);
-    setActiveSetLogs((prev) => ({
-      ...prev,
-      [index]: {
-        ...prev[index],
-        [field]: numValue
-      }
-    }));
-  };
-
-  const handleLogSet = async (index: number) => {
-    if (!currentExercise) return;
-    setLoggingSet(index);
-    const logData = activeSetLogs[index];
-    try {
-      await updateSetLogV2Action(session.id, currentExercise.id, index, {
-        actualReps: logData.actualReps,
-        actualWeight: logData.actualWeight,
-        actualDuration: logData.actualDuration,
-      });
-      setActiveSetLogs(prev => ({
-        ...prev,
-        [index]: { ...prev[index], completed: true }
-      }));
-    } catch {
-      toast.error("Failed to log set");
-    } finally {
-      setLoggingSet(null);
-    }
-  };
-
   const handleComplete = async () => {
     if (!currentExercise) return;
-    setIsLoading(true);
-
+    
+    // For now, mark all sets as complete with dummy data for this exercise
+    // Since V2 uses sets, we loop over currentExercise.sets
     try {
-      // Auto-log any sets that are not completed yet
       for (let i = 0; i < currentExercise.sets.length; i++) {
-        if (!activeSetLogs[i]?.completed) {
-          const logData = activeSetLogs[i] || {};
-          await updateSetLogV2Action(session.id, currentExercise.id, i, {
-            actualReps: logData.actualReps,
-            actualDuration: logData.actualDuration,
-            actualWeight: logData.actualWeight,
-          });
-        }
+        await updateSetLogV2Action(session.id, currentExercise.id, i, {
+          actualReps: currentExercise.sets[i].reps ?? undefined,
+          actualDuration: currentExercise.sets[i].duration ?? undefined,
+          actualWeight: currentExercise.sets[i].weight ?? undefined,
+        });
       }
-      setCompletedIds((prev) => new Set(prev).add(currentExercise.id));
-      advanceToNext();
     } catch {
       toast.error("Failed to save progress");
-    } finally {
-      setIsLoading(false);
+      return;
     }
+
+    setCompletedIds((prev) => new Set(prev).add(currentExercise.id));
+    advanceToNext();
   };
 
   const handleSkip = async () => {
@@ -349,6 +283,31 @@ export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
               thumbnailClassName="relative h-52 w-full overflow-hidden rounded-lg"
             />
 
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="p-2 bg-muted rounded">
+                <p className="text-2xl font-bold">{currentSetsCount}</p>
+                <p className="text-xs text-muted-foreground">Sets</p>
+              </div>
+              {firstSet?.reps && (
+                <div className="p-2 bg-muted rounded">
+                  <p className="text-2xl font-bold">{firstSet.reps}</p>
+                  <p className="text-xs text-muted-foreground">Reps</p>
+                </div>
+              )}
+              {firstSet?.duration && (
+                <div className="p-2 bg-muted rounded">
+                  <p className="text-2xl font-bold">{firstSet.duration}s</p>
+                  <p className="text-xs text-muted-foreground">Duration</p>
+                </div>
+              )}
+              {firstSet?.rest && (
+                <div className="p-2 bg-muted rounded">
+                  <p className="text-2xl font-bold">{firstSet.rest}s</p>
+                  <p className="text-xs text-muted-foreground">Rest</p>
+                </div>
+              )}
+            </div>
+
             {currentExercise.exercise.instructions && (
               <div className="text-sm whitespace-pre-wrap text-muted-foreground">
                 {currentExercise.exercise.instructions}
@@ -360,74 +319,6 @@ export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
                 Note: {currentExercise.notes}
               </p>
             )}
-
-            <div className="space-y-3 py-2">
-              {currentExercise.sets.map((set, i) => {
-                const logData = activeSetLogs[i] || {};
-                const isCompleted = logData.completed;
-                const isLogging = loggingSet === i;
-                
-                return (
-                  <div key={set.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${isCompleted ? 'bg-muted/50 border-muted' : 'bg-background border-border'}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${isCompleted ? 'bg-muted-foreground/20 text-muted-foreground' : 'bg-primary/10 text-primary'}`}>
-                      {i + 1}
-                    </div>
-                    
-                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {set.reps != null && (
-                        <div className="space-y-1">
-                          <Label className="text-[10px] uppercase text-muted-foreground font-semibold">Reps</Label>
-                          <Input
-                            type="number"
-                            placeholder={set.reps.toString()}
-                            value={logData.actualReps ?? ""}
-                            onChange={(e) => handleSetInputChange(i, "actualReps", e.target.value)}
-                            className="h-8 text-sm"
-                            disabled={isCompleted}
-                          />
-                        </div>
-                      )}
-                      {set.weight != null && (
-                        <div className="space-y-1">
-                          <Label className="text-[10px] uppercase text-muted-foreground font-semibold">Lbs/Kg</Label>
-                          <Input
-                            type="number"
-                            placeholder={set.weight.toString()}
-                            value={logData.actualWeight ?? ""}
-                            onChange={(e) => handleSetInputChange(i, "actualWeight", e.target.value)}
-                            className="h-8 text-sm"
-                            disabled={isCompleted}
-                          />
-                        </div>
-                      )}
-                      {set.duration != null && (
-                        <div className="space-y-1">
-                          <Label className="text-[10px] uppercase text-muted-foreground font-semibold">Secs</Label>
-                          <Input
-                            type="number"
-                            placeholder={set.duration.toString()}
-                            value={logData.actualDuration ?? ""}
-                            onChange={(e) => handleSetInputChange(i, "actualDuration", e.target.value)}
-                            className="h-8 text-sm"
-                            disabled={isCompleted}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    <Button
-                      size="icon"
-                      variant={isCompleted ? "secondary" : "default"}
-                      className="h-8 w-8 shrink-0 rounded-full"
-                      onClick={() => handleLogSet(i)}
-                      disabled={isCompleted || isLogging}
-                    >
-                      {isLogging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
 
             {(currentExercise.exercise.videoUrl || currentExercise.exercise.media.length > 0) && (
               <div className="space-y-2">

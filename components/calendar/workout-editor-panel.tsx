@@ -1,7 +1,7 @@
 import {  getPatientExerciseHistory } from "@/actions/exercise-history-actions";
 import { History } from "lucide-react";
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { GripVertical, Dumbbell, Trash2, Loader2, X, Plus, MoreVertical, Calendar as CalendarIcon, ChevronDown, ChevronRight, Settings } from "lucide-react";
+import { GripVertical, Dumbbell, Trash2, Loader2, X, Plus, MoreVertical, Calendar as CalendarIcon, ChevronDown, ChevronRight, Settings, CheckCircle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -156,7 +156,9 @@ function SortableExercise({
   onDeleteExercise,
   onAddSet,
   onUpdateNotes,
-  patientId
+  patientId,
+  sessionStatus,
+  exerciseLog
 }: any) {
   const [expanded, setExpanded] = React.useState(true);
   const {
@@ -203,7 +205,7 @@ function SortableExercise({
           <div
             {...attributes}
             {...listeners}
-            className="cursor-move p-1 -ml-1 hover:bg-muted text-muted-foreground/40 rounded opacity-0 group-hover:opacity-100 transition-opacity"                                                                
+            className={`cursor-move p-1 -ml-1 ${sessionStatus === "COMPLETED" ? "opacity-0 cursor-default" : "hover:bg-muted text-muted-foreground/40 rounded opacity-0 group-hover:opacity-100 transition-opacity"}`}                                                                
           >
             <GripVertical className="h-4 w-4" />
           </div>
@@ -267,6 +269,7 @@ function SortableExercise({
         >
           <History className="h-3.5 w-3.5" />
         </Button>
+{(!sessionStatus || sessionStatus !== "COMPLETED") && (
 <Button
             variant="ghost"
             size="icon-xs"
@@ -275,6 +278,7 @@ function SortableExercise({
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
+)}
         </div>
       </div>
 
@@ -292,9 +296,10 @@ function SortableExercise({
           <div className="mb-3">
             <Input
               placeholder="Add coach notes..."
-              className="text-xs h-7 bg-transparent border-dashed border-muted focus:border-solid hover:border-solid shadow-none px-2"                                                                    
+              className="text-xs h-7 bg-transparent border-dashed border-muted focus:border-solid hover:border-solid shadow-none px-2 disabled:opacity-70 disabled:cursor-default disabled:border-transparent"                                                                    
               value={exercise.notes || ""}
-              onChange={(e) => onUpdateNotes(blockIndex, exerciseIndex, e.target.value)}                                                                            
+              onChange={(e) => onUpdateNotes(blockIndex, exerciseIndex, e.target.value)}
+              disabled={sessionStatus === "COMPLETED"}
             />
           </div>
 
@@ -311,7 +316,11 @@ function SortableExercise({
             )}
             
             {/* Sets Rows */}
-            {exercise.sets.map((set: any, setIndex: number) => (
+            {exercise.sets.map((set: any, setIndex: number) => {
+              const actualLog = exerciseLog?.setLogs?.find((l: any) => l.setIndex === setIndex);
+              const isCompleted = sessionStatus === "COMPLETED";
+
+              return (
               <div
                 key={set.id}
                 className="grid grid-cols-[1.5rem_1.5fr_1.5fr_1fr_1.5rem] gap-2 items-center group/set border rounded-sm p-1 bg-background/50 hover:bg-accent/20 transition-colors"                                                                
@@ -324,56 +333,80 @@ function SortableExercise({
                 </div>
                 
                 {/* Reps & Duration */}
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col gap-0.5 relative">
                   <Input
                     type="number"
                     value={set.targetReps ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "targetReps", e.target.value)}                                                  
-                    className="h-6 text-xs px-1.5 shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1"
+                    className="h-6 text-xs px-1.5 shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="Reps"
+                    disabled={isCompleted}
                   />
                   <Input
                     type="number"
                     value={set.targetDuration ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "targetDuration", e.target.value)}                                              
-                    className="h-6 text-[10px] px-1.5 text-muted-foreground bg-transparent shadow-none border-transparent hover:border-border focus:border-ring h-5 focus-visible:ring-1"
+                    className="h-6 text-[10px] px-1.5 text-muted-foreground bg-transparent shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="Secs"
+                    disabled={isCompleted}
                   />
+                  {isCompleted && actualLog && (actualLog.actualReps != null || actualLog.actualDuration != null) && (
+                     <div className="absolute -right-2 -top-2 flex gap-0.5 z-10" title="Actual Performance">
+                       <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] bg-green-50 text-green-700 border-green-200 shadow-sm flex items-center gap-0.5">
+                         <CheckCircle className="h-2.5 w-2.5" />
+                         {actualLog.actualReps != null ? `${actualLog.actualReps}r` : ''}
+                         {actualLog.actualReps != null && actualLog.actualDuration != null ? ' | ' : ''}
+                         {actualLog.actualDuration != null ? `${actualLog.actualDuration}s` : ''}
+                       </Badge>
+                     </div>
+                  )}
                 </div>
 
                 {/* Load & %1RM */}
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col gap-0.5 relative">
                   <Input
                     type="number"
                     value={set.targetWeight ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "targetWeight", e.target.value)}                                                
-                    className="h-6 text-xs px-1.5 shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1"
+                    className="h-6 text-xs px-1.5 shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="Lbs/Kg"
+                    disabled={isCompleted}
                   />
                   <Input
                     type="number"
                     value={set.targetPercentage1RM ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "targetPercentage1RM", e.target.value)}
-                    className="h-6 text-[10px] px-1.5 text-muted-foreground bg-transparent shadow-none border-transparent hover:border-border focus:border-ring h-5 focus-visible:ring-1"
+                    className="h-6 text-[10px] px-1.5 text-muted-foreground bg-transparent shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="% 1RM"
+                    disabled={isCompleted}
                   />
+                  {isCompleted && actualLog && actualLog.actualWeight != null && (
+                     <div className="absolute -right-2 -top-2 flex gap-0.5 z-10" title="Actual Weight">
+                       <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] bg-green-50 text-green-700 border-green-200 shadow-sm flex items-center gap-0.5">
+                         <CheckCircle className="h-2.5 w-2.5" />
+                         {actualLog.actualWeight}
+                       </Badge>
+                     </div>
+                  )}
                 </div>
 
                 {/* Tempo & Rest */}
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col gap-0.5 relative">
                    <Input
                     type="text"
                     value={set.tempo ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "tempo", e.target.value)}
-                    className="h-6 text-xs px-1.5 shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1"
+                    className="h-6 text-xs px-1.5 shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="Tempo"
+                    disabled={isCompleted}
                   />
                   <Input
                     type="number"
                     value={set.restAfter ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "restAfter", e.target.value)}                                                   
-                    className="h-6 text-[10px] px-1.5 text-muted-foreground bg-transparent shadow-none border-transparent hover:border-border focus:border-ring h-5 focus-visible:ring-1"
+                    className="h-6 text-[10px] px-1.5 text-muted-foreground bg-transparent shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="Rest(s)"
+                    disabled={isCompleted}
                   />
                 </div>
 
@@ -382,25 +415,28 @@ function SortableExercise({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-muted-foreground hover:text-destructive h-6 w-6 opacity-0 group-hover/set:opacity-100 transition-opacity"                                                                               
+                    className="text-muted-foreground hover:text-destructive h-6 w-6 opacity-0 group-hover/set:opacity-100 transition-opacity disabled:opacity-0"                                                                               
                     onClick={() => onDeleteSet(blockIndex, exerciseIndex, setIndex)}  
+                    disabled={isCompleted}
                   >
                     <X className="h-3 w-3" />
                   </Button>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
           
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground mt-2 text-xs h-7 px-2 hover:bg-secondary"
-            onClick={() => onAddSet(blockIndex, exerciseIndex)}
-          >
-            <Plus className="h-3 w-3 mr-1" />
-            Add Set
-          </Button>
+          {!sessionStatus || sessionStatus !== "COMPLETED" ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground mt-2 text-xs h-7 px-2 hover:bg-secondary"
+              onClick={() => onAddSet(blockIndex, exerciseIndex)}
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Add Set
+            </Button>
+          ) : null}
         </div>
       )}
     </div>
@@ -939,6 +975,26 @@ export function WorkoutEditorPanel({
               ) : session ? (
                 /* Edit mode - show blocks & exercises */
                 <>
+                  {session.status === "COMPLETED" && (session.overallRPE !== null || session.overallNotes) && (
+                    <div className="bg-green-50 border border-green-200 rounded-md p-4 text-sm text-green-800 mb-6">
+                      <div className="flex items-center gap-2 font-semibold mb-1">
+                        <CheckCircle className="h-4 w-4" />
+                        Patient Feedback
+                      </div>
+                      <div className="grid gap-1">
+                        {session.overallRPE !== null && (
+                          <div>
+                            <span className="font-medium text-green-900">Overall RPE:</span> {session.overallRPE}/10
+                          </div>
+                        )}
+                        {session.overallNotes && (
+                          <div>
+                            <span className="font-medium text-green-900">Notes:</span> {session.overallNotes}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   {session.workout.blocks.map((block, blockIndex) => {
                     const typeConfig = getBlockTypeConfig(block.type);
                     const blockLetter = String.fromCharCode(65 + blockIndex); // A, B, C...
@@ -1030,6 +1086,8 @@ export function WorkoutEditorPanel({
                                   isCircuit={isCircuit}
                                   savingSetIds={savingSetIds}
                                   patientId={patientId}
+                                  sessionStatus={session.status}
+                                  exerciseLog={session.exerciseLogs?.find((l: any) => l.blockExerciseId === exercise.id)}
                                   onSetChange={handleSetChange}
                                   onDeleteSet={handleDeleteSet}
                                   onDeleteExercise={handleDeleteExercise}       

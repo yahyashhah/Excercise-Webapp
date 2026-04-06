@@ -63,7 +63,7 @@ function mapWorkoutToInput(w: Record<string, unknown>): WorkoutInput {
       (b: Record<string, unknown>, bi: number) => ({
         id: b.id as string,
         name: b.name as string | null | undefined,
-        type: ((b.type as string) || "NORMAL") as "NORMAL" | "SUPERSET" | "CIRCUIT" | "AMRAP" | "EMOM",
+          type: (["WARMUP", "COOLDOWN", "SUPERSET", "CIRCUIT", "AMRAP", "EMOM"].includes((b.type as string)?.toUpperCase()) ? (b.type as string).toUpperCase() : "NORMAL") as "NORMAL" | "WARMUP" | "COOLDOWN" | "SUPERSET" | "CIRCUIT" | "AMRAP" | "EMOM",
         orderIndex: bi,
         rounds: (b.rounds as number) || 1,
         restBetweenRounds: b.restBetweenRounds as number | null | undefined,

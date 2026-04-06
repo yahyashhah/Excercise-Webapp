@@ -348,8 +348,8 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="NORMAL">Normal</SelectItem>
-                          <SelectItem value="SUPERSET">Superset</SelectItem>
+                          <SelectItem value="NORMAL">Normal</SelectItem>                            <SelectItem value="WARMUP">Warmup</SelectItem>
+                            <SelectItem value="COOLDOWN">Cooldown</SelectItem>                          <SelectItem value="SUPERSET">Superset</SelectItem>
                           <SelectItem value="CIRCUIT">Circuit</SelectItem>
                           <SelectItem value="AMRAP">AMRAP</SelectItem>
                           <SelectItem value="EMOM">EMOM</SelectItem>

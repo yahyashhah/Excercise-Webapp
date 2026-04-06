@@ -390,10 +390,15 @@ export async function generateProgram(
     }
     const workout = workoutsMap.get(day)!;
 
-    let block = workout.blocks.find((b) => b.type === ex.phase.toUpperCase() || b.type === "NORMAL");
+    let targetType = ex.phase.toUpperCase();
+    if (["ACTIVATION", "STRENGTHENING", "MOBILITY"].includes(targetType)) {
+      targetType = "NORMAL";
+    }
+
+    let block = workout.blocks.find((b) => b.type === targetType);
     if (!block) {
       block = {
-        type: ["WARMUP", "ACTIVATION", "STRENGTHENING", "MOBILITY", "COOLDOWN"].includes(ex.phase.toUpperCase()) ? ex.phase.toUpperCase() : "NORMAL",
+        type: ["WARMUP", "COOLDOWN", "SUPERSET", "CIRCUIT", "AMRAP", "EMOM"].includes(targetType) ? targetType : "NORMAL",
         orderIndex: workout.blocks.length,
         exercises: [],
       };

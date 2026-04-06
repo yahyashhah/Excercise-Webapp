@@ -791,6 +791,21 @@ export async function getCalendarSessions(patientId: string) {
 // ---------------------------------------------------------------------------
 
 export type SessionWithFullWorkout = {
+  exerciseLogs?: { 
+    id: string; 
+    blockExerciseId: string; 
+    status: string; 
+    setLogs: { 
+      setIndex: number; 
+      actualReps?: number | null; 
+      actualWeight?: number | null; 
+      actualDuration?: number | null; 
+      actualRPE?: number | null; 
+    }[] 
+  }[];
+  overallRPE?: number | null;
+  overallNotes?: string | null;
+  feedback?: any[];
   id: string;
   scheduledDate: string;
   status: string;
