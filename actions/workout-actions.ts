@@ -3,6 +3,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getCurrentUser } from "@/lib/current-user";
 import * as workoutPlanService from "@/lib/services/workout-plan.service";
 import * as aiService from "@/lib/services/ai.service";
 import type { PlanStatus } from "@prisma/client";
@@ -148,6 +149,53 @@ export async function updatePlanExerciseAction(
   }
 }
 
+export async function saveProgramBuilderBlocksAction(
+  planId: string,
+  blocks: {
+    id?: string;
+    name: string;
+    description?: string;
+    orderIndex: number;
+    exercises: {
+      id?: string;
+      exerciseId: string;
+      orderIndex: number;
+      sets?: number;
+      reps?: number;
+      durationSeconds?: number;
+      restSeconds?: number;
+      notes?: string;
+    }[];
+  }[]
+) {
+  const { userId } = await auth();
+  if (!userId) return { success: false as const, error: "Unauthorized" };
+
+  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!dbUser) return { success: false as const, error: "User not found" };
+  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+
+  // Verify the clinician owns this plan
+  const plan = await prisma.workoutPlan.findUnique({
+    where: { id: planId },
+    select: { createdById: true },
+  });
+  if (!plan || plan.createdById !== dbUser.id) {
+    return { success: false as const, error: "Forbidden" };
+  }
+
+  try {
+    await workoutPlanService.updatePlanBlocks(planId, blocks);
+    revalidatePath("/workout-plans");
+    revalidatePath(`/workout-plans/${planId}`);
+    return { success: true as const };
+  } catch (error) {
+    console.error("Failed to save program blocks:", error);
+    return { success: false as const, error: "Failed to save program blocks" };
+  }
+}
+
+
 export async function swapExerciseAction(planExerciseId: string, newExerciseId: string) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
@@ -193,5 +241,45 @@ export async function assignClientToPlanAction(planId: string, patientId: string
   } catch (error) {
     console.error("Failed to assign client:", error);
     return { success: false as const, error: "Failed to assign client" };
+  }
+}
+export async function saveAiTemplateAction(planData: any) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+
+    const plan = await prisma.workoutPlan.create({
+      data: {
+        title: planData.title,
+        description: planData.description,
+        daysPerWeek: planData.daysPerWeek,
+        isTemplate: true,
+        createdById: user.id,
+        blocks: {
+          create: planData.blocks.map((b: any, bIdx: number) => ({
+            name: b.name,
+            description: b.description,
+            orderIndex: bIdx,
+            exercises: {
+              create: b.exercises.map((e: any, eIdx: number) => ({
+                exerciseId: e.exerciseId,
+                orderIndex: eIdx,
+                sets: e.sets,
+                reps: e.reps,
+                durationSeconds: e.durationSeconds,
+                restSeconds: e.restSeconds,
+                notes: e.notes,
+              }))
+            }
+          }))
+        }
+      }
+    });
+
+    revalidatePath('/workout-plans');
+    return { success: true, data: plan };
+  } catch (error: any) {
+    console.error('saveAiTemplateAction Error:', error);
+    return { success: false, error: error.message };
   }
 }

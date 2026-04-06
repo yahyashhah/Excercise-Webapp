@@ -16,28 +16,29 @@ export async function createExerciseAction(input: {
   contraindications: string[];
   instructions?: string;
   videoUrl?: string;
-  imageUrl?: string;
-}) {
-  const { userId } = await auth();
-  if (!userId) return { success: false as const, error: "Unauthorized" };
+    videoProvider?: string;
+    imageUrl?: string;
+  }) {
+    const { userId } = await auth();
+    if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!dbUser) return { success: false as const, error: "User not found" };
+    if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
 
-  const parsed = createExerciseSchema.safeParse(input);
-  if (!parsed.success) {
-    return { success: false as const, error: parsed.error.issues[0].message };
-  }
+    const parsed = createExerciseSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false as const, error: parsed.error.issues[0].message };
+    }
 
-  try {
-    const exercise = await exerciseService.createExercise({
-      ...parsed.data,
-      bodyRegion: parsed.data.bodyRegion as BodyRegion,
-      difficultyLevel: parsed.data.difficultyLevel as DifficultyLevel,
-      videoUrl: parsed.data.videoUrl || undefined,
-      imageUrl: parsed.data.imageUrl || undefined,
-      createdById: dbUser.id,
+    try {
+      const exercise = await exerciseService.createExercise({
+        ...parsed.data,
+        bodyRegion: parsed.data.bodyRegion as BodyRegion,
+        difficultyLevel: parsed.data.difficultyLevel as DifficultyLevel,
+        videoUrl: parsed.data.videoUrl || undefined,
+        videoProvider: parsed.data.videoProvider || undefined,
+        createdById: dbUser.id,
     });
 
     revalidatePath("/exercises");

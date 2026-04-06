@@ -1,5 +1,7 @@
 # AI Home Exercise Platform -- Complete Execution Blueprint
 
+> **Notice:** We are officially evolving the platform architecture directly into a TrueCoach-like model, which spans calendar-based assignments, robust scheduling, modular nested program building, AI-driven structure, and video. Please refer to [TRUECOACH_MIGRATION_PLAN.md](TRUECOACH_MIGRATION_PLAN.md) for the active phase execution priorities and granular schema replacements.
+
 ---
 
 ## 1. Dependency Installation

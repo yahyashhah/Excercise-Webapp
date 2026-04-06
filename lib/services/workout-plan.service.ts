@@ -134,3 +134,58 @@ export async function deletePlan(planId: string) {
     data: { status: "ARCHIVED" },
   });
 }
+
+export async function updatePlanBlocks(
+  planId: string,
+  blocks: {
+    id?: string;
+    name: string;
+    description?: string;
+    orderIndex: number;
+    exercises: {
+      id?: string;
+      exerciseId: string;
+      orderIndex: number;
+      sets?: number;
+      reps?: number;
+      durationSeconds?: number;
+      restSeconds?: number;
+      notes?: string;
+    }[];
+  }[]
+) {
+  await prisma.workoutBlock.deleteMany({
+    where: { planId }
+  });
+
+  for (const block of blocks) {
+    if (!block.name) continue; // skip empty blocks
+    
+    await prisma.workoutBlock.create({
+      data: {
+        planId,
+        name: block.name,
+        description: block.description || "",
+        orderIndex: block.orderIndex,
+        exercises: {
+          create: block.exercises.map(e => ({
+            exerciseId: e.exerciseId,
+            orderIndex: e.orderIndex,
+            sets: e.sets || null,
+            reps: e.reps || null,
+            durationSeconds: e.durationSeconds || null,
+            restSeconds: e.restSeconds || null,
+            notes: e.notes || "",
+            isActive: true
+          }))
+        }
+      }
+    });
+  }
+
+  return prisma.workoutPlan.update({
+    where: { id: planId },
+    data: { version: { increment: 1 } },
+  });
+}
+

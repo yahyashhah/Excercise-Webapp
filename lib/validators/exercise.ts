@@ -9,6 +9,7 @@ export const createExerciseSchema = z.object({
   contraindications: z.array(z.string()).default([]),
   instructions: z.string().max(5000).optional(),
   videoUrl: z.string().url().optional().or(z.literal("")),
+  videoProvider: z.string().optional().or(z.literal("")),
   imageUrl: z.string().url().optional().or(z.literal("")),
 });
 

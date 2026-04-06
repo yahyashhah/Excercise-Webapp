@@ -60,3 +60,13 @@ All Prisma enums are UPPERCASE: CLINICIAN, PATIENT, ACTIVE, DRAFT, FELT_GOOD, LO
 - `ClinicProfile` model: clinicianId (unique), clinicName, tagline, logoUrl, phone, email, website, address
 - 103 seed exercises in `lib/db/seed/exercises-v2.ts` (all isActive: false)
 - Seed script uses findFirst/update pattern (not upsert) because Exercise.name is not @unique
+
+## Calendar Feature (2026-04-03)
+
+- `components/calendar/client-calendar.tsx` -- main interactive TrueCoach-style calendar
+- `components/calendar/workout-editor-panel.tsx` -- right-side Sheet for creating/editing workouts inline
+- `actions/calendar-workout-actions.ts` -- granular CRUD actions for ad-hoc workouts, blocks, exercises, sets
+- Ad-hoc workouts created as Programs with `tags: ["ad-hoc"]`; cleaned up on session delete
+- Calendar is the default tab on patient detail page (`/patients/[id]`)
+- ActionResult<T> type lives in `lib/types/index.ts`
+- PatientClinicianLink enforces clinician access via `@@unique([patientId, clinicianId])`

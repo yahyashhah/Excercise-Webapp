@@ -12,6 +12,7 @@ import {
   BarChart3,
   Settings,
   Activity,
+  Library,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ interface MobileNavProps {
 const navItems = [
   { label: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard, roles: ["clinician", "patient"] },
   { label: "Exercises", href: ROUTES.EXERCISES, icon: Dumbbell, roles: ["clinician", "patient"] },
+  { label: "Programs", href: "/programs", icon: Library, roles: ["clinician"] },
   { label: "Workout Plans", href: ROUTES.WORKOUT_PLANS, icon: ClipboardList, roles: ["clinician", "patient"] },
   { label: "Clients", href: ROUTES.PATIENTS, icon: Users, roles: ["clinician"] },
   { label: "Messages", href: ROUTES.MESSAGES, icon: MessageSquare, roles: ["clinician", "patient"] },

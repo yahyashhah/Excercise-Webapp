@@ -12,6 +12,7 @@ import {
   BarChart3,
   Settings,
   Activity,
+  Library,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +30,7 @@ interface SidebarProps {
 const clinicianLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/exercises", label: "Exercises", icon: Dumbbell },
-  { href: "/workout-plans", label: "Workout Plans", icon: ClipboardList },
+  { href: "/programs", label: "Programs", icon: Library },
   { href: "/patients", label: "Clients", icon: Users },
   { href: "/messages", label: "Messages", icon: MessageSquare },
   { href: "/assessments", label: "Assessments", icon: BarChart3 },
@@ -38,7 +39,7 @@ const clinicianLinks = [
 const patientLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/exercises", label: "Exercises", icon: Dumbbell },
-  { href: "/workout-plans", label: "My Plans", icon: ClipboardList },
+  { href: "/programs", label: "My Programs", icon: ClipboardList },
   { href: "/messages", label: "Messages", icon: MessageSquare },
   { href: "/assessments", label: "Assessments", icon: BarChart3 },
 ];

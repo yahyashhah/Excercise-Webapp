@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,22 +7,21 @@ import { ClipboardList, Activity, MessageSquare, TrendingUp, Play, Flame } from 
 import { formatPlanStatus, formatDate } from "@/lib/utils/formatting";
 
 interface PatientDashboardProps {
-  activePlans: { id: string; title: string; status: string; exerciseCount: number }[];
+  upcomingSessions: any[];
   weeklyCompliance: number;
-  nextWorkout: { plan: { id: string; title: string }; dayLabel: string } | null;
   recentAssessments: { id: string; assessmentType: string; value: number; unit: string; createdAt: Date }[];
   unreadMessages: number;
 }
 
 export function PatientDashboard({
-  activePlans,
+  upcomingSessions,
   weeklyCompliance,
-  nextWorkout,
   recentAssessments,
   unreadMessages,
 }: PatientDashboardProps) {
-  // Calculate a weekly compliance percentage (assume 7 target sessions)
   const compliancePercent = Math.min(Math.round((weeklyCompliance / 7) * 100), 100);
+  
+  const nextWorkout = upcomingSessions.length > 0 ? upcomingSessions[0] : null;
 
   return (
     <div className="space-y-6">
@@ -40,8 +39,8 @@ export function PatientDashboard({
               <ClipboardList className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{activePlans.length}</p>
-              <p className="text-sm text-white/80">Active Plans</p>
+              <p className="text-2xl font-bold">{upcomingSessions.length}</p>        
+              <p className="text-sm text-white/80">Upcoming</p>
             </div>
           </CardContent>
         </Card>
@@ -53,7 +52,7 @@ export function PatientDashboard({
             </div>
             <div>
               <p className="text-2xl font-bold">{weeklyCompliance}</p>
-              <p className="text-sm text-white/80">Sessions This Week</p>
+              <p className="text-sm text-white/80">Sessions This Week</p>       
             </div>
           </CardContent>
         </Card>
@@ -76,7 +75,7 @@ export function PatientDashboard({
               <TrendingUp className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{recentAssessments.length}</p>
+              <p className="text-2xl font-bold">{recentAssessments.length}</p>  
               <p className="text-sm text-white/80">Assessments</p>
             </div>
           </CardContent>
@@ -102,17 +101,17 @@ export function PatientDashboard({
 
       {/* Next workout */}
       {nextWorkout && (
-        <Card className="overflow-hidden border-0 bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50">
-          <CardContent className="flex items-center justify-between p-6">
+        <Card className="overflow-hidden border-0 bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-violet-900/20">
+          <CardContent className="flex items-center justify-between p-6">       
             <div>
               <Badge className="mb-2 bg-blue-100 text-blue-700 hover:bg-blue-200 border-0">
-                {nextWorkout.dayLabel}
+                {formatDate(nextWorkout.scheduledDate)}
               </Badge>
-              <p className="text-lg font-semibold">{nextWorkout.plan.title}</p>
+              <p className="text-lg font-semibold">{nextWorkout.workout?.name || "Workout Session"}</p> 
               <p className="text-sm text-muted-foreground">Ready when you are</p>
             </div>
             <Button className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 border-0" asChild>
-              <Link href={`/workout-plans/${nextWorkout.plan.id}/session`}>
+              <Link href={"/sessions/" + nextWorkout.id}>     
                 <Play className="mr-2 h-4 w-4" />
                 Start Workout
               </Link>
@@ -124,59 +123,32 @@ export function PatientDashboard({
       {/* Active plans */}
       <Card>
         <CardHeader>
-          <CardTitle>Your Plans</CardTitle>
+          <CardTitle>Upcoming Sessions</CardTitle>
         </CardHeader>
         <CardContent>
-          {activePlans.length === 0 ? (
+          {upcomingSessions.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No active plans yet. Your clinician will assign one soon.
+              No upcoming sessions. Great job catching up!
             </p>
           ) : (
             <div className="space-y-3">
-              {activePlans.map((plan) => (
+              {upcomingSessions.map((session) => (
                 <Link
-                  key={plan.id}
-                  href={`/workout-plans/${plan.id}`}
+                  key={session.id}
+                  href={"/sessions/" + session.id}
                   className="flex items-center justify-between rounded-xl border border-border p-4 transition-all hover:bg-muted/50 hover:shadow-sm"
                 >
                   <div>
-                    <p className="font-medium">{plan.title}</p>
-                    <p className="text-sm text-muted-foreground">{plan.exerciseCount} exercises</p>
+                    <p className="font-medium">{session.workout?.name || "Workout Session"}</p>
+                    <p className="text-sm text-muted-foreground">{formatDate(session.scheduledDate)}</p>
                   </div>
-                  <Badge variant="secondary">{formatPlanStatus(plan.status)}</Badge>
+                  <Badge variant="secondary">{formatPlanStatus(session.status)}</Badge>
                 </Link>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
-
-      {/* Recent assessments */}
-      {recentAssessments.length > 0 && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent Assessments</CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/assessments">View all</Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {recentAssessments.map((a) => (
-                <div key={a.id} className="flex items-center justify-between rounded-xl border border-border p-4">
-                  <div>
-                    <p className="text-sm font-medium">{a.assessmentType}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(a.createdAt)}</p>
-                  </div>
-                  <p className="text-sm font-bold text-primary">
-                    {a.value} {a.unit}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

@@ -1,39 +1,59 @@
-import { getCurrentUser } from "@/lib/current-user";
+﻿import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { ClinicianDashboard } from "@/components/dashboard/clinician-dashboard";
 import { PatientDashboard } from "@/components/dashboard/patient-dashboard";
+import * as sessionService from "@/lib/services/session.service";
+import { startOfWeek, endOfWeek } from "date-fns";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
 
+  const now = new Date();
+  const weekStart = startOfWeek(now);
+  const weekEnd = endOfWeek(now);
+
   if (user.role === "CLINICIAN") {
-    const [patientCount, activePlans, pendingFeedback, unreadMessages, recentFeedback] =
-      await Promise.all([
-        prisma.patientClinicianLink.count({
-          where: { clinicianId: user.id, status: "active" },
-        }),
-        prisma.workoutPlan.count({
-          where: { createdById: user.id, status: "ACTIVE" },
-        }),
-        prisma.exerciseFeedback.count({
-          where: {
-            clinicianResponse: null,
-            planExercise: { plan: { createdById: user.id } },
-          },
-        }),
-        prisma.message.count({
-          where: { recipientId: user.id, isRead: false },
-        }),
-        prisma.exerciseFeedback.findMany({
-          where: { planExercise: { plan: { createdById: user.id } } },
-          include: {
-            planExercise: { include: { exercise: true } },
-            patient: true,
-          },
-          orderBy: { createdAt: "desc" },
-          take: 5,
-        }),
-      ]);
+    const [
+      patientCount,
+      activePlans,
+      pendingFeedback,
+      unreadMessages,
+      recentFeedback,
+      activePrograms,
+      upcomingSessions,
+    ] = await Promise.all([
+      prisma.patientClinicianLink.count({
+        where: { clinicianId: user.id, status: "active" },
+      }),
+      prisma.workoutPlan.count({
+        where: { createdById: user.id, status: "ACTIVE" },
+      }),
+      prisma.exerciseFeedback.count({
+        where: {
+          clinicianResponse: null,
+          planExercise: { plan: { createdById: user.id } },
+        },
+      }),
+      prisma.message.count({
+        where: { recipientId: user.id, isRead: false },
+      }),
+      prisma.exerciseFeedback.findMany({
+        where: { planExercise: { plan: { createdById: user.id } } },
+        include: {
+          planExercise: { include: { exercise: true } },
+          patient: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+      prisma.program.count({
+        where: { clinicianId: user.id, status: "ACTIVE" },
+      }),
+      sessionService.getSessionsForClinician(user.id, {
+        from: weekStart,
+        to: weekEnd,
+      }),
+    ]);
 
     return (
       <ClinicianDashboard
@@ -43,45 +63,44 @@ export default async function DashboardPage() {
         unreadMessages={unreadMessages}
         recentFeedback={recentFeedback}
         lowAdherencePatients={[]}
+        activePrograms={activePrograms}
+        upcomingSessions={upcomingSessions}
       />
     );
   }
 
   // Patient dashboard
-  const [activePlans, sessions, recentAssessments, unreadMessages] = await Promise.all([
-    prisma.workoutPlan.findMany({
-      where: { patientId: user.id, status: "ACTIVE" },
-      include: { _count: { select: { exercises: true } } },
-    }),
-    prisma.workoutSession.findMany({
-      where: { patientId: user.id, status: "COMPLETED" },
-      orderBy: { completedAt: "desc" },
-      take: 10,
-    }),
+  const [recentAssessments, unreadMessages, upcomingSessions, completedThisWeek] = await Promise.all([
     prisma.assessment.findMany({
       where: { patientId: user.id },
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
     prisma.message.count({ where: { recipientId: user.id, isRead: false } }),
+    prisma.workoutSessionV2.findMany({
+      where: {
+        patientId: user.id,
+        status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+      },
+      include: {
+        workout: true
+      },
+      orderBy: { scheduledDate: "asc" },
+      take: 5,
+    }),
+    prisma.workoutSessionV2.count({
+      where: {
+        patientId: user.id,
+        status: "COMPLETED",
+        completedAt: { gte: weekStart, lte: weekEnd }
+      }
+    })
   ]);
-
-  const weeklyCompliance = sessions.filter((s) => {
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    return s.completedAt && s.completedAt > weekAgo;
-  }).length;
 
   return (
     <PatientDashboard
-      activePlans={activePlans.map((p) => ({
-        ...p,
-        exerciseCount: p._count.exercises,
-      }))}
-      weeklyCompliance={weeklyCompliance}
-      nextWorkout={
-        activePlans.length > 0 ? { plan: activePlans[0], dayLabel: "Today" } : null
-      }
+      upcomingSessions={upcomingSessions}
+      weeklyCompliance={completedThisWeek}
       recentAssessments={recentAssessments}
       unreadMessages={unreadMessages}
     />

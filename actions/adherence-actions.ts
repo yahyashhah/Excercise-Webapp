@@ -25,7 +25,7 @@ export async function startSessionAction(planId: string) {
 export async function completeSessionExerciseAction(
   sessionId: string,
   planExerciseId: string,
-  data: { status: string; actualSets?: number; actualReps?: number }
+  data: { status: string; actualSets?: number; actualReps?: number; actualWeight?: number; actualRPE?: number }
 ) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };

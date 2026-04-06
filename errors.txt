@@ -1,0 +1,29 @@
+components/calendar/workout-editor-panel.tsx(26,1): error TS1127: Invalid character.
+components/calendar/workout-editor-panel.tsx(26,2): error TS1435: Unknown keyword or identifier. Did you mean 'import'?
+components/calendar/workout-editor-panel.tsx(26,15): error TS2457: Type alias name cannot be 'type'.
+components/calendar/workout-editor-panel.tsx(26,42): error TS1434: Unexpected keyword or identifier.
+components/calendar/workout-editor-panel.tsx(221,1): error TS1005: ',' expected.
+components/calendar/workout-editor-panel.tsx(358,1): error TS1005: ',' expected.
+components/calendar/workout-editor-panel.tsx(769,81): error TS1002: Unterminated string literal.
+components/calendar/workout-editor-panel.tsx(770,1): error TS1005: '}' expected.
+components/calendar/workout-editor-panel.tsx(770,6): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/calendar/workout-editor-panel.tsx(855,1): error TS1005: '}' expected.
+components/calendar/workout-editor-panel.tsx(855,9): error TS1003: Identifier expected.
+components/calendar/workout-editor-panel.tsx(855,16): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/calendar/workout-editor-panel.tsx(855,17): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+components/calendar/workout-editor-panel.tsx(862,21): error TS17002: Expected corresponding JSX closing tag for 'div'.
+components/calendar/workout-editor-panel.tsx(863,17): error TS1005: ')' expected.
+components/calendar/workout-editor-panel.tsx(931,1): error TS1005: ',' expected.
+components/calendar/workout-editor-panel.tsx(977,24): error TS17008: JSX element 'p' has no corresponding closing tag.
+components/calendar/workout-editor-panel.tsx(978,1): error TS1003: Identifier expected.
+components/calendar/workout-editor-panel.tsx(978,2): error TS1005: '>' expected.
+components/calendar/workout-editor-panel.tsx(978,3): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+components/calendar/workout-editor-panel.tsx(1015,23): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/calendar/workout-editor-panel.tsx(1016,15): error TS17002: Expected corresponding JSX closing tag for 'ScrollArea'.
+components/calendar/workout-editor-panel.tsx(1017,13): error TS17002: Expected corresponding JSX closing tag for 'SheetContent'.
+components/calendar/workout-editor-panel.tsx(1037,11): error TS17002: Expected corresponding JSX closing tag for 'Sheet'.
+components/calendar/workout-editor-panel.tsx(1038,9): error TS17015: Expected corresponding closing tag for JSX fragment.
+components/calendar/workout-editor-panel.tsx(1046,8): error TS1109: Expression expected.
+components/calendar/workout-editor-panel.tsx(1047,5): error TS1109: Expression expected.
+components/calendar/workout-editor-panel.tsx(1047,7): error TS1109: Expression expected.
+components/calendar/workout-editor-panel.tsx(1048,3): error TS1109: Expression expected.

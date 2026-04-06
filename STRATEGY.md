@@ -2,6 +2,8 @@
 
 # AI Home Exercise Platform -- Technical Architecture & Implementation Strategy
 
+> **Note:** We are actively migrating to a TrueCoach-like architectural model. Please see [TRUECOACH_MIGRATION_PLAN.md](TRUECOACH_MIGRATION_PLAN.md) for the detailed execution blueprint, phase strategy, and new data model changes covering Calendar-Based Assignment, Modular Programs, AI-Driven Generation, Video Integration, and Granular Workout Construction.
+
 ---
 
 ## 1. Feature / Project Overview
