@@ -250,8 +250,8 @@ export function ClientCalendar({
 
   // Click existing event
   const handleSelectEvent = useCallback((event: SessionEvent) => {
-    setPanelState({ mode: "editing", sessionId: event.id });
-  }, []);
+    router.push(`/sessions/${event.id}`);
+  }, [router]);
 
   // Drag and drop to reschedule
   const handleEventDrop = useCallback(

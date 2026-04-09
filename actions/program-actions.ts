@@ -11,6 +11,7 @@ import {
   updateProgramSchema,
   assignProgramSchema,
 } from "@/lib/validators/program";
+import { scheduleProgramForPatientAction } from "@/actions/calendar-actions";
 import type {
   CreateProgramInput,
   UpdateProgramInput,
@@ -239,6 +240,15 @@ export async function generateProgramAction(params: any) {
         }
       }
     });
+
+    if (params.patientId) {
+      await scheduleProgramForPatientAction({
+        programId: program.id,
+        patientId: params.patientId,
+        startDate: new Date().toISOString().split("T")[0],
+        preferredWeekdays: params.preferredWeekdays || ["Monday", "Wednesday", "Friday"],
+      });
+    }
 
     revalidatePath("/programs");
     return { success: true as const, data: program.id };

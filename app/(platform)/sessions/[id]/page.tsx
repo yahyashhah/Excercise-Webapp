@@ -14,8 +14,19 @@ export default async function SessionPage({
   const session = await prisma.workoutSessionV2.findUnique({
     where: { id },
     include: {
+      patient: {
+        select: {
+          firstName: true,
+          lastName: true,
+        },
+      },
       workout: {
         include: {
+          program: {
+            select: {
+              clinicianId: true,
+            },
+          },
           blocks: {
             orderBy: { orderIndex: "asc" },
             include: {
@@ -43,7 +54,10 @@ export default async function SessionPage({
   });
 
   if (!session) return notFound();
-  if (session.patientId !== user.id) return redirect("/dashboard");
+  const isPatientOwner = session.patientId === user.id;
+  const isProgramClinician = session.workout.program.clinicianId === user.id;
+
+  if (!isPatientOwner && !isProgramClinician) return redirect("/dashboard");
 
   return <WorkoutSessionTracker session={session as any} />;
 }
