@@ -242,12 +242,19 @@ export async function generateProgramAction(params: any) {
     });
 
     if (params.patientId) {
-      await scheduleProgramForPatientAction({
+      const scheduleResult = await scheduleProgramForPatientAction({
         programId: program.id,
         patientId: params.patientId,
         startDate: new Date().toISOString().split("T")[0],
         preferredWeekdays: params.preferredWeekdays || ["Monday", "Wednesday", "Friday"],
       });
+      
+      revalidatePath("/programs");
+      revalidatePath(`/patients/${params.patientId}`);
+      
+      if (scheduleResult.success && scheduleResult.programId) {
+        return { success: true as const, data: scheduleResult.programId };
+      }
     }
 
     revalidatePath("/programs");
