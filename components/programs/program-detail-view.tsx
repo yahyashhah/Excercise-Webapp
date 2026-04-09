@@ -45,7 +45,7 @@ export function ProgramDetailView({
   const [assignOpen, setAssignOpen] = useState(showAssignDialog);
   const workouts = (program.workouts as Record<string, unknown>[]) || [];
   const [expandedWorkouts, setExpandedWorkouts] = useState<Set<string>>(
-    new Set(workouts.map((w) => w.id as string))
+    new Set()
   );
 
   function toggleWorkout(id: string) {

@@ -54,11 +54,11 @@ type SetLog = {
 type BlockExerciseSet = {
   id: string;
   orderIndex: number;
-  reps?: number | null;
-  duration?: number | null;
-  weight?: number | null;
-  rest?: number | null;
-  distance?: number | null;
+  targetReps?: number | null;
+  targetDuration?: number | null;
+  targetWeight?: number | null;
+  restAfter?: number | null;
+  targetDistance?: number | null;
 };
 
 type SessionExerciseLog = {
@@ -154,9 +154,9 @@ export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
       currentExercise.sets.forEach((set, i) => {
         const existingLog = sessionLog?.setLogs.find((sl) => sl.setIndex === i);
         initial[i] = {
-          actualReps: existingLog?.actualReps ?? set.reps ?? undefined,
-          actualWeight: existingLog?.actualWeight ?? set.weight ?? undefined,
-          actualDuration: existingLog?.actualDuration ?? set.duration ?? undefined,
+          actualReps: existingLog?.actualReps ?? set.targetReps ?? undefined,
+          actualWeight: existingLog?.actualWeight ?? set.targetWeight ?? undefined,
+          actualDuration: existingLog?.actualDuration ?? set.targetDuration ?? undefined,
           completed: !!existingLog || completedIds.has(currentExercise.id),
         };
       });
@@ -217,6 +217,21 @@ export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
         ...prev,
         [index]: { ...prev[index], completed: true }
       }));
+
+      let isLast = true;
+      for (let i = 0; i < currentExercise.sets.length; i++) {
+         if (i !== index && !activeSetLogs[i]?.completed) {
+            isLast = false;
+            break;
+         }
+      }
+
+      if (isLast) {
+         setCompletedIds((prev) => new Set(prev).add(currentExercise.id));
+         setTimeout(() => {
+           advanceToNext();
+         }, 500);
+      }
     } catch {
       toast.error("Failed to log set");
     } finally {
@@ -374,12 +389,12 @@ export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
                     </div>
                     
                     <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {set.reps != null && (
+                      {set.targetReps != null && (
                         <div className="space-y-1">
                           <Label className="text-[10px] uppercase text-muted-foreground font-semibold">Reps</Label>
                           <Input
                             type="number"
-                            placeholder={set.reps.toString()}
+                            placeholder={set.targetReps.toString()}
                             value={logData.actualReps ?? ""}
                             onChange={(e) => handleSetInputChange(i, "actualReps", e.target.value)}
                             className="h-8 text-sm"
@@ -387,12 +402,12 @@ export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
                           />
                         </div>
                       )}
-                      {set.weight != null && (
+                      {set.targetWeight != null && (
                         <div className="space-y-1">
                           <Label className="text-[10px] uppercase text-muted-foreground font-semibold">Lbs/Kg</Label>
                           <Input
                             type="number"
-                            placeholder={set.weight.toString()}
+                            placeholder={set.targetWeight.toString()}
                             value={logData.actualWeight ?? ""}
                             onChange={(e) => handleSetInputChange(i, "actualWeight", e.target.value)}
                             className="h-8 text-sm"
@@ -400,12 +415,12 @@ export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
                           />
                         </div>
                       )}
-                      {set.duration != null && (
+                      {set.targetDuration != null && (
                         <div className="space-y-1">
                           <Label className="text-[10px] uppercase text-muted-foreground font-semibold">Secs</Label>
                           <Input
                             type="number"
-                            placeholder={set.duration.toString()}
+                            placeholder={set.targetDuration.toString()}
                             value={logData.actualDuration ?? ""}
                             onChange={(e) => handleSetInputChange(i, "actualDuration", e.target.value)}
                             className="h-8 text-sm"

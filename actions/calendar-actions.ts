@@ -85,10 +85,14 @@ export async function scheduleProgramForPatientAction({
   programId,
   patientId,
   startDate,
+  preferredWeekdays,
+  customWorkoutDates,
 }: {
   programId: string;
   patientId: string;
   startDate: string;
+  preferredWeekdays?: string[];
+  customWorkoutDates?: Record<string, string>;
 }) {
   try {
     const user = await getCurrentUser();
@@ -120,6 +124,36 @@ export async function scheduleProgramForPatientAction({
     }
 
     const sDate = new Date(startDate);
+    const weekdayToIndex: Record<string, number> = {
+      monday: 0,
+      tuesday: 1,
+      wednesday: 2,
+      thursday: 3,
+      friday: 4,
+      saturday: 5,
+      sunday: 6,
+    };
+
+    const selectedDayIndexes = Array.from(
+      new Set(
+        (preferredWeekdays ?? [])
+          .map((d) => weekdayToIndex[d.toLowerCase().trim()])
+          .filter((d): d is number => Number.isInteger(d))
+      )
+    ).sort((a, b) => a - b);
+
+    const mondayStart = new Date(sDate);
+    const day = mondayStart.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    mondayStart.setDate(mondayStart.getDate() + diff);
+
+    const sortedWorkouts = [...sourceProgram.workouts].sort((a, b) => {
+      if (a.weekIndex !== b.weekIndex) return a.weekIndex - b.weekIndex;
+      if (a.dayIndex !== b.dayIndex) return a.dayIndex - b.dayIndex;
+      return a.orderIndex - b.orderIndex;
+    });
+
+    const weekPositionMap = new Map<number, number>();
 
     const newProgram = await db.program.create({
       data: {
@@ -135,11 +169,25 @@ export async function scheduleProgramForPatientAction({
         tags: sourceProgram.tags,
         startDate: sDate,
         workouts: {
-          create: sourceProgram.workouts.map((w) => {
+          create: sortedWorkouts.map((w) => {
             const workoutDate = new Date(sDate);
-            workoutDate.setDate(
-              workoutDate.getDate() + w.weekIndex * 7 + w.dayIndex
-            );
+            if (customWorkoutDates && customWorkoutDates[w.id]) {
+               workoutDate.setTime(new Date(customWorkoutDates[w.id]).getTime());
+            } else if (selectedDayIndexes.length > 0) {
+              const weekPosition = weekPositionMap.get(w.weekIndex) ?? 0;
+              weekPositionMap.set(w.weekIndex, weekPosition + 1);
+              const targetDayIndex =
+                selectedDayIndexes[
+                  weekPosition % selectedDayIndexes.length
+                ];
+              const weekBase = new Date(mondayStart);
+              weekBase.setDate(weekBase.getDate() + w.weekIndex * 7 + targetDayIndex);
+              workoutDate.setTime(weekBase.getTime());
+            } else {
+              workoutDate.setDate(
+                workoutDate.getDate() + w.weekIndex * 7 + w.dayIndex
+              );
+            }
 
             return {
               name: w.name,

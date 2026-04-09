@@ -16,6 +16,16 @@ interface GenerateProgramFormProps {
 }
 
 export function GenerateProgramForm({ patients }: GenerateProgramFormProps) {
+  const weekDays = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ] as const;
+
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState("");
@@ -23,6 +33,11 @@ export function GenerateProgramForm({ patients }: GenerateProgramFormProps) {
   const [difficulty, setDifficulty] = useState("BEGINNER");
   const [duration, setDuration] = useState(25);
   const [daysPerWeek, setDaysPerWeek] = useState(3);
+  const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>([
+    "Monday",
+    "Wednesday",
+    "Friday",
+  ]);
 
   function toggleArea(area: string) {
     setSelectedAreas((prev) =>
@@ -30,10 +45,24 @@ export function GenerateProgramForm({ patients }: GenerateProgramFormProps) {
     );
   }
 
+  function toggleWeekday(day: string) {
+    setSelectedWeekdays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
+  }
+
   async function handleGenerate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (selectedAreas.length === 0) {
       toast.error("Please select at least one focus area");
+      return;
+    }
+    if (selectedWeekdays.length === 0) {
+      toast.error("Please select at least one training day");
+      return;
+    }
+    if (selectedWeekdays.length !== daysPerWeek) {
+      toast.error("Days per week must match your selected weekdays");
       return;
     }
 
@@ -45,8 +74,11 @@ export function GenerateProgramForm({ patients }: GenerateProgramFormProps) {
       focusAreas: selectedAreas,
       durationMinutes: duration,
       daysPerWeek,
+      preferredWeekdays: selectedWeekdays,
       difficultyLevel: difficulty,
       additionalNotes: (formData.get("notes") as string) || undefined,
+      subjective: (formData.get("subjective") as string) || undefined,
+      clinicianPrompt: (formData.get("clinicianPrompt") as string) || undefined,
     });
 
     setLoading(false);
@@ -144,6 +176,46 @@ export function GenerateProgramForm({ patients }: GenerateProgramFormProps) {
                 ))}
               </select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Training Days</Label>
+            <div className="flex flex-wrap gap-2">
+              {weekDays.map((day) => (
+                <Button
+                  key={day}
+                  type="button"
+                  variant={selectedWeekdays.includes(day) ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleWeekday(day)}
+                >
+                  {day.slice(0, 3)}
+                </Button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Select exactly {daysPerWeek} day{daysPerWeek === 1 ? "" : "s"}.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="subjective">Client Subjective</Label>
+            <Textarea
+              id="subjective"
+              name="subjective"
+              rows={6}
+              placeholder="Paste the full subjective report (pain behavior, aggravating factors, functional limits, goals, etc.)"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="clinicianPrompt">Program Instructions (Optional)</Label>
+            <Textarea
+              id="clinicianPrompt"
+              name="clinicianPrompt"
+              rows={3}
+              placeholder='Example: "Act as a DPT and create a 1-week, 3-day PT progression for this subjective."'
+            />
           </div>
 
           <div className="space-y-2">

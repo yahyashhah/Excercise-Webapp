@@ -20,8 +20,9 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getProgramsAction } from "@/actions/program-actions";
+import { getProgramsAction, getProgramAction } from "@/actions/program-actions";
 import { scheduleProgramForPatientAction } from "@/actions/calendar-actions";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function AssignProgramDialog({
   patientId,
@@ -36,7 +37,31 @@ export function AssignProgramDialog({
   const [programs, setPrograms] = useState<{ id: string; name: string }[]>([]);
   const [selectedProgramId, setSelectedProgramId] = useState<string>("");
   const [startDate, setStartDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
+  const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>([
+    "Monday",
+    "Wednesday",
+    "Friday",
+  ]);
   const [loading, setLoading] = useState(false);
+  const [scheduleMode, setScheduleMode] = useState<"auto" | "manual">("auto");
+  const [selectedProgram, setSelectedProgram] = useState<any>(null);
+  const [customDates, setCustomDates] = useState<Record<string, string>>({});
+
+  const weekDays = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ] as const;
+
+  function toggleWeekday(day: string) {
+    setSelectedWeekdays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
+  }
 
   useEffect(() => {
     if (open && programs.length === 0) {
@@ -50,14 +75,42 @@ export function AssignProgramDialog({
     }
   }, [open, programs.length]);
 
+  useEffect(() => {
+    if (selectedProgramId && scheduleMode === "manual" && !selectedProgram) {
+      setLoading(true);
+      getProgramAction(selectedProgramId).then((res) => {
+        if (res.success && res.data) {
+          setSelectedProgram(res.data);
+          const initialDates: Record<string, string> = {};
+          (res.data.workouts as any[])?.forEach((w) => {
+            initialDates[w.id] = startDate;
+          });
+          setCustomDates(initialDates);
+        }
+        setLoading(false);
+      });
+    }
+  }, [selectedProgramId, scheduleMode, startDate]);
+
   const handleAssign = async () => {
     if (!selectedProgramId) {
       toast.error("Please select a program.");
       return;
     }
-    if (!startDate) {
-      toast.error("Please select a start date.");
-      return;
+    if (scheduleMode === "auto") {
+      if (!startDate) {
+        toast.error("Please select a start date.");
+        return;
+      }
+      if (selectedWeekdays.length === 0) {
+        toast.error("Please select at least one training day.");
+        return;
+      }
+    } else {
+      if (Object.keys(customDates).length === 0) {
+        toast.error("Please set dates for the workouts.");
+        return;
+      }
     }
 
     setLoading(true);
@@ -65,7 +118,9 @@ export function AssignProgramDialog({
       const res = await scheduleProgramForPatientAction({
         programId: selectedProgramId,
         patientId,
-        startDate,
+        startDate: scheduleMode === "auto" ? startDate : new Date().toISOString().split("T")[0],
+        preferredWeekdays: scheduleMode === "auto" ? selectedWeekdays : undefined,
+        customWorkoutDates: scheduleMode === "manual" ? customDates : undefined,
       });
 
       if (res.success) {
@@ -93,7 +148,13 @@ export function AssignProgramDialog({
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>Select Template</Label>
-            <Select value={selectedProgramId} onValueChange={(val) => setSelectedProgramId(val || "")}>
+            <Select 
+              value={selectedProgramId} 
+              onValueChange={(val) => {
+                setSelectedProgramId(val || "");
+                setSelectedProgram(null); // reset loaded program
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select a program" />
               </SelectTrigger>
@@ -106,14 +167,65 @@ export function AssignProgramDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label>Start Date</Label>
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </div>
+
+          <Tabs value={scheduleMode} onValueChange={(val: any) => setScheduleMode(val)}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="auto">Auto-Schedule</TabsTrigger>
+              <TabsTrigger value="manual">Manual Calendar</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="auto" className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label>Start Date</Label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Training Days</Label>
+                <div className="flex flex-wrap gap-2">
+                  {weekDays.map((day) => (
+                    <Button
+                      key={day}
+                      type="button"
+                      size="sm"
+                      variant={selectedWeekdays.includes(day) ? "default" : "outline"}
+                      onClick={() => toggleWeekday(day)}
+                    >
+                      {day.slice(0, 3)}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="manual" className="space-y-4 pt-4">
+              {loading && !selectedProgram ? (
+                <div className="text-sm text-center text-muted-foreground p-4">Loading program workouts...</div>
+              ) : selectedProgram ? (
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                  {((selectedProgram.workouts as any[]) || []).map((w, index) => (
+                    <div key={w.id} className="flex items-center justify-between border p-3 rounded-md">
+                      <div>
+                        <div className="font-medium text-sm">{w.name}</div>
+                        <div className="text-xs text-muted-foreground">Week {w.weekIndex + 1}, Day {w.dayIndex + 1}</div>
+                      </div>
+                      <Input
+                        type="date"
+                        className="w-auto h-8 text-sm"
+                        value={customDates[w.id] || startDate}
+                        onChange={(e) => setCustomDates(prev => ({ ...prev, [w.id]: e.target.value }))}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-center text-muted-foreground p-4">Please select a program first</div>
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => setOpen(false)}>

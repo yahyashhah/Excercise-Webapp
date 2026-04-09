@@ -13,6 +13,9 @@ interface GenerateWorkoutParams {
   daysPerWeek: number;
   difficultyLevel: string;
   additionalNotes?: string;
+  subjective?: string;
+  clinicianPrompt?: string;
+  preferredWeekdays?: string[];
 }
 
 interface GeneratedExercise {
@@ -106,6 +109,46 @@ const PHASE_ORDER: Record<string, number> = {
 export async function generateWorkoutPlan(
   params: GenerateWorkoutParams
 ): Promise<GeneratedPlan> {
+  const weekdayToIndex: Record<string, number> = {
+    monday: 0,
+    tuesday: 1,
+    wednesday: 2,
+    thursday: 3,
+    friday: 4,
+    saturday: 5,
+    sunday: 6,
+  };
+  const indexToWeekday = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ];
+
+  const preferredWeekdayIndices =
+    params.preferredWeekdays
+      ?.map((d) => weekdayToIndex[d.toLowerCase().trim()])
+      .filter((d): d is number => Number.isInteger(d)) ?? [];
+
+  const effectiveWeekdayIndices =
+    preferredWeekdayIndices.length > 0
+      ? preferredWeekdayIndices
+      : Array.from(
+          { length: Math.max(1, Math.min(params.daysPerWeek, 7)) },
+          (_, idx) => idx
+        );
+
+  const uniqueWeekdayIndices = Array.from(new Set(effectiveWeekdayIndices)).sort(
+    (a, b) => a - b
+  );
+
+  const scheduleLabel = uniqueWeekdayIndices
+    .map((i) => indexToWeekday[i])
+    .join(", ");
+
   // Fetch client profile for context
   const patient = params.patientId
     ? await prisma.user.findUnique({
@@ -150,6 +193,7 @@ export async function generateWorkoutPlan(
       defaultReps: true,
       defaultHoldSeconds: true,
       cuesThumbnail: true,
+      videoUrl: true,
     },
   })) as Array<{
     id: string;
@@ -166,6 +210,7 @@ export async function generateWorkoutPlan(
     defaultReps: number | null;
     defaultHoldSeconds: number | null;
     cuesThumbnail: string | null;
+    videoUrl: string | null;
   }>;
 
   // Filter out exercises with contraindication overlap
@@ -209,6 +254,12 @@ CLINICAL PRESCRIPTION RULES:
 8. CLINICAL NOTES: Write 2-3 specific coaching cues per exercise, tailored to this patient's diagnosis and limitations — not generic advice.
 9. TIME MANAGEMENT: Total session time within 5 minutes of requested duration. Estimate: sets × reps × 4 sec + rest.
 10. PROGRESSION LOGIC: Earlier phase post-surgery → more ACTIVATION and MOBILITY. Later phase → shift toward STRENGTHENING and BALANCE.
+11. SUBJECTIVE-DRIVEN REASONING: Treat clinician subjective as primary truth. e.g., if "shoulder pain with flexion, weak cuff", focus on scapular control, sub-90° flexion, and isometric/supported external rotation.
+12. ADVANCED QUALITY BAR: For ADVANCED, use multi-planar control, loaded eccentrics, or perturbation but respect pain limits.
+13. SCHEDULING COMPLIANCE: strictly use allowed weekday indexes and group focus properly.
+14. MEDIA PREFERENCE: Prefer exercises with video support when clinically appropriate to improve patient adherence.
+15. CLINICAL STRUCTURE: Programs should have "Activation/Pain-Free Strength" on Day 1, "Stability/Controlled Loading" on Day 2, and "Integration/Functional" on Day 3. Each day breaks into exactly: Warm-Up, Primary Region, Secondary Region, Balance/Core (optional), and Cool Down.
+16. DETAILED NOTES: Include clear guidelines (e.g. "Avoid painful arc into flexion", "Keep movements pain <=3/10").
 
 Respond with valid JSON only. No markdown, no explanation.`;
 
@@ -233,7 +284,7 @@ Fitness Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ")
   const exerciseListStr = exercises
     .map(
       (e) =>
-        `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhase ?? "STRENGTHENING"} | Region: ${e.bodyRegion} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(", ")} | Equipment: ${e.equipmentRequired.join(", ") || "None"} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + "s hold" : "10"} | Mistakes: ${e.commonMistakes || "N/A"} | Cues: ${e.cuesThumbnail || "N/A"}`
+        `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhase ?? "STRENGTHENING"} | Region: ${e.bodyRegion} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(", ")} | Equipment: ${e.equipmentRequired.join(", ") || "None"} | Video: ${e.videoUrl ? "Yes" : "No"} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + "s hold" : "10"} | Mistakes: ${e.commonMistakes || "N/A"} | Cues: ${e.cuesThumbnail || "N/A"}`
     )
     .join("\n");
 
@@ -246,6 +297,9 @@ Program Parameters:
 - Duration: ~${params.durationMinutes} minutes per session
 - Days per Week: ${params.daysPerWeek}
 - Difficulty Level: ${params.difficultyLevel}
+- Allowed Weekdays: ${scheduleLabel} (${uniqueWeekdayIndices.join(", ")})
+${params.subjective ? `- Clinician Subjective: ${params.subjective}` : ""}
+${params.clinicianPrompt ? `- Clinician Instructions: ${params.clinicianPrompt}` : ""}
 ${params.additionalNotes ? `- Additional Notes: ${params.additionalNotes}` : ""}
 
 Available Exercises (use ONLY these exercise IDs):
@@ -264,7 +318,7 @@ Respond with this exact JSON structure:
       "reps": 15,
       "durationSeconds": null,
       "restSeconds": 30,
-      "dayOfWeek": 1,
+      "dayOfWeek": 0,
       "orderIndex": 2,
       "notes": "2-3 clinical form cues specific to this patient"
     }
@@ -275,10 +329,11 @@ Rules:
 1. ONLY use exercise IDs from the list provided
 2. Respect patient limitations and contraindications
 3. Match the difficulty level requested
-4. Distribute exercises across ${params.daysPerWeek} days (dayOfWeek: 1-${params.daysPerWeek})
+4. Distribute exercises across ${params.daysPerWeek} days using ONLY these weekday indexes: ${uniqueWeekdayIndices.join(", ")}
 5. Keep total session time around ${params.durationMinutes} minutes
 6. Use either reps OR durationSeconds per exercise, not both (set unused to null)
-7. Follow the phase ordering strictly`;
+7. Follow the phase ordering strictly
+8. If subjective indicates shoulder pain with flexion, cuff weakness, and weight-bearing knee pain, include evidence-based cuff/scapular and knee-load management patterns with clear pain-guardrails`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -375,15 +430,16 @@ export interface GeneratedProgram {
 export async function generateProgram(
   params: GenerateWorkoutParams
 ): Promise<GeneratedProgram> {
+  const indexToWeekdayShort = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const generatedPlan = await generateWorkoutPlan(params);
 
   const workoutsMap = new Map<number, GeneratedProgramWorkout>();
 
   generatedPlan.exercises.forEach((ex) => {
-    const day = ex.dayOfWeek || 1;
+    const day = ex.dayOfWeek ?? 0;
     if (!workoutsMap.has(day)) {
       workoutsMap.set(day, {
-        name: `Day ${day} Workout`,
+        name: `Day ${day + 1} (${indexToWeekdayShort[day] ?? "Custom"}) Workout`,
         dayIndex: day,
         blocks: [],
       });
