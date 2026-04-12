@@ -2,9 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import { Bell, Menu, Search, Activity } from "lucide-react";
+import { Bell, Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
 import type { User } from "@prisma/client";
@@ -15,31 +14,32 @@ interface HeaderProps {
 }
 
 function getPageTitle(pathname: string): string {
-  const map: Record<string, string> = {
+  const exactMap: Record<string, string> = {
     "/dashboard": "Dashboard",
     "/exercises": "Exercise Library",
     "/exercises/new": "New Exercise",
-    "/workout-plans": "Workout Plans",
-    "/workout-plans/generate": "Generate Plan",
+    "/programs": "Programs",
+    "/programs/new": "New Program",
+    "/programs/generate": "Generate Program",
     "/patients": "Clients",
     "/messages": "Messages",
     "/assessments": "Assessments",
     "/assessments/new": "New Assessment",
     "/settings": "Settings",
+    "/settings/clinic": "Clinic Settings",
   };
 
-  for (const [path, title] of Object.entries(map)) {
-    if (pathname === path) return title;
-  }
+  if (exactMap[pathname]) return exactMap[pathname];
 
+  if (pathname.startsWith("/exercises/") && pathname.endsWith("/edit")) return "Edit Exercise";
   if (pathname.startsWith("/exercises/")) return "Exercise Details";
-  if (pathname.startsWith("/workout-plans/") && pathname.endsWith("/edit")) return "Edit Plan";
-  if (pathname.startsWith("/workout-plans/") && pathname.endsWith("/session")) return "Workout Session";
-  if (pathname.startsWith("/workout-plans/")) return "Plan Details";
+  if (pathname.startsWith("/programs/") && pathname.endsWith("/edit")) return "Edit Program";
+  if (pathname.startsWith("/programs/")) return "Program Details";
   if (pathname.startsWith("/patients/") && pathname.endsWith("/adherence")) return "Adherence";
   if (pathname.startsWith("/patients/") && pathname.endsWith("/outcomes")) return "Outcomes";
   if (pathname.startsWith("/patients/")) return "Client Details";
   if (pathname.startsWith("/messages/")) return "Conversation";
+  if (pathname.startsWith("/sessions/")) return "Workout Session";
 
   return "INMOTUS RX";
 }
@@ -66,6 +66,7 @@ export function Header({ user, unreadMessageCount }: HeaderProps) {
             userName={`${user.firstName} ${user.lastName}`}
             userEmail={user.email}
             userImageUrl={user.imageUrl}
+            mobileMode
           />
         </SheetContent>
       </Sheet>

@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Users,
-  ClipboardList,
   MessageSquare,
   AlertCircle,
   Sparkles,
@@ -12,7 +11,7 @@ import {
   Library,
   CalendarDays,
 } from "lucide-react";
-import { formatFeedbackRating, formatRelativeTime } from "@/lib/utils/formatting";
+import { formatFeedbackRating, formatRelativeTime, formatSessionStatus } from "@/lib/utils/formatting";
 import { format } from "date-fns";
 
 interface ClinicianDashboardProps {
@@ -56,7 +55,6 @@ const statGradients = [
 
 export function ClinicianDashboard({
   patientCount,
-  activePlans,
   pendingFeedback,
   unreadMessages,
   recentFeedback,
@@ -104,7 +102,7 @@ export function ClinicianDashboard({
       </div>
 
       {/* Stats grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, idx) => {
           const Icon = stat.icon;
           return (
@@ -175,7 +173,7 @@ export function ClinicianDashboard({
                           {format(new Date(session.scheduledDate), "EEE, MMM d")}
                         </span>
                         <Badge className={statusColor[session.status] || "bg-gray-100 text-gray-700"}>
-                          {session.status}
+                          {formatSessionStatus(session.status)}
                         </Badge>
                       </div>
                     </div>

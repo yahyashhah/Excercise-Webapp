@@ -84,7 +84,7 @@ export function ExerciseCard({
       <CardContent className="p-4">
         <div className="mb-1 flex items-start justify-between gap-2">
           <Link href={`/exercises/${id}`} className="flex-1">
-            <h3 className="font-semibold text-slate-900 leading-tight hover:text-blue-600 transition-colors">
+            <h3 className="font-semibold leading-tight hover:text-primary transition-colors">
               {name}
             </h3>
           </Link>
@@ -93,10 +93,10 @@ export function ExerciseCard({
           </Badge>
         </div>
 
-        <p className="mb-2 text-xs text-slate-500">{formatBodyRegion(bodyRegion)}</p>
+        <p className="mb-2 text-xs text-muted-foreground">{formatBodyRegion(bodyRegion)}</p>
 
         {description && (
-          <p className="mb-3 line-clamp-2 text-sm text-slate-600">{description}</p>
+          <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{description}</p>
         )}
 
         {equipmentRequired.length > 0 && (

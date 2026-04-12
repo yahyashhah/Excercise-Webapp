@@ -42,8 +42,10 @@ export function formatPlanStatus(status: string): string {
 
 export function formatSessionStatus(status: string): string {
   const map: Record<string, string> = {
+    SCHEDULED: "Scheduled",
     IN_PROGRESS: "In Progress",
     COMPLETED: "Completed",
+    MISSED: "Missed",
     ABANDONED: "Abandoned",
   };
   return map[status] || status;

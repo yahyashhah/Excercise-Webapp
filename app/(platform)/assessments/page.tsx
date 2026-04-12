@@ -4,7 +4,7 @@ import { getAssessments } from "@/lib/services/outcome.service";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, BarChart3 } from "lucide-react";
 import { formatDate } from "@/lib/utils/formatting";
 
 export default async function AssessmentsPage() {
@@ -34,8 +34,8 @@ export default async function AssessmentsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Assessments</h2>
-          <p className="text-slate-600">
+          <h2 className="text-2xl font-bold">Assessments</h2>
+          <p className="text-muted-foreground">
             Track measurements and outcomes over time
           </p>
         </div>
@@ -48,35 +48,42 @@ export default async function AssessmentsPage() {
       </div>
 
       {assessments.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 p-12 text-center">
-          <p className="text-slate-500">No assessments recorded yet.</p>
+        <div className="rounded-xl border border-dashed border-border p-12 text-center">
+          <BarChart3 className="mx-auto h-12 w-12 text-muted-foreground/40" />
+          <h3 className="mt-4 font-semibold">No assessments yet</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Record measurements over time to track patient progress.
+          </p>
           <Button className="mt-4" asChild>
-            <Link href="/assessments/new">Record First Assessment</Link>
+            <Link href="/assessments/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Record First Assessment
+            </Link>
           </Button>
         </div>
       ) : (
         <div className="space-y-3">
           {assessments.map((a) => (
-            <Card key={a.id}>
+            <Card key={a.id} className="transition-shadow hover:shadow-sm">
               <CardContent className="flex items-center justify-between p-4">
                 <div>
-                  <p className="font-medium capitalize text-slate-900">
+                  <p className="font-medium capitalize">
                     {a.assessmentType.replace(/_/g, " ")}
                   </p>
                   {"patient" in a && a.patient && (
-                    <p className="text-sm font-medium text-blue-600">
+                    <p className="text-sm font-medium text-primary">
                       {a.patient.firstName} {a.patient.lastName}
                     </p>
                   )}
                   {a.notes && (
-                    <p className="text-sm text-slate-500">{a.notes}</p>
+                    <p className="text-sm text-muted-foreground">{a.notes}</p>
                   )}
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-slate-900">
+                  <p className="text-lg font-bold">
                     {a.value} {a.unit}
                   </p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-muted-foreground">
                     {formatDate(a.createdAt)}
                   </p>
                 </div>

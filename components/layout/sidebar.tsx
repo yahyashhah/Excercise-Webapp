@@ -25,6 +25,8 @@ interface SidebarProps {
   userName: string;
   userEmail: string;
   userImageUrl?: string | null;
+  /** When rendered inside a Sheet (mobile), hide the lg:flex so content is visible */
+  mobileMode?: boolean;
 }
 
 const clinicianLinks = [
@@ -49,15 +51,16 @@ export function Sidebar({
   unreadMessageCount,
   userName,
   userEmail,
+  mobileMode = false,
 }: SidebarProps) {
   const pathname = usePathname();
   const links = role === "CLINICIAN" ? clinicianLinks : patientLinks;
 
   return (
-    <aside className="hidden w-64 flex-col bg-sidebar lg:flex">
+    <aside className={cn("w-64 flex-col bg-sidebar", mobileMode ? "flex" : "hidden lg:flex")}>
       {/* Logo */}
       <div className="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-blue-400 to-indigo-500">
           <Activity className="h-4.5 w-4.5 text-white" />
         </div>
         <span className="text-lg font-bold tracking-tight text-sidebar-foreground">
@@ -85,12 +88,12 @@ export function Sidebar({
                     : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
                 )}
               >
-                <Icon className="h-[18px] w-[18px] flex-shrink-0" />
+                <Icon className="h-4.5 w-4.5 shrink-0" />
                 <span className="flex-1">{link.label}</span>
                 {link.href === "/messages" && unreadMessageCount > 0 && (
                   <Badge
                     variant="destructive"
-                    className="h-5 min-w-[1.25rem] justify-center px-1 text-xs"
+                    className="h-5 min-w-5 justify-center px-1 text-xs"
                   >
                     {unreadMessageCount}
                   </Badge>
@@ -111,7 +114,7 @@ export function Sidebar({
               : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
           )}
         >
-          <Settings className="h-[18px] w-[18px] flex-shrink-0" />
+          <Settings className="h-4.5 w-4.5 shrink-0" />
           <span>Settings</span>
         </Link>
       </ScrollArea>

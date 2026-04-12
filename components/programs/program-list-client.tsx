@@ -29,6 +29,7 @@ import {
   UserPlus,
   Archive,
   Sparkles,
+  Library,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -113,7 +114,7 @@ export function ProgramListClient({
             />
           </div>
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-35">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -153,11 +154,31 @@ export function ProgramListClient({
 
       {/* Grid */}
       {filtered.length === 0 ? (
-        <Card className="p-12 text-center">
-          <p className="text-muted-foreground">
-            No programs found. Create your first program to get started.
+        <div className="rounded-xl border border-dashed border-border p-12 text-center">
+          <Library className="mx-auto h-12 w-12 text-muted-foreground/40" />
+          <h3 className="mt-4 font-semibold">No programs found</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {role === "CLINICIAN"
+              ? "Generate an AI program or create one manually to get started."
+              : "No programs have been assigned to you yet."}
           </p>
-        </Card>
+          {role === "CLINICIAN" && (
+            <div className="mt-4 flex justify-center gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/programs/generate">
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5 text-blue-600" />
+                  Generate with AI
+                </Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link href="/programs/new">
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  New Program
+                </Link>
+              </Button>
+            </div>
+          )}
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((program) => (

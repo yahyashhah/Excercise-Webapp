@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ClipboardList, Activity, MessageSquare, TrendingUp, Play, Flame } from "lucide-react";
-import { formatPlanStatus, formatDate } from "@/lib/utils/formatting";
+import { formatSessionStatus, formatDate } from "@/lib/utils/formatting";
 
 interface PatientDashboardProps {
   upcomingSessions: any[];
@@ -19,8 +19,11 @@ export function PatientDashboard({
   recentAssessments,
   unreadMessages,
 }: PatientDashboardProps) {
-  const compliancePercent = Math.min(Math.round((weeklyCompliance / 7) * 100), 100);
-  
+  const totalWeekSessions = weeklyCompliance + upcomingSessions.length;
+  const compliancePercent = totalWeekSessions > 0
+    ? Math.min(Math.round((weeklyCompliance / totalWeekSessions) * 100), 100)
+    : 0;
+
   const nextWorkout = upcomingSessions.length > 0 ? upcomingSessions[0] : null;
 
   return (
@@ -94,7 +97,7 @@ export function PatientDashboard({
           </div>
           <Progress value={compliancePercent} className="h-3" />
           <p className="mt-2 text-xs text-muted-foreground">
-            {weeklyCompliance} of 7 sessions completed this week
+            {weeklyCompliance} of {totalWeekSessions} sessions completed this week
           </p>
         </CardContent>
       </Card>
@@ -142,7 +145,7 @@ export function PatientDashboard({
                     <p className="font-medium">{session.workout?.name || "Workout Session"}</p>
                     <p className="text-sm text-muted-foreground">{formatDate(session.scheduledDate)}</p>
                   </div>
-                  <Badge variant="secondary">{formatPlanStatus(session.status)}</Badge>
+                  <Badge variant="secondary">{formatSessionStatus(session.status)}</Badge>
                 </Link>
               ))}
             </div>
