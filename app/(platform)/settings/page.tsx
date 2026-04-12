@@ -42,7 +42,7 @@ export default async function SettingsPage() {
           appearance={{
             elements: {
               rootBox: "w-full",
-              cardBox: "shadow-none border border-slate-200 rounded-lg",
+              cardBox: "shadow-none border border-border rounded-lg",
             },
           }}
         />

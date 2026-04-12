@@ -138,7 +138,7 @@ export default async function PatientDetailPage({ params }: Props) {
                     />
                   ))}
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <span className="ml-1 text-slate-600">{(patient.patientProfile as any).painScore}/10</span>
+                  <span className="ml-1 text-muted-foreground">{(patient.patientProfile as any).painScore}/10</span>
                 </div>
               </div>
             )}
@@ -253,11 +253,13 @@ export default async function PatientDetailPage({ params }: Props) {
                       <Badge
                         className={
                           prog.status === "ACTIVE"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-700"
+                            ? "border-emerald-200 bg-emerald-100 text-emerald-700"
+                            : prog.status === "PAUSED"
+                            ? "border-amber-200 bg-amber-100 text-amber-700"
+                            : "border-border bg-muted text-muted-foreground"
                         }
                       >
-                        {prog.status}
+                        {prog.status.charAt(0) + prog.status.slice(1).toLowerCase()}
                       </Badge>
                     </Link>
                   ))}
