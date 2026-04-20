@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { resend } from "@/lib/email/resend";
+import { getResend } from "@/lib/email/resend";
 import { SessionReminderEmail } from "@/lib/email/templates/session-reminder";
 import { createNotification, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
 import { format } from "date-fns";
@@ -95,7 +95,7 @@ export async function GET(request: Request) {
 
       // Send email via Resend
       try {
-        await resend.emails.send({
+        await getResend().emails.send({
           from: process.env.RESEND_FROM_EMAIL ?? "noreply@inmotusrx.com",
           to: patient.email,
           subject: `Reminder: Your session "${workout.name}" is tomorrow`,
