@@ -10,22 +10,27 @@ import {
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
-import { format, parse, startOfWeek, getDay } from "date-fns";
+import {
+  format,
+  parse,
+  startOfWeek,
+  endOfWeek,
+  getDay,
+} from "date-fns";
 import { enUS } from "date-fns/locale";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Plus, Dumbbell, ChevronLeft, ChevronRight } from "lucide-react";
 import { rescheduleSessionAction } from "@/actions/session-actions";
 import { createAdHocWorkout } from "@/actions/calendar-workout-actions";
 import { WorkoutEditorPanel } from "@/components/calendar/workout-editor-panel";
 import { AssignProgramDialog } from "@/components/calendar/assign-program-dialog";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
-// Calendar setup
+// Localizer
 // ---------------------------------------------------------------------------
-
 const localizer = dateFnsLocalizer({
   format,
   parse,
@@ -37,7 +42,6 @@ const localizer = dateFnsLocalizer({
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
 type ExerciseSummary = {
   id: string;
   name: string;
@@ -55,9 +59,7 @@ type SessionSummary = {
   workout: {
     id: string;
     name: string;
-    blocks: {
-      exercises: { id: string }[];
-    }[];
+    blocks: { exercises: { id: string }[] }[];
   };
 };
 
@@ -86,41 +88,45 @@ interface ClientCalendarProps {
 }
 
 // ---------------------------------------------------------------------------
-// Status colors
+// Status config
 // ---------------------------------------------------------------------------
-
-const statusColors: Record<string, { bg: string; border: string; text: string }> = {
-  SCHEDULED: { bg: "#eff6ff", border: "#3b82f6", text: "#1e40af" },
-  IN_PROGRESS: { bg: "#fffbeb", border: "#f59e0b", text: "#92400e" },
-  COMPLETED: { bg: "#f0fdf4", border: "#22c55e", text: "#166534" },
-  MISSED: { bg: "#fef2f2", border: "#ef4444", text: "#991b1b" },
-  SKIPPED: { bg: "#f9fafb", border: "#6b7280", text: "#374151" },
+const statusConfig: Record<
+  string,
+  { bg: string; border: string; text: string; label: string }
+> = {
+  SCHEDULED:   { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a", label: "Scheduled"   },
+  IN_PROGRESS: { bg: "#fffbeb", border: "#f59e0b", text: "#78350f", label: "In Progress" },
+  COMPLETED:   { bg: "#f0fdf4", border: "#22c55e", text: "#14532d", label: "Completed"   },
+  MISSED:      { bg: "#fef2f2", border: "#ef4444", text: "#7f1d1d", label: "Missed"      },
+  SKIPPED:     { bg: "#f9fafb", border: "#94a3b8", text: "#334155", label: "Skipped"     },
 };
 
 // ---------------------------------------------------------------------------
-// Create DnD calendar
+// DnD Calendar instance
 // ---------------------------------------------------------------------------
-
 const DnDCalendar = withDragAndDrop<SessionEvent>(Calendar);
 
 // ---------------------------------------------------------------------------
-// Custom event component
+// Event pill component
 // ---------------------------------------------------------------------------
-
 function EventComponent({ event }: { event: SessionEvent }) {
-  const colors = statusColors[event.status] || statusColors.SCHEDULED;
+  const c = statusConfig[event.status] ?? statusConfig.SCHEDULED;
   return (
     <div
-      className="px-1.5 py-0.5 rounded text-xs leading-tight overflow-hidden cursor-pointer"
+      className="h-full overflow-hidden rounded-[5px] transition-opacity hover:opacity-90"
       style={{
-        backgroundColor: colors.bg,
-        borderLeft: `3px solid ${colors.border}`,
-        color: colors.text,
+        backgroundColor: c.bg,
+        borderLeft: `3px solid ${c.border}`,
+        color: c.text,
       }}
     >
-      <div className="font-medium truncate">{event.workoutName}</div>
-      <div className="text-[10px] opacity-75">
-        {event.exerciseCount} exercise{event.exerciseCount !== 1 ? "s" : ""}
+      <div className="px-2 py-1">
+        <p className="truncate text-[11px] font-semibold leading-tight">
+          {event.workoutName}
+        </p>
+        <p className="mt-0.5 text-[10px] opacity-60">
+          {event.exerciseCount} ex
+        </p>
       </div>
     </div>
   );
@@ -129,7 +135,6 @@ function EventComponent({ event }: { event: SessionEvent }) {
 // ---------------------------------------------------------------------------
 // Custom toolbar
 // ---------------------------------------------------------------------------
-
 function CustomToolbar({
   date,
   view,
@@ -143,64 +148,68 @@ function CustomToolbar({
   onView: (view: View) => void;
   onCreateClick: () => void;
 }) {
+  const title =
+    view === Views.WEEK
+      ? `${format(startOfWeek(date), "MMM d")} – ${format(endOfWeek(date), "MMM d, yyyy")}`
+      : format(date, "MMMM yyyy");
+
   return (
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        <div className="flex items-center border rounded-md overflow-hidden">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => onNavigate("PREV")}
-            className="rounded-none border-r"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onNavigate("TODAY")}
-            className="rounded-none px-3 text-xs"
-          >
-            Today
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => onNavigate("NEXT")}
-            className="rounded-none border-l"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-        <h2 className="text-lg font-semibold ml-2">
-          {format(date, "MMMM yyyy")}
-        </h2>
+    <div className="mb-5 flex flex-wrap items-center gap-3">
+      {/* Navigation */}
+      <div className="flex items-center overflow-hidden rounded-lg border border-border bg-muted/40">
+        <button
+          onClick={() => onNavigate("PREV")}
+          className="flex h-8 w-8 items-center justify-center border-r border-border text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={() => onNavigate("TODAY")}
+          className="h-8 px-3 text-xs font-medium text-foreground transition-colors hover:bg-background"
+        >
+          Today
+        </button>
+        <button
+          onClick={() => onNavigate("NEXT")}
+          className="flex h-8 w-8 items-center justify-center border-l border-border text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+        >
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="flex items-center border rounded-md overflow-hidden">
-          <Button
-            variant={view === Views.WEEK ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => onView(Views.WEEK)}
-            className="rounded-none text-xs"
+      {/* Title */}
+      <h2 className="flex-1 text-base font-bold tracking-tight sm:text-lg">
+        {title}
+      </h2>
+
+      {/* View toggle */}
+      <div className="flex items-center overflow-hidden rounded-lg border border-border bg-muted/40 p-0.5">
+        {([Views.MONTH, Views.WEEK] as View[]).map((v) => (
+          <button
+            key={v}
+            onClick={() => onView(v)}
+            className={cn(
+              "h-7 rounded-md px-3 text-xs font-medium transition-all",
+              view === v
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
-            Week
-          </Button>
-          <Button
-            variant={view === Views.MONTH ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => onView(Views.MONTH)}
-            className="rounded-none border-l text-xs"
-          >
-            Month
-          </Button>
-        </div>
-        <Button size="sm" onClick={onCreateClick}>
-          <Plus className="h-4 w-4 mr-1" />
-          Create Workout
-        </Button>
+            {v === Views.MONTH ? "Month" : "Week"}
+          </button>
+        ))}
       </div>
+
+      {/* Create workout */}
+      <Button
+        size="sm"
+        className="h-8 gap-1.5 border-0 bg-linear-to-r from-blue-500 to-indigo-500 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
+        onClick={onCreateClick}
+      >
+        <Plus className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Create Workout</span>
+        <span className="sm:hidden">Create</span>
+      </Button>
     </div>
   );
 }
@@ -208,7 +217,6 @@ function CustomToolbar({
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
-
 export function ClientCalendar({
   patientId,
   clinicianId,
@@ -220,50 +228,42 @@ export function ClientCalendar({
   const [date, setDate] = useState(new Date());
   const [panelState, setPanelState] = useState<PanelState>({ mode: "closed" });
 
-  // Convert sessions to calendar events
-  const events: SessionEvent[] = useMemo(() => {
-    return initialSessions.map((s) => {
-      const exerciseCount = s.workout.blocks.reduce(
-        (acc, b) => acc + b.exercises.length,
-        0
-      );
-      const start = new Date(s.scheduledDate);
-      return {
-        id: s.id,
-        title: s.workout.name,
-        start,
-        end: new Date(start.getTime() + 60 * 60 * 1000),
-        status: s.status,
-        exerciseCount,
-        workoutName: s.workout.name,
-        resource: s,
+  // Build calendar events
+  const events: SessionEvent[] = useMemo(
+    () =>
+      initialSessions.map((s) => {
+        const exerciseCount = s.workout.blocks.reduce(
+          (acc, b) => acc + b.exercises.length,
+          0
+        );
+        const start = new Date(s.scheduledDate);
+        return {
+          id: s.id,
+          title: s.workout.name,
+          start,
+          end: new Date(start.getTime() + 60 * 60 * 1000),
+          status: s.status,
+          exerciseCount,
+          workoutName: s.workout.name,
+          resource: s,
           allDay: true,
-      };
-    });
-  }, [initialSessions]);
+        };
+      }),
+    [initialSessions]
+  );
 
-  // Click empty date slot
   const handleSelectSlot = useCallback(
-    ({ start }: { start: Date }) => {
-      setPanelState({ mode: "creating", date: start });
-    },
+    ({ start }: { start: Date }) => setPanelState({ mode: "creating", date: start }),
     []
   );
 
-  // Click existing event
-  const handleSelectEvent = useCallback((event: SessionEvent) => {
-    router.push(`/sessions/${event.id}`);
-  }, [router]);
+  const handleSelectEvent = useCallback(
+    (event: SessionEvent) => setPanelState({ mode: "editing", sessionId: event.id }),
+    []
+  );
 
-  // Drag and drop to reschedule
   const handleEventDrop = useCallback(
-    async ({
-      event,
-      start,
-    }: {
-      event: SessionEvent;
-      start: string | Date;
-    }) => {
+    async ({ event, start }: { event: SessionEvent; start: string | Date }) => {
       const result = await rescheduleSessionAction(
         event.id,
         new Date(start).toISOString()
@@ -278,49 +278,40 @@ export function ClientCalendar({
     [router]
   );
 
-  // Panel close
-  const handlePanelClose = useCallback(() => {
-    setPanelState({ mode: "closed" });
-  }, []);
-
-  // Refresh after mutations
-  const handleRefresh = useCallback(() => {
-    router.refresh();
-  }, [router]);
-
-  // Create workout for today (toolbar button)
-  const handleCreateClick = useCallback(() => {
-    setPanelState({ mode: "creating", date: new Date() });
-  }, []);
+  const handlePanelClose = useCallback(() => setPanelState({ mode: "closed" }), []);
+  const handleRefresh = useCallback(() => router.refresh(), [router]);
+  const handleCreateClick = useCallback(
+    () => setPanelState({ mode: "creating", date: new Date() }),
+    []
+  );
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Status legend and Actions */}
-      <div className="flex items-center justify-between mb-3 flex-wrap gap-4">
-        <div className="flex gap-3 flex-wrap">
-          {Object.entries(statusColors).map(([status, colors]) => (
-            <div key={status} className="flex items-center gap-1.5">
-              <div
-                className="w-2.5 h-2.5 rounded-full"
-                style={{ backgroundColor: colors.border }}
+    <div className="space-y-4">
+      {/* Top bar: legend + assign program */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        {/* Status legend */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          {Object.entries(statusConfig).map(([key, c]) => (
+            <div key={key} className="flex items-center gap-1.5">
+              <span
+                className="h-2 w-2 rounded-full shrink-0"
+                style={{ backgroundColor: c.border }}
               />
-              <span className="text-xs text-muted-foreground capitalize">
-                {status.toLowerCase().replace("_", " ")}
-              </span>
+              <span className="text-xs text-muted-foreground">{c.label}</span>
             </div>
           ))}
         </div>
 
         <AssignProgramDialog patientId={patientId}>
-          <Button variant="default" size="sm">
-            <Dumbbell className="h-4 w-4 mr-2" />
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 font-medium">
+            <Dumbbell className="h-3.5 w-3.5" />
             Assign Program
           </Button>
         </AssignProgramDialog>
       </div>
 
       {/* Calendar */}
-      <div className="flex-1 min-h-[600px] bg-card rounded-lg border p-4">
+      <div className="min-h-160">
         <DnDCalendar
           localizer={localizer}
           events={events}
@@ -335,7 +326,7 @@ export function ClientCalendar({
           resizable={false}
           draggableAccessor={() => true}
           popup
-          style={{ height: 600 }}
+          style={{ height: 640 }}
           components={{
             event: EventComponent,
             toolbar: (props) => (
@@ -348,20 +339,18 @@ export function ClientCalendar({
               />
             ),
           }}
-          eventPropGetter={(event: SessionEvent) => {
-            return {
-              style: {
-                padding: 0,
-                backgroundColor: "transparent",
-                border: "none",
-                borderRadius: "4px",
-              },
-            };
-          }}
+          eventPropGetter={() => ({
+            style: {
+              padding: 0,
+              backgroundColor: "transparent",
+              border: "none",
+              borderRadius: "5px",
+            },
+          })}
         />
       </div>
 
-      {/* Workout editor panel */}
+      {/* Workout editor side panel */}
       <WorkoutEditorPanel
         panelState={panelState}
         onClose={handlePanelClose}

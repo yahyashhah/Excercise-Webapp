@@ -36,6 +36,17 @@ export const ourFileRouter = {
       console.log("Exercise image uploaded by:", metadata.userId);
       return { url: file.ufsUrl };
     }),
+
+  progressPhoto: f({ image: { maxFileSize: "8MB", maxFileCount: 1 } })
+    .middleware(async () => {
+      const { userId } = await auth();
+      if (!userId) throw new Error("Unauthorized");
+      return { userId };
+    })
+    .onUploadComplete(async ({ metadata, file }) => {
+      console.log("Progress photo uploaded by:", metadata.userId);
+      return { url: file.ufsUrl };
+    }),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;

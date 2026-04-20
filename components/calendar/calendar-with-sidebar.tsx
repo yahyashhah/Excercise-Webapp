@@ -5,13 +5,14 @@ import {
   Calendar,
   dateFnsLocalizer,
   Views,
-  View,
+  type View,
 } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import {
   format,
   parse,
   startOfWeek,
+  endOfWeek,
   getDay,
 } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -19,7 +20,12 @@ import { toast } from "sonner";
 import { rescheduleSessionAction } from "@/actions/session-actions";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
+// ---------------------------------------------------------------------------
+// Localizer
+// ---------------------------------------------------------------------------
 const localizer = dateFnsLocalizer({
   format,
   parse,
@@ -30,6 +36,9 @@ const localizer = dateFnsLocalizer({
 
 const DnDCalendar = withDragAndDrop<SessionEvent>(Calendar);
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 interface SessionEvent {
   id: string;
   title: string;
@@ -38,6 +47,7 @@ interface SessionEvent {
   status: string;
   patientName?: string;
   programName?: string;
+  exerciseCount?: number;
   resource: Record<string, unknown>;
 }
 
@@ -47,50 +57,153 @@ interface Props {
   onSessionClick?: (sessionId: string) => void;
 }
 
-const statusColors: Record<string, { bg: string; text: string }> = {
-  SCHEDULED: { bg: "hsl(217, 91%, 60%)", text: "#fff" },
-  IN_PROGRESS: { bg: "#f59e0b", text: "#fff" },
-  COMPLETED: { bg: "#22c55e", text: "#fff" },
-  MISSED: { bg: "#ef4444", text: "#fff" },
-  SKIPPED: { bg: "#6b7280", text: "#fff" },
+// ---------------------------------------------------------------------------
+// Status config
+// ---------------------------------------------------------------------------
+const statusConfig: Record<
+  string,
+  { bg: string; border: string; text: string; label: string }
+> = {
+  SCHEDULED:   { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a", label: "Scheduled"   },
+  IN_PROGRESS: { bg: "#fffbeb", border: "#f59e0b", text: "#78350f", label: "In Progress" },
+  COMPLETED:   { bg: "#f0fdf4", border: "#22c55e", text: "#14532d", label: "Completed"   },
+  MISSED:      { bg: "#fef2f2", border: "#ef4444", text: "#7f1d1d", label: "Missed"      },
+  SKIPPED:     { bg: "#f9fafb", border: "#94a3b8", text: "#334155", label: "Skipped"     },
 };
 
-export function CalendarWithSidebar({
-  sessions,
-  isClinician,
-  onSessionClick,
-}: Props) {
+// ---------------------------------------------------------------------------
+// Event pill component
+// ---------------------------------------------------------------------------
+function EventComponent({ event }: { event: SessionEvent }) {
+  const c = statusConfig[event.status] ?? statusConfig.SCHEDULED;
+  return (
+    <div
+      className="h-full overflow-hidden rounded-[5px] transition-opacity hover:opacity-90"
+      style={{
+        backgroundColor: c.bg,
+        borderLeft: `3px solid ${c.border}`,
+        color: c.text,
+      }}
+    >
+      <div className="px-2 py-1">
+        <p className="truncate text-[11px] font-semibold leading-tight">
+          {event.programName || event.title}
+        </p>
+        {event.patientName && (
+          <p className="mt-0.5 truncate text-[10px] opacity-60">
+            {event.patientName}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Custom toolbar
+// ---------------------------------------------------------------------------
+function CustomToolbar({
+  date,
+  view,
+  onNavigate,
+  onView,
+}: {
+  date: Date;
+  view: View;
+  onNavigate: (action: "PREV" | "NEXT" | "TODAY") => void;
+  onView: (view: View) => void;
+}) {
+  const title =
+    view === Views.WEEK
+      ? `${format(startOfWeek(date), "MMM d")} – ${format(endOfWeek(date), "MMM d, yyyy")}`
+      : format(date, "MMMM yyyy");
+
+  return (
+    <div className="mb-5 flex flex-wrap items-center gap-3">
+      {/* Navigation */}
+      <div className="flex items-center overflow-hidden rounded-lg border border-border bg-muted/40">
+        <button
+          onClick={() => onNavigate("PREV")}
+          className="flex h-8 w-8 items-center justify-center border-r border-border text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={() => onNavigate("TODAY")}
+          className="h-8 px-3 text-xs font-medium text-foreground transition-colors hover:bg-background"
+        >
+          Today
+        </button>
+        <button
+          onClick={() => onNavigate("NEXT")}
+          className="flex h-8 w-8 items-center justify-center border-l border-border text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+        >
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Title */}
+      <h2 className="flex-1 text-base font-bold tracking-tight sm:text-lg">
+        {title}
+      </h2>
+
+      {/* View toggle */}
+      <div className="flex items-center overflow-hidden rounded-lg border border-border bg-muted/40 p-0.5">
+        {([Views.MONTH, Views.WEEK] as View[]).map((v) => (
+          <button
+            key={v}
+            onClick={() => onView(v)}
+            className={cn(
+              "h-7 rounded-md px-3 text-xs font-medium transition-all",
+              view === v
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {v === Views.MONTH ? "Month" : "Week"}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+export function CalendarWithSidebar({ sessions, isClinician, onSessionClick }: Props) {
   const [view, setView] = useState<View>(Views.MONTH);
   const [date, setDate] = useState(new Date());
 
-  const events: SessionEvent[] = sessions.map(
-    (s: Record<string, unknown>) => {
-      const workout = s.workout as Record<string, unknown> | undefined;
-      const program = workout?.program as
-        | Record<string, unknown>
-        | undefined;
-      const patient = s.patient as Record<string, unknown> | undefined;
-      return {
-        id: s.id as string,
-        title: (program?.name as string) || "Workout",
-        start: new Date(s.scheduledDate as string),
-        end: new Date(
-          new Date(s.scheduledDate as string).getTime() + 60 * 60 * 1000
-        ),
-        status: s.status as string,
-        patientName: patient
-          ? `${patient.firstName} ${patient.lastName}`
-          : undefined,
-        programName: program?.name as string | undefined,
-        resource: s,
-      };
-    }
-  );
+  const events: SessionEvent[] = sessions.map((s) => {
+    const workout = s.workout as Record<string, unknown> | undefined;
+    const program = workout?.program as Record<string, unknown> | undefined;
+    const patient = s.patient as Record<string, unknown> | undefined;
+    const blocks = (workout?.blocks as Record<string, unknown>[] | undefined) ?? [];
+    const exerciseCount = blocks.reduce((acc, b) => {
+      const exs = b.exercises as unknown[] | undefined;
+      return acc + (exs?.length ?? 0);
+    }, 0);
+
+    return {
+      id: s.id as string,
+      title: (program?.name as string) || "Workout",
+      start: new Date(s.scheduledDate as string),
+      end: new Date(new Date(s.scheduledDate as string).getTime() + 60 * 60 * 1000),
+      status: s.status as string,
+      patientName: patient
+        ? `${patient.firstName} ${patient.lastName}`
+        : undefined,
+      programName: program?.name as string | undefined,
+      exerciseCount,
+      resource: s,
+    };
+  });
 
   const handleEventDrop = useCallback(
     async ({ event, start }: { event: SessionEvent; start: string | Date }) => {
       if (!isClinician) {
-        toast.error("Only coaches can reschedule sessions");
+        toast.error("Only clinicians can reschedule sessions");
         return;
       }
       const result = await rescheduleSessionAction(
@@ -107,54 +220,61 @@ export function CalendarWithSidebar({
   );
 
   return (
-    <div className="h-[650px] w-full rounded-md border p-4 bg-card">
-      {/* Legend */}
-      <div className="flex gap-3 mb-4 flex-wrap">
-        {Object.entries(statusColors).map(([status, colors]) => (
-          <div key={status} className="flex items-center gap-1.5">
-            <div
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: colors.bg }}
+    <div className="space-y-4">
+      {/* Status legend */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        {Object.entries(statusConfig).map(([key, c]) => (
+          <div key={key} className="flex items-center gap-1.5">
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: c.border }}
             />
-            <span className="text-xs text-muted-foreground">{status}</span>
+            <span className="text-xs text-muted-foreground">{c.label}</span>
           </div>
         ))}
       </div>
 
-      <DnDCalendar
-        localizer={localizer}
-        events={events}
-        view={view}
-        date={date}
-        onView={setView}
-        onNavigate={setDate}
-        onEventDrop={handleEventDrop as never}
-        onSelectEvent={(event: SessionEvent) =>
-          onSessionClick?.(event.id)
-        }
-        resizable={false}
-        draggableAccessor={() => isClinician}
-        style={{ height: "calc(100% - 40px)" }}
-        eventPropGetter={(event: SessionEvent) => {
-          const colors =
-            statusColors[event.status] || statusColors.SCHEDULED;
-          return {
+      {/* Calendar */}
+      <div className="min-h-155">
+        <DnDCalendar
+          localizer={localizer}
+          events={events}
+          view={view}
+          date={date}
+          onView={setView}
+          onNavigate={setDate}
+          onEventDrop={handleEventDrop as never}
+          onSelectEvent={(event: SessionEvent) => onSessionClick?.(event.id)}
+          resizable={false}
+          draggableAccessor={() => isClinician}
+          popup
+          style={{ height: 620 }}
+          components={{
+            event: EventComponent,
+            toolbar: (props) => (
+              <CustomToolbar
+                date={props.date as Date}
+                view={props.view as View}
+                onNavigate={props.onNavigate}
+                onView={props.onView}
+              />
+            ),
+          }}
+          eventPropGetter={() => ({
             style: {
-              backgroundColor: colors.bg,
-              color: colors.text,
-              borderRadius: "4px",
+              padding: 0,
+              backgroundColor: "transparent",
               border: "none",
-              fontSize: "0.75rem",
+              borderRadius: "5px",
             },
-          };
-        }}
-        tooltipAccessor={(event: SessionEvent) => {
-          let tip = event.title;
-          if (event.patientName) tip += ` | ${event.patientName}`;
-          tip += ` | ${event.status}`;
-          return tip;
-        }}
-      />
+          })}
+          tooltipAccessor={(event: SessionEvent) => {
+            let tip = event.programName || event.title;
+            if (event.patientName) tip += ` · ${event.patientName}`;
+            return `${tip} · ${statusConfig[event.status]?.label ?? event.status}`;
+          }}
+        />
+      </div>
     </div>
   );
 }

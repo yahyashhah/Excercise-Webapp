@@ -1,6 +1,9 @@
 ﻿import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import { WorkoutSessionTracker } from "@/components/workout/workout-session-tracker";
 
 export default async function SessionPage({
@@ -59,5 +62,15 @@ export default async function SessionPage({
 
   if (!isPatientOwner && !isProgramClinician) return redirect("/dashboard");
 
-  return <WorkoutSessionTracker session={session as any} />;
+  return (
+    <div className="space-y-4">
+      <Button variant="ghost" size="sm" asChild>
+        <Link href="/dashboard">
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Back to Dashboard
+        </Link>
+      </Button>
+      <WorkoutSessionTracker session={session as any} />
+    </div>
+  );
 }

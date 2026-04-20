@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlanStatusBadge } from "@/components/workout/plan-status-badge";
-import { ArrowLeft, BarChart3, Activity, MessageSquare } from "lucide-react";
+import { ArrowLeft, BarChart3, Activity, MessageSquare, TrendingUp } from "lucide-react";
 import { ClientCalendar } from "@/components/calendar/client-calendar";
 
 interface Props {
@@ -67,12 +67,12 @@ export default async function PatientDetailPage({ params }: Props) {
             </AvatarFallback>
           </Avatar>
           <div>
-            <h2 className="text-xl font-bold text-slate-900">
+            <h2 className="text-xl font-bold">
               {patient.firstName} {patient.lastName}
             </h2>
-            <p className="text-slate-500">{patient.email}</p>
+            <p className="text-muted-foreground">{patient.email}</p>
             {patient.dateOfBirth && (
-              <p className="text-sm text-slate-400">DOB: {patient.dateOfBirth}</p>
+              <p className="text-sm text-muted-foreground/70">DOB: {patient.dateOfBirth}</p>
             )}
           </div>
           <div className="ml-auto flex gap-2">
@@ -92,6 +92,12 @@ export default async function PatientDetailPage({ params }: Props) {
               <Link href={`/patients/${id}/outcomes`}>
                 <BarChart3 className="mr-1 h-4 w-4" />
                 Outcomes
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/patients/${id}/progress`}>
+                <TrendingUp className="mr-1 h-4 w-4" />
+                Progress
               </Link>
             </Button>
           </div>
@@ -123,7 +129,7 @@ export default async function PatientDetailPage({ params }: Props) {
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {(patient.patientProfile as any).painScore != null && (
               <div className="flex items-center gap-3">
-                <span className="font-medium text-slate-700">Pain Score:</span>
+                <span className="font-medium">Pain Score:</span>
                 <div className="flex items-center gap-1.5">
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {Array.from({ length: 10 }).map((_, i) => (
@@ -133,12 +139,12 @@ export default async function PatientDetailPage({ params }: Props) {
                         /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
                         i < (patient.patientProfile as any).painScore
                           ? i < 3 ? "bg-green-400" : i < 6 ? "bg-amber-400" : "bg-red-500"
-                          : "bg-slate-200"
+                          : "bg-muted"
                       }`}
                     />
                   ))}
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <span className="ml-1 text-slate-600">{(patient.patientProfile as any).painScore}/10</span>
+                  <span className="ml-1 text-muted-foreground">{(patient.patientProfile as any).painScore}/10</span>
                 </div>
               </div>
             )}
@@ -146,51 +152,51 @@ export default async function PatientDetailPage({ params }: Props) {
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {(patient.patientProfile as any).activityLevel && (
                 <div>
-                  <span className="font-medium text-slate-700">Activity Level: </span>
+                  <span className="font-medium">Activity Level: </span>
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <span className="text-slate-600 capitalize">{((patient.patientProfile as any).activityLevel as string).toLowerCase()}</span>
+                  <span className="text-muted-foreground capitalize">{((patient.patientProfile as any).activityLevel as string).toLowerCase()}</span>
                 </div>
               )}
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {(patient.patientProfile as any).occupation && (
                 <div>
-                  <span className="font-medium text-slate-700">Occupation: </span>
+                  <span className="font-medium">Occupation: </span>
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <span className="text-slate-600">{(patient.patientProfile as any).occupation}</span>
+                  <span className="text-muted-foreground">{(patient.patientProfile as any).occupation}</span>
                 </div>
               )}
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {(patient.patientProfile as any).injuryDate && (
                 <div>
-                  <span className="font-medium text-slate-700">Injury Date: </span>
+                  <span className="font-medium">Injury Date: </span>
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <span className="text-slate-600">{new Date((patient.patientProfile as any).injuryDate).toLocaleDateString()}</span>
+                  <span className="text-muted-foreground">{new Date((patient.patientProfile as any).injuryDate).toLocaleDateString()}</span>
                 </div>
               )}
             </div>
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {(patient.patientProfile as any).surgeryHistory && (
               <div>
-                <span className="font-medium text-slate-700">Surgery History: </span>
+                <span className="font-medium">Surgery History: </span>
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                <span className="text-slate-600">{(patient.patientProfile as any).surgeryHistory}</span>
+                <span className="text-muted-foreground">{(patient.patientProfile as any).surgeryHistory}</span>
               </div>
             )}
             {patient.patientProfile.limitations && (
               <div>
-                <span className="font-medium text-slate-700">Limitations: </span>
-                <span className="text-slate-600">{patient.patientProfile.limitations}</span>
+                <span className="font-medium">Limitations: </span>
+                <span className="text-muted-foreground">{patient.patientProfile.limitations}</span>
               </div>
             )}
             {patient.patientProfile.comorbidities && (
               <div>
-                <span className="font-medium text-slate-700">Comorbidities: </span>
-                <span className="text-slate-600">{patient.patientProfile.comorbidities}</span>
+                <span className="font-medium">Comorbidities: </span>
+                <span className="text-muted-foreground">{patient.patientProfile.comorbidities}</span>
               </div>
             )}
             {patient.patientProfile.fitnessGoals.length > 0 && (
               <div>
-                <span className="font-medium text-slate-700">Goals: </span>
+                <span className="font-medium">Goals: </span>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {patient.patientProfile.fitnessGoals.map((g) => (
                     <Badge key={g} variant="secondary" className="text-xs">{g}</Badge>
@@ -200,7 +206,7 @@ export default async function PatientDetailPage({ params }: Props) {
             )}
             {patient.patientProfile.availableEquipment.length > 0 && (
               <div>
-                <span className="font-medium text-slate-700">Equipment: </span>
+                <span className="font-medium">Equipment: </span>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {patient.patientProfile.availableEquipment.map((eq) => (
                     <Badge key={eq} variant="outline" className="text-xs">{eq}</Badge>
@@ -235,29 +241,31 @@ export default async function PatientDetailPage({ params }: Props) {
             </CardHeader>
             <CardContent>
               {assignedPrograms.length === 0 ? (
-                <p className="text-sm text-slate-500">No programs assigned yet.</p>
+                <p className="text-sm text-muted-foreground">No programs assigned yet.</p>
               ) : (
                 <div className="space-y-3">
                   {assignedPrograms.map((prog) => (
                     <Link
                       key={prog.id}
                       href={`/programs/${prog.id}`}
-                      className="flex items-center justify-between rounded-lg border border-slate-200 p-3 hover:bg-slate-50"
+                      className="flex items-center justify-between rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors"
                     >
                       <div>
-                        <p className="font-medium text-slate-900">{prog.name}</p>
-                        <p className="text-xs text-slate-500">
+                        <p className="font-medium">{prog.name}</p>
+                        <p className="text-xs text-muted-foreground">
                           {prog._count.workouts} workouts
                         </p>
                       </div>
                       <Badge
                         className={
                           prog.status === "ACTIVE"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-700"
+                            ? "border-emerald-200 bg-emerald-100 text-emerald-700"
+                            : prog.status === "PAUSED"
+                            ? "border-amber-200 bg-amber-100 text-amber-700"
+                            : "border-border bg-muted text-muted-foreground"
                         }
                       >
-                        {prog.status}
+                        {prog.status.charAt(0) + prog.status.slice(1).toLowerCase()}
                       </Badge>
                     </Link>
                   ))}

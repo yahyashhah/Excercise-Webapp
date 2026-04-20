@@ -2,49 +2,63 @@
 
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import { Bell, Menu, Search, Activity } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
-import type { User } from "@prisma/client";
+import { NotificationPanel } from "@/components/notifications/notification-panel";
+import type { User, Notification } from "@prisma/client";
 
 interface HeaderProps {
   user: User;
   unreadMessageCount: number;
+  unreadNotificationCount: number;
+  initialNotifications: Notification[];
 }
 
 function getPageTitle(pathname: string): string {
-  const map: Record<string, string> = {
+  const exactMap: Record<string, string> = {
     "/dashboard": "Dashboard",
     "/exercises": "Exercise Library",
     "/exercises/new": "New Exercise",
-    "/workout-plans": "Workout Plans",
-    "/workout-plans/generate": "Generate Plan",
+    "/programs": "Programs",
+    "/programs/new": "New Program",
+    "/programs/generate": "Generate Program",
     "/patients": "Clients",
     "/messages": "Messages",
     "/assessments": "Assessments",
     "/assessments/new": "New Assessment",
+    "/check-ins": "Check-ins",
+    "/check-ins/new": "New Check-in Template",
+    "/habits": "Habits",
     "/settings": "Settings",
+    "/settings/clinic": "Clinic Settings",
   };
 
-  for (const [path, title] of Object.entries(map)) {
-    if (pathname === path) return title;
-  }
+  if (exactMap[pathname]) return exactMap[pathname];
 
+  if (pathname.startsWith("/exercises/") && pathname.endsWith("/edit")) return "Edit Exercise";
   if (pathname.startsWith("/exercises/")) return "Exercise Details";
-  if (pathname.startsWith("/workout-plans/") && pathname.endsWith("/edit")) return "Edit Plan";
-  if (pathname.startsWith("/workout-plans/") && pathname.endsWith("/session")) return "Workout Session";
-  if (pathname.startsWith("/workout-plans/")) return "Plan Details";
+  if (pathname.startsWith("/programs/") && pathname.endsWith("/edit")) return "Edit Program";
+  if (pathname.startsWith("/programs/")) return "Program Details";
   if (pathname.startsWith("/patients/") && pathname.endsWith("/adherence")) return "Adherence";
   if (pathname.startsWith("/patients/") && pathname.endsWith("/outcomes")) return "Outcomes";
+  if (pathname.startsWith("/patients/") && pathname.endsWith("/progress")) return "Progress Tracking";
   if (pathname.startsWith("/patients/")) return "Client Details";
   if (pathname.startsWith("/messages/")) return "Conversation";
+  if (pathname.startsWith("/sessions/")) return "Workout Session";
+  if (pathname.startsWith("/check-ins/") && pathname.endsWith("/respond")) return "Complete Check-in";
+  if (pathname.startsWith("/check-ins/")) return "Check-in Response";
 
   return "INMOTUS RX";
 }
 
-export function Header({ user, unreadMessageCount }: HeaderProps) {
+export function Header({
+  user,
+  unreadMessageCount,
+  unreadNotificationCount,
+  initialNotifications,
+}: HeaderProps) {
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
 
@@ -66,6 +80,7 @@ export function Header({ user, unreadMessageCount }: HeaderProps) {
             userName={`${user.firstName} ${user.lastName}`}
             userEmail={user.email}
             userImageUrl={user.imageUrl}
+            mobileMode
           />
         </SheetContent>
       </Sheet>
@@ -91,14 +106,10 @@ export function Header({ user, unreadMessageCount }: HeaderProps) {
       </Button>
 
       {/* Notifications */}
-      <Button variant="ghost" size="icon" className="relative">
-        <Bell className="h-4.5 w-4.5 text-muted-foreground" />
-        {unreadMessageCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
-            {unreadMessageCount}
-          </span>
-        )}
-      </Button>
+      <NotificationPanel
+        initialNotifications={initialNotifications}
+        initialUnreadCount={unreadNotificationCount}
+      />
 
       {/* User button (visible on desktop alongside sidebar) */}
       <div className="hidden lg:block">

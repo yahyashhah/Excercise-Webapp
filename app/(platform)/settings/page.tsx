@@ -10,8 +10,8 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
-        <p className="text-slate-600">Manage your account settings</p>
+        <h2 className="text-2xl font-bold">Settings</h2>
+        <p className="text-muted-foreground">Manage your account settings</p>
       </div>
 
       <Card>
@@ -20,17 +20,17 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-slate-700">Name:</span>
-            <span className="text-slate-600">
+            <span className="font-medium">Name:</span>
+            <span className="text-muted-foreground">
               {user.firstName} {user.lastName}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-medium text-slate-700">Email:</span>
-            <span className="text-slate-600">{user.email}</span>
+            <span className="font-medium">Email:</span>
+            <span className="text-muted-foreground">{user.email}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-medium text-slate-700">Role:</span>
+            <span className="font-medium">Role:</span>
             <Badge variant="secondary">{formatUserRole(user.role)}</Badge>
           </div>
         </CardContent>
@@ -42,7 +42,7 @@ export default async function SettingsPage() {
           appearance={{
             elements: {
               rootBox: "w-full",
-              cardBox: "shadow-none border border-slate-200 rounded-lg",
+              cardBox: "shadow-none border border-border rounded-lg",
             },
           }}
         />

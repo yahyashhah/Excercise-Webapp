@@ -8,7 +8,7 @@ import {
   updateSetLogV2Action,
   completeSessionV2Action,
 } from "@/actions/session-v2-actions";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,71 +24,24 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Check, SkipForward, X, Play, Loader2 } from "lucide-react";
+import { Check, SkipForward, X, Play, Loader2, Timer, ChevronRight, ChevronLeft, Trophy } from "lucide-react";
 
-// Types derived from V2 schema
-type MediaItem = {
-  id: string;
-  url: string;
-  type: string;
-};
-
+// Types
+type MediaItem = { id: string; url: string; type: string };
 type BaseExercise = {
-  id: string;
-  name: string;
-  imageUrl?: string | null;
-  videoUrl?: string | null;
-  bodyRegion?: string | null;
-  instructions?: string | null;
+  id: string; name: string;
+  imageUrl?: string | null; videoUrl?: string | null;
+  bodyRegion?: string | null; instructions?: string | null;
   media: MediaItem[];
 };
-
-type SetLog = {
-  id: string;
-  setIndex: number;
-  actualReps?: number | null;
-  actualWeight?: number | null;
-  actualDuration?: number | null;
-};
-
-type BlockExerciseSet = {
-  id: string;
-  orderIndex: number;
-  targetReps?: number | null;
-  targetDuration?: number | null;
-  targetWeight?: number | null;
-  restAfter?: number | null;
-  targetDistance?: number | null;
-};
-
-type SessionExerciseLog = {
-  id: string;
-  blockExerciseId: string;
-  status: string;
-  setLogs: SetLog[];
-};
-
-type BlockExercise = {
-  id: string;
-  exerciseId: string;
-  notes?: string | null;
-  exercise: BaseExercise;
-  sets: BlockExerciseSet[];
-};
-
-type WorkoutBlock = {
-  id: string;
-  exercises: BlockExercise[];
-};
-
+type SetLog = { id: string; setIndex: number; actualReps?: number | null; actualWeight?: number | null; actualDuration?: number | null };
+type BlockExerciseSet = { id: string; orderIndex: number; targetReps?: number | null; targetDuration?: number | null; targetWeight?: number | null; restAfter?: number | null; targetDistance?: number | null };
+type SessionExerciseLog = { id: string; blockExerciseId: string; status: string; setLogs: SetLog[] };
+type BlockExercise = { id: string; exerciseId: string; notes?: string | null; exercise: BaseExercise; sets: BlockExerciseSet[] };
+type WorkoutBlock = { id: string; exercises: BlockExercise[] };
 type WorkoutSessionV2 = {
-  id: string;
-  status: string;
-  workout: {
-    id: string;
-    name: string;
-    blocks: WorkoutBlock[];
-  };
+  id: string; status: string;
+  workout: { id: string; name: string; blocks: WorkoutBlock[] };
   exerciseLogs: SessionExerciseLog[];
 };
 
@@ -98,108 +51,76 @@ interface WorkoutSessionTrackerProps {
 
 export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
   const router = useRouter();
-  
-  // Flatten active exercises from all blocks
-  const activeExercises = useMemo(() => {
-    return session.workout.blocks.flatMap(block => block.exercises);
-  }, [session.workout.blocks]);
+
+  const activeExercises = useMemo(
+    () => session.workout.blocks.flatMap((b) => b.exercises),
+    [session.workout.blocks]
+  );
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  
-  // Initialize completed/skipped from DB log
   const [completedIds, setCompletedIds] = useState<Set<string>>(() => {
-    const completed = new Set<string>();
-    session.exerciseLogs.forEach(log => {
-      if (log.status === "COMPLETED") completed.add(log.blockExerciseId);
-    });
-    return completed;
+    const s = new Set<string>();
+    session.exerciseLogs.forEach((l) => { if (l.status === "COMPLETED") s.add(l.blockExerciseId); });
+    return s;
   });
-  
   const [skippedIds, setSkippedIds] = useState<Set<string>>(() => {
-    const skipped = new Set<string>();
-    session.exerciseLogs.forEach(log => {
-      if (log.status === "SKIPPED") skipped.add(log.blockExerciseId);
-    });
-    return skipped;
+    const s = new Set<string>();
+    session.exerciseLogs.forEach((l) => { if (l.status === "SKIPPED") s.add(l.blockExerciseId); });
+    return s;
   });
 
   const [sessionActive, setSessionActive] = useState(session.status !== "SCHEDULED");
   const [showEndDialog, setShowEndDialog] = useState(false);
-  const [painLevel, setPainLevel] = useState(0);
+  const [rpe, setRpe] = useState(5);
   const [notes, setNotes] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [timer, setTimer] = useState(0);
   const [timerActive, setTimerActive] = useState(session.status === "IN_PROGRESS");
+  const [activeSetLogs, setActiveSetLogs] = useState<Record<number, { actualReps?: number; actualWeight?: number; actualDuration?: number; completed: boolean }>>({});
+  const [loggingSet, setLoggingSet] = useState<number | null>(null);
 
   const totalExercises = activeExercises.length;
   const doneCount = completedIds.size + skippedIds.size;
   const progress = totalExercises > 0 ? (doneCount / totalExercises) * 100 : 0;
   const currentExercise = activeExercises[currentIndex];
 
-  const [activeSetLogs, setActiveSetLogs] = useState<Record<number, {
-    actualReps?: number;
-    actualWeight?: number;
-    actualDuration?: number;
-    completed: boolean;
-  }>>({});
-  const [loggingSet, setLoggingSet] = useState<number | null>(null);
-
   useEffect(() => {
-    if (currentExercise) {
-      const initial: Record<number, any> = {};
-      const sessionLog = session.exerciseLogs.find(
-        (log) => log.blockExerciseId === currentExercise.id
-      );
-      
-      currentExercise.sets.forEach((set, i) => {
-        const existingLog = sessionLog?.setLogs.find((sl) => sl.setIndex === i);
-        initial[i] = {
-          actualReps: existingLog?.actualReps ?? set.targetReps ?? undefined,
-          actualWeight: existingLog?.actualWeight ?? set.targetWeight ?? undefined,
-          actualDuration: existingLog?.actualDuration ?? set.targetDuration ?? undefined,
-          completed: !!existingLog || completedIds.has(currentExercise.id),
-        };
-      });
-      setActiveSetLogs(initial);
-    }
+    if (!currentExercise) return;
+    const initial: Record<number, { actualReps?: number; actualWeight?: number; actualDuration?: number; completed: boolean }> = {};
+    const sessionLog = session.exerciseLogs.find((l) => l.blockExerciseId === currentExercise.id);
+    currentExercise.sets.forEach((set, i) => {
+      const existing = sessionLog?.setLogs.find((sl) => sl.setIndex === i);
+      initial[i] = {
+        actualReps: existing?.actualReps ?? set.targetReps ?? undefined,
+        actualWeight: existing?.actualWeight ?? set.targetWeight ?? undefined,
+        actualDuration: existing?.actualDuration ?? set.targetDuration ?? undefined,
+        completed: !!existing || completedIds.has(currentExercise.id),
+      };
+    });
+    setActiveSetLogs(initial);
   }, [currentExercise, session.exerciseLogs, completedIds]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-    if (timerActive) {
-      interval = setInterval(() => setTimer((t) => t + 1), 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    if (timerActive) interval = setInterval(() => setTimer((t) => t + 1), 1000);
+    return () => { if (interval) clearInterval(interval); };
   }, [timerActive]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
+  const formatTime = (s: number) =>
+    `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
   const handleStart = async () => {
     setIsLoading(true);
     const result = await startSessionV2Action(session.id);
-    if (result.success) {
-      setSessionActive(true);
-      setTimerActive(true);
-    } else {
-      toast.error(result.error ?? "Failed to start session");
-    }
+    if (result.success) { setSessionActive(true); setTimerActive(true); }
+    else toast.error(result.error ?? "Failed to start session");
     setIsLoading(false);
   };
 
   const handleSetInputChange = (index: number, field: string, value: string) => {
-    const numValue = value === "" ? undefined : Number(value);
     setActiveSetLogs((prev) => ({
       ...prev,
-      [index]: {
-        ...prev[index],
-        [field]: numValue
-      }
+      [index]: { ...prev[index], [field]: value === "" ? undefined : Number(value) },
     }));
   };
 
@@ -213,24 +134,11 @@ export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
         actualWeight: logData.actualWeight,
         actualDuration: logData.actualDuration,
       });
-      setActiveSetLogs(prev => ({
-        ...prev,
-        [index]: { ...prev[index], completed: true }
-      }));
-
-      let isLast = true;
-      for (let i = 0; i < currentExercise.sets.length; i++) {
-         if (i !== index && !activeSetLogs[i]?.completed) {
-            isLast = false;
-            break;
-         }
-      }
-
-      if (isLast) {
-         setCompletedIds((prev) => new Set(prev).add(currentExercise.id));
-         setTimeout(() => {
-           advanceToNext();
-         }, 500);
+      setActiveSetLogs((prev) => ({ ...prev, [index]: { ...prev[index], completed: true } }));
+      const allDone = currentExercise.sets.every((_, i) => i === index || activeSetLogs[i]?.completed);
+      if (allDone) {
+        setCompletedIds((prev) => new Set(prev).add(currentExercise.id));
+        setTimeout(advanceToNext, 600);
       }
     } catch {
       toast.error("Failed to log set");
@@ -242,17 +150,10 @@ export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
   const handleComplete = async () => {
     if (!currentExercise) return;
     setIsLoading(true);
-
     try {
-      // Auto-log any sets that are not completed yet
       for (let i = 0; i < currentExercise.sets.length; i++) {
         if (!activeSetLogs[i]?.completed) {
-          const logData = activeSetLogs[i] || {};
-          await updateSetLogV2Action(session.id, currentExercise.id, i, {
-            actualReps: logData.actualReps,
-            actualDuration: logData.actualDuration,
-            actualWeight: logData.actualWeight,
-          });
+          await updateSetLogV2Action(session.id, currentExercise.id, i, activeSetLogs[i] || {});
         }
       }
       setCompletedIds((prev) => new Set(prev).add(currentExercise.id));
@@ -264,166 +165,239 @@ export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
     }
   };
 
-  const handleSkip = async () => {
+  const handleSkip = () => {
     if (!currentExercise) return;
-
     setSkippedIds((prev) => new Set(prev).add(currentExercise.id));
     advanceToNext();
   };
 
   const advanceToNext = () => {
-    if (currentIndex < totalExercises - 1) {
-      setCurrentIndex((prev) => prev + 1);
-    } else {
-      setShowEndDialog(true);
-      setTimerActive(false);
-    }
+    if (currentIndex < totalExercises - 1) setCurrentIndex((i) => i + 1);
+    else { setShowEndDialog(true); setTimerActive(false); }
   };
 
   const handleEndSession = async () => {
     setIsLoading(true);
-
-    const result = await completeSessionV2Action(session.id, painLevel, notes);
-
-    if (result.success) {
-      toast.success("Workout completed!");
-      // Send to patient dashboard instead of nonexistent CONSTANTS
-      router.push("/dashboard");
-    } else {
-      toast.error(result.error ?? "Failed to complete session");
-    }
+    const result = await completeSessionV2Action(session.id, rpe, notes);
+    if (result.success) { toast.success("Workout completed! Great work!"); router.push("/dashboard"); }
+    else toast.error(result.error ?? "Failed to complete session");
     setIsLoading(false);
   };
 
-  const handleAbandon = async () => {
-    toast.info("Session preserved but ended");
-    router.push("/dashboard");
-  };
-
+  // ── Pre-start screen ─────────────────────────────────────────────────────
   if (!sessionActive) {
     return (
-      <Card className="max-w-lg mx-auto">
-        <CardHeader className="text-center">
-          <CardTitle>Ready to Work Out?</CardTitle>
-          <p className="text-muted-foreground">
-            {session.workout.name} - {activeExercises.length} exercises
-          </p>
-        </CardHeader>
-        <CardContent className="text-center">
-          <Button size="lg" onClick={handleStart} disabled={isLoading}>
-            {isLoading ? (
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            ) : (
-              <Play className="mr-2 h-5 w-5" />
-            )}
-            Start Session
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="mx-auto max-w-lg">
+        <div className="overflow-hidden rounded-2xl border-0 shadow-xl ring-1 ring-border/50">
+          {/* Hero */}
+          <div className="bg-linear-to-br from-blue-600 via-indigo-600 to-violet-600 p-8 text-center text-white">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
+              <Play className="h-8 w-8 fill-white text-white" />
+            </div>
+            <h2 className="text-2xl font-bold">{session.workout.name}</h2>
+            <p className="mt-1 text-blue-200">
+              {activeExercises.length} exercise{activeExercises.length !== 1 ? "s" : ""} · Let&apos;s go!
+            </p>
+          </div>
+          {/* Exercise preview */}
+          <div className="bg-card p-6">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Today&apos;s Exercises
+            </p>
+            <div className="space-y-2">
+              {activeExercises.slice(0, 5).map((ex, i) => (
+                <div key={ex.id} className="flex items-center gap-3 rounded-lg bg-muted/40 px-3 py-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                    {i + 1}
+                  </span>
+                  <span className="truncate text-sm font-medium">{ex.exercise.name}</span>
+                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                    {ex.sets.length} {ex.sets.length === 1 ? "set" : "sets"}
+                  </span>
+                </div>
+              ))}
+              {activeExercises.length > 5 && (
+                <p className="text-center text-xs text-muted-foreground">
+                  +{activeExercises.length - 5} more exercises
+                </p>
+              )}
+            </div>
+            <Button
+              size="lg"
+              className="mt-6 w-full bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-lg shadow-blue-500/25 hover:from-blue-600 hover:to-indigo-600"
+              onClick={handleStart}
+              disabled={isLoading}
+            >
+              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Play className="mr-2 h-5 w-5 fill-current" />}
+              Start Session
+            </Button>
+          </div>
+        </div>
+      </div>
     );
   }
 
-  // Find out how many sets total vs completed? For UI we just show how many sets there are
-  const currentSetsCount = currentExercise?.sets?.length || 1;
-  const firstSet = currentExercise?.sets?.[0]; // Show baseline rep/duration from first set
-
+  // ── Active workout ────────────────────────────────────────────────────────
   return (
-    <div className="max-w-lg mx-auto space-y-4 pb-24">
-      <div className="flex items-center justify-between">
-        <div className="text-lg font-semibold">{formatTime(timer)}</div>
-        <Badge variant="outline">
-          {doneCount} / {totalExercises} exercises
+    <div className="mx-auto max-w-lg space-y-4 pb-24">
+      {/* Top bar */}
+      <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-card px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Timer className="h-4 w-4 text-primary" />
+          {formatTime(timer)}
+        </div>
+        <Badge variant="outline" className="font-semibold">
+          {doneCount} / {totalExercises}
         </Badge>
-        <Button variant="ghost" size="sm" className="text-destructive" onClick={handleAbandon}>
-          <X className="mr-1 h-4 w-4" />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={() => { toast.info("Session preserved"); router.push("/dashboard"); }}
+        >
+          <X className="h-3.5 w-3.5" />
           End
         </Button>
       </div>
 
-      <Progress value={progress} className="h-2" />
+      {/* Progress */}
+      <div className="space-y-1.5">
+        <Progress value={progress} className="h-2 rounded-full" />
+        <div className="flex justify-between text-[11px] text-muted-foreground">
+          <span>{Math.round(progress)}% complete</span>
+          <span>{totalExercises - doneCount} remaining</span>
+        </div>
+      </div>
 
+      {/* Exercise navigation pills */}
+      <div className="flex items-center justify-between gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1 text-xs"
+          disabled={currentIndex === 0}
+          onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+        >
+          <ChevronLeft className="h-3.5 w-3.5" /> Prev
+        </Button>
+        <span className="text-sm font-semibold text-muted-foreground">
+          Exercise {currentIndex + 1} of {totalExercises}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1 text-xs"
+          disabled={currentIndex === totalExercises - 1}
+          onClick={() => setCurrentIndex((i) => Math.min(totalExercises - 1, i + 1))}
+        >
+          Next <ChevronRight className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      {/* Current exercise card */}
       {currentExercise && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <Badge variant="outline">
-                Exercise {currentIndex + 1} of {totalExercises}
-              </Badge>
+        <Card className="overflow-hidden border-0 shadow-md ring-1 ring-border/50">
+          {/* Status stripe */}
+          <div className={`h-1 w-full ${completedIds.has(currentExercise.id) ? "bg-emerald-500" : skippedIds.has(currentExercise.id) ? "bg-muted" : "bg-primary"}`} />
+
+          <CardContent className="p-5 space-y-4">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="text-xl font-bold leading-tight">{currentExercise.exercise.name}</h3>
+              {completedIds.has(currentExercise.id) && (
+                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 border shrink-0">
+                  <Check className="mr-1 h-3 w-3" /> Done
+                </Badge>
+              )}
+              {skippedIds.has(currentExercise.id) && (
+                <Badge className="bg-muted text-muted-foreground border shrink-0">
+                  Skipped
+                </Badge>
+              )}
             </div>
-            <CardTitle className="text-xl mt-2">
-              {currentExercise.exercise.name}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+
+            {/* Image */}
             <ExerciseImageLightbox
               src={currentExercise.exercise.imageUrl ?? undefined}
               videoUrl={currentExercise.exercise.videoUrl ?? undefined}
               alt={currentExercise.exercise.name}
               bodyRegion={currentExercise.exercise.bodyRegion ?? ""}
               label={currentExercise.exercise.name.split(" ").slice(0, 2).join(" ")}
-              thumbnailClassName="relative h-52 w-full overflow-hidden rounded-lg"
+              thumbnailClassName="relative h-52 w-full overflow-hidden rounded-xl"
             />
 
+            {/* Instructions */}
             {currentExercise.exercise.instructions && (
-              <div className="text-sm whitespace-pre-wrap text-muted-foreground">
-                {currentExercise.exercise.instructions}
+              <div className="rounded-xl bg-muted/40 px-4 py-3">
+                <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                  {currentExercise.exercise.instructions}
+                </p>
               </div>
             )}
 
+            {/* Notes from clinician */}
             {currentExercise.notes && (
-              <p className="text-sm italic text-muted-foreground">
-                Note: {currentExercise.notes}
-              </p>
+              <div className="flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+                <span className="mt-0.5 text-xs font-bold uppercase tracking-widest text-blue-500">Note</span>
+                <p className="text-sm italic text-blue-700">{currentExercise.notes}</p>
+              </div>
             )}
 
-            <div className="space-y-3 py-2">
+            {/* Sets */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Sets
+              </p>
               {currentExercise.sets.map((set, i) => {
                 const logData = activeSetLogs[i] || {};
                 const isCompleted = logData.completed;
-                const isLogging = loggingSet === i;
-                
+                const isLoggingThis = loggingSet === i;
+
                 return (
-                  <div key={set.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${isCompleted ? 'bg-muted/50 border-muted' : 'bg-background border-border'}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${isCompleted ? 'bg-muted-foreground/20 text-muted-foreground' : 'bg-primary/10 text-primary'}`}>
-                      {i + 1}
+                  <div
+                    key={set.id}
+                    className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${isCompleted ? "border-emerald-200 bg-emerald-50/50" : "border-border bg-background"}`}
+                  >
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${isCompleted ? "bg-emerald-500 text-white" : "bg-primary/10 text-primary"}`}>
+                      {isCompleted ? <Check className="h-4 w-4" /> : i + 1}
                     </div>
-                    
-                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-2">
+
+                    <div className="flex flex-1 flex-wrap gap-2">
                       {set.targetReps != null && (
-                        <div className="space-y-1">
-                          <Label className="text-[10px] uppercase text-muted-foreground font-semibold">Reps</Label>
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Reps</Label>
                           <Input
                             type="number"
                             placeholder={set.targetReps.toString()}
                             value={logData.actualReps ?? ""}
                             onChange={(e) => handleSetInputChange(i, "actualReps", e.target.value)}
-                            className="h-8 text-sm"
+                            className="h-8 w-20 text-sm"
                             disabled={isCompleted}
                           />
                         </div>
                       )}
                       {set.targetWeight != null && (
-                        <div className="space-y-1">
-                          <Label className="text-[10px] uppercase text-muted-foreground font-semibold">Lbs/Kg</Label>
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Weight</Label>
                           <Input
                             type="number"
                             placeholder={set.targetWeight.toString()}
                             value={logData.actualWeight ?? ""}
                             onChange={(e) => handleSetInputChange(i, "actualWeight", e.target.value)}
-                            className="h-8 text-sm"
+                            className="h-8 w-20 text-sm"
                             disabled={isCompleted}
                           />
                         </div>
                       )}
                       {set.targetDuration != null && (
-                        <div className="space-y-1">
-                          <Label className="text-[10px] uppercase text-muted-foreground font-semibold">Secs</Label>
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Secs</Label>
                           <Input
                             type="number"
                             placeholder={set.targetDuration.toString()}
                             value={logData.actualDuration ?? ""}
                             onChange={(e) => handleSetInputChange(i, "actualDuration", e.target.value)}
-                            className="h-8 text-sm"
+                            className="h-8 w-20 text-sm"
                             disabled={isCompleted}
                           />
                         </div>
@@ -435,34 +409,43 @@ export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
                       variant={isCompleted ? "secondary" : "default"}
                       className="h-8 w-8 shrink-0 rounded-full"
                       onClick={() => handleLogSet(i)}
-                      disabled={isCompleted || isLogging}
+                      disabled={isCompleted || isLoggingThis}
                     >
-                      {isLogging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                      {isLoggingThis ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                     </Button>
                   </div>
                 );
               })}
             </div>
 
+            {/* Video */}
             {(currentExercise.exercise.videoUrl || currentExercise.exercise.media.length > 0) && (
               <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Tutorial
-                </p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Tutorial Video</p>
                 <ExerciseVideoPlayer
                   videoUrl={currentExercise.exercise.videoUrl ?? undefined}
-                  mediaItems={currentExercise.exercise.media as any}
+                  mediaItems={currentExercise.exercise.media.map((m) => ({ id: m.id, url: m.url, mediaType: m.type }))}
                 />
               </div>
             )}
 
-            <div className="flex gap-3">
-              <Button className="flex-1" onClick={handleComplete}>
-                <Check className="mr-2 h-4 w-4" />
+            {/* Action buttons */}
+            <div className="flex gap-3 pt-1">
+              <Button
+                className="flex-1 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
+                onClick={handleComplete}
+                disabled={isLoading}
+              >
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                 Complete
               </Button>
-              <Button variant="outline" className="flex-1" onClick={handleSkip}>
-                <SkipForward className="mr-2 h-4 w-4" />
+              <Button
+                variant="outline"
+                className="flex-1 gap-2"
+                onClick={handleSkip}
+                disabled={isLoading}
+              >
+                <SkipForward className="h-4 w-4" />
                 Skip
               </Button>
             </div>
@@ -470,45 +453,72 @@ export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
         </Card>
       )}
 
+      {/* End session dialog */}
       <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Great work! How did it go?</DialogTitle>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/25">
+              <Trophy className="h-8 w-8 text-white" />
+            </div>
+            <DialogTitle className="text-center text-xl">Great work!</DialogTitle>
+            <p className="text-center text-sm text-muted-foreground">
+              You completed {completedIds.size} of {totalExercises} exercises in {formatTime(timer)}.
+            </p>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+
+          <div className="space-y-5 py-2">
             <div>
-              <Label>Overall RPE (Difficulty): {painLevel}/10</Label>
-              <Input
-                type="range"
-                min={0}
-                max={10}
-                value={painLevel}
-                onChange={(e) => setPainLevel(Number(e.target.value))}
-                className="mt-2"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>Very Easy</span>
-                <span>Max Effort</span>
+              <Label className="font-semibold">
+                How hard was this session? <span className="font-normal text-muted-foreground">RPE {rpe}/10</span>
+              </Label>
+              <div className="mt-3 flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">Easy</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={10}
+                  value={rpe}
+                  onChange={(e) => setRpe(Number(e.target.value))}
+                  className="flex-1 accent-primary"
+                />
+                <span className="text-xs text-muted-foreground">Max</span>
+              </div>
+              {/* RPE colour indicator */}
+              <div className="mt-2 flex gap-1">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-1.5 flex-1 rounded-full transition-colors ${i < rpe ? i < 4 ? "bg-emerald-500" : i < 7 ? "bg-amber-500" : "bg-red-500" : "bg-muted"}`}
+                  />
+                ))}
               </div>
             </div>
-            <div>
-              <Label>Notes (optional)</Label>
+
+            <div className="space-y-1.5">
+              <Label className="font-semibold">Session Notes <span className="font-normal text-muted-foreground">(optional)</span></Label>
               <Textarea
-                placeholder="How did the workout feel?"
+                placeholder="How did it feel? Any pain or discomfort to flag?"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
-                className="mt-2"
+                className="resize-none"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button onClick={handleEndSession} disabled={isLoading}>
-              {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="mr-2 h-4 w-4" />
-              )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { toast.info("Session preserved"); router.push("/dashboard"); }}
+            >
+              Skip &amp; Exit
+            </Button>
+            <Button
+              className="flex-1 bg-linear-to-r from-emerald-500 to-teal-500 border-0 text-white hover:from-emerald-600 hover:to-teal-600"
+              onClick={handleEndSession}
+              disabled={isLoading}
+            >
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
               Complete Session
             </Button>
           </DialogFooter>
@@ -517,4 +527,3 @@ export function WorkoutSessionTracker({ session }: WorkoutSessionTrackerProps) {
     </div>
   );
 }
-

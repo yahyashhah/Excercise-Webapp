@@ -121,6 +121,8 @@ model User {
   packages           CoachPackage[]       @relation("Packages")
   subscriptions      ClientSubscription[] @relation("Subscriptions")
   branding           CoachBranding?       @relation("Branding")
+  clinicalNotesAsPatient    ClinicalNote[] @relation("ClinicalNotesPatient")
+  clinicalNotesAsClinicain  ClinicalNote[] @relation("ClinicalNotesClinician")
 }
 
 model PatientProfile {
@@ -725,6 +727,26 @@ model Invoice {
   paidAt          DateTime?
   dueDate         DateTime
   createdAt       DateTime           @default(now())
+}
+
+model ClinicalNote {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  patientId       String   @db.ObjectId
+  patient         User     @relation("ClinicalNotesPatient", fields: [patientId], references: [id])
+  clinicianId     String   @db.ObjectId
+  clinician       User     @relation("ClinicalNotesClinician", fields: [clinicianId], references: [id])
+  sessionId       String?  @db.ObjectId
+  appointmentDate DateTime @default(now())
+  subjective      String?
+  objective       String?
+  assessment      String?
+  plan            String?
+  privateNotes    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([patientId, appointmentDate])
+  @@map("clinical_notes")
 }
 
 model CoachBranding {

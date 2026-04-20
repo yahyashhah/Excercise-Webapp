@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import * as programService from "@/lib/services/program.service";
 import * as sessionService from "@/lib/services/session.service";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import { ProgramDetailView } from "@/components/programs/program-detail-view";
 
 interface Props {
@@ -47,12 +50,20 @@ export default async function ProgramDetailPage({
   }
 
   return (
-    <ProgramDetailView
-      program={program as unknown as Record<string, unknown>}
-      isClinician={user.role === "CLINICIAN"}
-      patients={patients}
-      sessions={sessions as Record<string, unknown>[]}
-      showAssignDialog={assign === "true"}
-    />
+    <div className="space-y-4">
+      <Button variant="ghost" size="sm" asChild>
+        <Link href="/programs">
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Back to Programs
+        </Link>
+      </Button>
+      <ProgramDetailView
+        program={program as unknown as Record<string, unknown>}
+        isClinician={user.role === "CLINICIAN"}
+        patients={patients}
+        sessions={sessions as Record<string, unknown>[]}
+        showAssignDialog={assign === "true"}
+      />
+    </div>
   );
 }
