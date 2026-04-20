@@ -13,6 +13,9 @@ import {
   Settings,
   Activity,
   Library,
+  ClipboardCheck,
+  Flame,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -29,20 +32,24 @@ interface SidebarProps {
 }
 
 const clinicianLinks = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/exercises", label: "Exercises", icon: Dumbbell },
-  { href: "/programs", label: "Programs", icon: Library },
-  { href: "/patients", label: "Clients", icon: Users },
-  { href: "/messages", label: "Messages", icon: MessageSquare },
-  { href: "/assessments", label: "Assessments", icon: BarChart3 },
+  { href: "/dashboard",   label: "Dashboard",   icon: LayoutDashboard },
+  { href: "/patients",    label: "Clients",      icon: Users },
+  { href: "/programs",    label: "Programs",     icon: Library },
+  { href: "/exercises",   label: "Exercises",    icon: Dumbbell },
+  { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
+  { href: "/habits",      label: "Habits",       icon: Flame },
+  { href: "/messages",    label: "Messages",     icon: MessageSquare },
+  { href: "/assessments", label: "Assessments",  icon: BarChart3 },
 ];
 
 const patientLinks = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/exercises", label: "Exercises", icon: Dumbbell },
-  { href: "/programs", label: "My Programs", icon: ClipboardList },
-  { href: "/messages", label: "Messages", icon: MessageSquare },
-  { href: "/assessments", label: "Assessments", icon: BarChart3 },
+  { href: "/dashboard",   label: "Dashboard",    icon: LayoutDashboard },
+  { href: "/programs",    label: "My Programs",  icon: ClipboardList },
+  { href: "/habits",      label: "Habits",       icon: Flame },
+  { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
+  { href: "/exercises",   label: "Exercises",    icon: Dumbbell },
+  { href: "/assessments", label: "Assessments",  icon: TrendingUp },
+  { href: "/messages",    label: "Messages",     icon: MessageSquare },
 ];
 
 export function Sidebar({

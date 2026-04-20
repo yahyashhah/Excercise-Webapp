@@ -765,7 +765,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Pricing ───────────────────────────────────────────────────────── */}
-      <section id="pricing" className="bg-slate-50 py-24 sm:py-32">
+      {/* <section id="pricing" className="bg-slate-50 py-24 sm:py-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <FadeUp className="mx-auto max-w-2xl text-center">
             <Badge className="mb-4 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100">
@@ -845,7 +845,7 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* ── CTA Banner ────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-[#0a0f1e] py-24">

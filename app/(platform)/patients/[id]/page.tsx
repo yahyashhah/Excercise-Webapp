@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlanStatusBadge } from "@/components/workout/plan-status-badge";
-import { ArrowLeft, BarChart3, Activity, MessageSquare } from "lucide-react";
+import { ArrowLeft, BarChart3, Activity, MessageSquare, TrendingUp } from "lucide-react";
 import { ClientCalendar } from "@/components/calendar/client-calendar";
 
 interface Props {
@@ -92,6 +92,12 @@ export default async function PatientDetailPage({ params }: Props) {
               <Link href={`/patients/${id}/outcomes`}>
                 <BarChart3 className="mr-1 h-4 w-4" />
                 Outcomes
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/patients/${id}/progress`}>
+                <TrendingUp className="mr-1 h-4 w-4" />
+                Progress
               </Link>
             </Button>
           </div>
