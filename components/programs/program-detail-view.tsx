@@ -18,12 +18,19 @@ import {
   UserPlus,
   ChevronDown,
   ChevronRight,
+  Play,
 } from "lucide-react";
 import { toast } from "sonner";
 import { duplicateProgramAction } from "@/actions/program-actions";
 import { AssignProgramDialog } from "@/components/programs/assign-program-dialog";
 import { CalendarWithSidebar } from "@/components/calendar/calendar-with-sidebar";
-import { ExerciseImage } from "@/components/exercises/exercise-image";
+import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { format } from "date-fns";
 
 interface ProgramDetailViewProps {
@@ -43,10 +50,43 @@ export function ProgramDetailView({
 }: ProgramDetailViewProps) {
   const router = useRouter();
   const [assignOpen, setAssignOpen] = useState(showAssignDialog);
+  const [detailExercise, setDetailExercise] = useState<Record<string, unknown> | null>(null);
   const workouts = (program.workouts as Record<string, unknown>[]) || [];
   const [expandedWorkouts, setExpandedWorkouts] = useState<Set<string>>(
     new Set()
   );
+
+  function summarizeSets(sets: Record<string, unknown>[]): string {
+    if (sets.length === 0) return "";
+    const first = sets[0];
+    const allSame = sets.every(
+      (s) =>
+        s.targetReps === first.targetReps &&
+        s.targetWeight === first.targetWeight &&
+        s.targetDuration === first.targetDuration &&
+        s.targetRPE === first.targetRPE &&
+        s.setType === first.setType
+    );
+    const count = allSame ? sets.length : 1;
+    const base = allSame ? first : sets[0];
+    const prefix = (base.setType as string) !== "NORMAL" ? `${base.setType as string} ` : "";
+    const reps = (base.targetReps as number) ? `${base.targetReps as number} reps` : "";
+    const weight = (base.targetWeight as number) ? ` @ ${base.targetWeight as number}lb` : "";
+    const dur = (base.targetDuration as number) ? ` ${base.targetDuration as number}s` : "";
+    const rpe = (base.targetRPE as number) ? ` RPE ${base.targetRPE as number}` : "";
+    const detail = `${prefix}${reps}${weight}${dur}${rpe}`.trim();
+    if (allSame && sets.length > 1) return `${count} × ${detail}`;
+    if (sets.length === 1) return detail;
+    return sets
+      .map((s) => {
+        const p = (s.setType as string) !== "NORMAL" ? `${s.setType as string} ` : "";
+        const r = (s.targetReps as number) ? `${s.targetReps as number} reps` : "";
+        const w = (s.targetWeight as number) ? ` @ ${s.targetWeight as number}lb` : "";
+        const d = (s.targetDuration as number) ? ` ${s.targetDuration as number}s` : "";
+        return `${p}${r}${w}${d}`.trim();
+      })
+      .join(" | ");
+  }
 
   function toggleWorkout(id: string) {
     setExpandedWorkouts((prev) => {
@@ -124,7 +164,7 @@ export function ProgramDetailView({
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="calendar">Calendar</TabsTrigger>
+          {!!patientId && <TabsTrigger value="calendar">Schedule</TabsTrigger>}
         </TabsList>
         <TabsContent value="overview" className="space-y-4 mt-4">
           {workouts.length === 0 ? (
@@ -196,53 +236,50 @@ export function ProgramDetailView({
                                 return (
                                   <div
                                     key={be.id as string}
-                                      className="flex items-start gap-4 p-3 bg-muted/50 rounded-md"
-                                    >
-                                      {!!(exercise?.imageUrl || exercise?.videoUrl) && (
-                                        <div className="w-16 h-16 rounded overflow-hidden shrink-0 relative bg-secondary">
-                                          <ExerciseImage
-                                            src={exercise.imageUrl as string}
-                                            alt={exercise.name as string}
-                                            bodyRegion={exercise.bodyRegion as string}
-                                            videoUrl={exercise.videoUrl as string}
-                                          />
-                                        </div>
+                                    className="flex items-start gap-3 p-3 bg-muted/50 rounded-md"
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <button
+                                          type="button"
+                                          className="font-medium text-sm text-left hover:underline focus:outline-none"
+                                          onClick={() => setDetailExercise(exercise)}
+                                        >
+                                          {exercise?.name as string}
+                                        </button>
+                                        {!!(exercise?.videoUrl) && (
+                                          <button
+                                            type="button"
+                                            className="inline-flex items-center gap-0.5 text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-sm font-medium hover:bg-blue-100 transition-colors"
+                                            onClick={() => setDetailExercise(exercise)}
+                                          >
+                                            <Play className="h-2.5 w-2.5" /> Watch
+                                          </button>
+                                        )}
+                                      </div>
+                                      {!!(exercise?.description) && (
+                                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                          {exercise.description as string}
+                                        </p>
                                       )}
-                                    <div className="flex-1">
-                                      <p className="font-medium">
-                                        {exercise?.name as string}
-                                      </p>
                                       {!!be.notes && (
-                                        <p className="text-sm text-muted-foreground">
+                                        <p className="text-xs text-muted-foreground mt-0.5 italic">
                                           {be.notes as string}
                                         </p>
                                       )}
-                                      <div className="flex flex-wrap gap-2 mt-2">
-                                        {sets.map((set) => (
-                                          <Badge
-                                            key={set.id as string}
-                                            variant="secondary"
-                                            className="text-xs"
-                                          >
-                                            {(set.setType as string) !== "NORMAL" &&
-                                              `${set.setType as string} `}
-                                            {!!(set.targetReps) &&
-                                              `${set.targetReps as number} reps`}
-                                            {!!(set.targetWeight) &&
-                                              ` @ ${set.targetWeight as number}lb`}
-                                            {!!(set.targetDuration) &&
-                                              ` ${set.targetDuration as number}s`}
-                                            {!!(set.targetRPE) &&
-                                              ` RPE ${set.targetRPE as number}`}
+                                      {sets.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                          <Badge variant="secondary" className="text-xs">
+                                            {summarizeSets(sets)}
                                           </Badge>
-                                        ))}
-                                      </div>
+                                          {!!be.restSeconds && (
+                                            <Badge variant="outline" className="text-xs text-muted-foreground">
+                                              Rest {be.restSeconds as number}s
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      )}
                                     </div>
-                                    {!!be.restSeconds && (
-                                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                        Rest: {be.restSeconds as number}s
-                                      </span>
-                                    )}
                                   </div>
                                 );
                               })}
@@ -257,12 +294,22 @@ export function ProgramDetailView({
             })
           )}
         </TabsContent>
-        <TabsContent value="calendar" className="mt-4">
-          <CalendarWithSidebar
-            sessions={sessions}
-            isClinician={isClinician}
-          />
-        </TabsContent>
+        {!!patientId && (
+          <TabsContent value="calendar" className="mt-4">
+            {sessions.length === 0 ? (
+              <Card className="p-10 text-center">
+                <p className="text-muted-foreground">
+                  No sessions scheduled yet. Assign this program to place workouts on the calendar.
+                </p>
+              </Card>
+            ) : (
+              <CalendarWithSidebar
+                sessions={sessions}
+                isClinician={isClinician}
+              />
+            )}
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Assign Dialog */}
@@ -272,6 +319,44 @@ export function ProgramDetailView({
         open={assignOpen}
         onOpenChange={setAssignOpen}
       />
+
+      {/* Exercise Detail Modal */}
+      <Dialog open={!!detailExercise} onOpenChange={(open) => !open && setDetailExercise(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{detailExercise?.name as string}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {!!(detailExercise?.videoUrl) ? (
+              <div className="w-full aspect-video rounded-md overflow-hidden bg-black/10">
+                <UniversalVideoPlayer
+                  url={detailExercise.videoUrl as string}
+                  provider={detailExercise.videoProvider as string | undefined}
+                />
+              </div>
+            ) : (
+              <div className="w-full flex items-center justify-center rounded-md bg-muted h-20">
+                <p className="text-sm text-muted-foreground">No video available for this exercise</p>
+              </div>
+            )}
+            {!!(detailExercise?.description) && (
+              <p className="text-sm text-muted-foreground">{detailExercise.description as string}</p>
+            )}
+            {!!(detailExercise?.musclesTargeted) && (detailExercise.musclesTargeted as string[]).length > 0 && (
+              <div className="text-sm">
+                <span className="font-medium">Muscles targeted: </span>
+                <span className="text-muted-foreground">{(detailExercise.musclesTargeted as string[]).join(", ")}</span>
+              </div>
+            )}
+            {!!(detailExercise?.commonMistakes) && (
+              <div className="text-sm">
+                <span className="font-medium">Common mistakes: </span>
+                <span className="text-muted-foreground">{detailExercise.commonMistakes as string}</span>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

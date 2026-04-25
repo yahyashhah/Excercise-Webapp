@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { ExerciseImage } from "@/components/exercises/exercise-image";
 import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
 import {
   DropdownMenu,
@@ -74,7 +73,10 @@ type ExerciseSummary = {
   targetPercentage1RM?: number | null;
   tempo?: string | null;
   musclesTargeted?: string[];
-  imageUrl?: string | null;
+  description?: string | null;
+  videoUrl?: string | null;
+  videoProvider?: string | null;
+  exercisePhase?: string | null;
 };
 
 type PanelState =
@@ -214,21 +216,6 @@ function SortableExercise({
             <div className="flex items-center justify-center w-7 h-7 rounded-md bg-secondary text-secondary-foreground font-bold text-xs shrink-0 cursor-pointer" onClick={() => setExpanded(!expanded)}>
               {blockLetter}{exerciseIndex + 1}
             </div>
-
-            {(exercise.exercise.imageUrl || exercise.exercise.videoUrl) && (
-              <div
-                className="w-8 h-8 rounded overflow-hidden shrink-0 cursor-pointer relative"
-                onClick={() => setExpanded(!expanded)}
-              >
-                <ExerciseImage
-                  src={exercise.exercise.imageUrl}
-                  alt={exercise.exercise.name}
-                  bodyRegion={exercise.exercise.bodyRegion}
-                  videoUrl={exercise.exercise.videoUrl}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
 
             <div className="flex flex-col flex-1 cursor-pointer min-w-0" onClick={() => setExpanded(!expanded)}>
               <div className="flex items-center gap-2">
