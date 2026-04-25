@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { BodyRegion, DifficultyLevel } from "@prisma/client";
+import type { BodyRegion, DifficultyLevel, ExercisePhase } from "@prisma/client";
 import {
   buildYouTubeSearchUrl,
   extractYouTubeId,
@@ -10,6 +10,7 @@ export interface ExerciseFilters {
   search?: string;
   bodyRegion?: BodyRegion;
   difficultyLevel?: DifficultyLevel;
+  exercisePhase?: ExercisePhase;
   equipment?: string;
 }
 
@@ -19,6 +20,7 @@ export async function getExercises(filters: ExerciseFilters = {}) {
       isActive: true,
       ...(filters.bodyRegion && { bodyRegion: filters.bodyRegion }),
       ...(filters.difficultyLevel && { difficultyLevel: filters.difficultyLevel }),
+      ...(filters.exercisePhase && { exercisePhase: filters.exercisePhase }),
       ...(filters.search && {
         name: { contains: filters.search, mode: "insensitive" as const },
       }),
@@ -41,7 +43,10 @@ export async function getExercisesForPicker() {
       difficultyLevel: true,
       defaultReps: true,
       musclesTargeted: true,
-      imageUrl: true,
+      description: true,
+      videoUrl: true,
+      videoProvider: true,
+      exercisePhase: true,
     },
     orderBy: { name: "asc" },
   });

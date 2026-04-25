@@ -62,55 +62,38 @@ export default async function ExerciseDetailPage({ params }: Props) {
         </CardHeader>
         <CardContent className="space-y-6">
 
-          {/* Primary Image + Video — attached video has priority over fallback videoUrl */}
-          <div className={`grid gap-4 ${exercise.videoUrl || hasAttachedVideo ? "sm:grid-cols-2" : "sm:grid-cols-1 max-w-sm"}`}>
+          {/* Video — full width */}
+          {(exercise.videoUrl || hasAttachedVideo) ? (
             <div>
-              <h3 className="mb-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">Photo</h3>
-              <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-slate-100">
-                <ExerciseImage
-                  src={exercise.imageUrl}
-                  alt={exercise.name}
-                  bodyRegion={exercise.bodyRegion}
-                  videoUrl={exercise.videoUrl}
-                />
-              </div>
+              <h3 className="mb-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">Video Demo</h3>
+              <ExerciseVideoPlayer
+                videoUrl={exercise.videoUrl}
+                mediaItems={exercise.media}
+                className="w-full"
+              />
             </div>
-            {(exercise.videoUrl || hasAttachedVideo) && (
-              <div>
-                <h3 className="mb-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">Video Demo</h3>
-                <ExerciseVideoPlayer
-                  videoUrl={exercise.videoUrl}
-                  mediaItems={exercise.media}
-                  className="w-full"
-                />
-              </div>
-            )}
-          </div>
+          ) : (
+            <div className="flex items-center justify-center rounded-lg bg-muted h-24">
+              <p className="text-sm text-muted-foreground">No video available for this exercise</p>
+            </div>
+          )}
 
-          {/* Additional media gallery */}
-          {exercise.media.length > 0 && (
+          {/* Additional video-only media gallery */}
+          {exercise.media.filter((m) => m.mediaType !== "image").length > 0 && (
             <div>
-              <h3 className="mb-3 text-sm font-semibold text-slate-500 uppercase tracking-wide">Media Gallery</h3>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {exercise.media.map((item) => (
-                  <div key={item.id} className="rounded-lg overflow-hidden bg-slate-100">
-                    {item.mediaType === "image" ? (
-                      <ExerciseImage
-                        src={item.url}
-                        alt={item.altText ?? exercise.name}
-                        bodyRegion={exercise.bodyRegion}
-                        className="h-32 w-full object-cover"
-                        gradientClassName="h-32 w-full flex items-center justify-center"
-                      />
-                    ) : (
+              <h3 className="mb-3 text-sm font-semibold text-slate-500 uppercase tracking-wide">Additional Videos</h3>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {exercise.media
+                  .filter((item) => item.mediaType !== "image")
+                  .map((item) => (
+                    <div key={item.id} className="rounded-lg overflow-hidden bg-slate-100">
                       <ExerciseVideoPlayer
                         videoUrl={item.url}
                         mediaItems={[]}
                         className="w-full"
                       />
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  ))}
               </div>
             </div>
           )}

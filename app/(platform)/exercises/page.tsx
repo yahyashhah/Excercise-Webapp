@@ -7,13 +7,14 @@ import { ExerciseFilters } from "@/components/exercises/exercise-filters";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Dumbbell } from "lucide-react";
-import type { BodyRegion, DifficultyLevel } from "@prisma/client";
+import type { BodyRegion, DifficultyLevel, ExercisePhase } from "@prisma/client";
 
 interface Props {
   searchParams: Promise<{
     search?: string;
     bodyRegion?: string;
     difficultyLevel?: string;
+    exercisePhase?: string;
     equipment?: string;
   }>;
 }
@@ -26,6 +27,7 @@ export default async function ExercisesPage({ searchParams }: Props) {
     search: params.search,
     bodyRegion: params.bodyRegion as BodyRegion | undefined,
     difficultyLevel: params.difficultyLevel as DifficultyLevel | undefined,
+    exercisePhase: params.exercisePhase as ExercisePhase | undefined,
     equipment: params.equipment,
   });
 

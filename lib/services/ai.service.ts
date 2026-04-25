@@ -11,6 +11,8 @@ interface GenerateWorkoutParams {
   focusAreas: string[];
   durationMinutes: number;
   daysPerWeek: number;
+  exercisesPerSession?: number;
+  circuitsPerSession?: number;
   difficultyLevel: string;
   additionalNotes?: string;
   subjective?: string;
@@ -288,6 +290,9 @@ Fitness Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ")
     )
     .join("\n");
 
+  const exercisesPerSession = params.exercisesPerSession ?? 6;
+  const circuitsPerSession = params.circuitsPerSession ?? 0;
+
   const userPrompt = `Create an exercise program with the following details:
 
 ${clientContext}
@@ -298,9 +303,13 @@ Program Parameters:
 - Days per Week: ${params.daysPerWeek}
 - Difficulty Level: ${params.difficultyLevel}
 - Allowed Weekdays: ${scheduleLabel} (${uniqueWeekdayIndices.join(", ")})
+- Exercises Per Session: EXACTLY ${exercisesPerSession} exercises total per day (including warmup, main, and cooldown)
+- Circuits / Supersets: ${circuitsPerSession === 0 ? "0 — use straight sets only, NO circuits or supersets" : `${circuitsPerSession} circuit block${circuitsPerSession > 1 ? "s" : ""} per session — remaining exercises use straight sets`}
 ${params.subjective ? `- Clinician Subjective: ${params.subjective}` : ""}
 ${params.clinicianPrompt ? `- Clinician Instructions: ${params.clinicianPrompt}` : ""}
 ${params.additionalNotes ? `- Additional Notes: ${params.additionalNotes}` : ""}
+
+CRITICAL VOLUME RULE: Each day must have EXACTLY ${exercisesPerSession} exercises — no more, no less. Distribute them across the required phases (WARMUP → ACTIVATION → STRENGTHENING → MOBILITY → COOLDOWN).
 
 Available Exercises (use ONLY these exercise IDs):
 ${exerciseListStr}
