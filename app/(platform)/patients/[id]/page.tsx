@@ -94,12 +94,12 @@ export default async function PatientDetailPage({ params }: Props) {
                 Outcomes
               </Link>
             </Button>
-            <Button variant="outline" size="sm" asChild>
+            {/* <Button variant="outline" size="sm" asChild>
               <Link href={`/patients/${id}/progress`}>
                 <TrendingUp className="mr-1 h-4 w-4" />
                 Progress
               </Link>
-            </Button>
+            </Button> */}
           </div>
         </CardContent>
       </Card>
