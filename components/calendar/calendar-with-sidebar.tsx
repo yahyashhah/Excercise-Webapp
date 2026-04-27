@@ -87,11 +87,11 @@ function EventComponent({ event }: { event: SessionEvent }) {
     >
       <div className="px-2 py-1">
         <p className="truncate text-[11px] font-semibold leading-tight">
-          {event.programName || event.title}
+          {event.title}
         </p>
-        {event.patientName && (
+        {event.programName && (
           <p className="mt-0.5 truncate text-[10px] opacity-60">
-            {event.patientName}
+            {event.programName}
           </p>
         )}
       </div>
@@ -187,7 +187,7 @@ export function CalendarWithSidebar({ sessions, isClinician, onSessionClick }: P
 
     return {
       id: s.id as string,
-      title: (program?.name as string) || "Workout",
+      title: (workout?.name as string) || (program?.name as string) || "Workout",
       start: new Date(s.scheduledDate as string),
       end: new Date(new Date(s.scheduledDate as string).getTime() + 60 * 60 * 1000),
       status: s.status as string,
@@ -269,7 +269,8 @@ export function CalendarWithSidebar({ sessions, isClinician, onSessionClick }: P
             },
           })}
           tooltipAccessor={(event: SessionEvent) => {
-            let tip = event.programName || event.title;
+            let tip = event.title;
+            if (event.programName) tip += ` · ${event.programName}`;
             if (event.patientName) tip += ` · ${event.patientName}`;
             return `${tip} · ${statusConfig[event.status]?.label ?? event.status}`;
           }}

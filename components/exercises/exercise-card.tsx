@@ -57,7 +57,7 @@ export function ExerciseCard({
       {/* Thumbnail */}
       <Link href={`/exercises/${id}`} className="relative block h-44 overflow-hidden bg-muted">
         <ExerciseImage
-          src={imageUrl}
+          src={null}
           alt={name}
           bodyRegion={bodyRegion}
           videoUrl={videoUrl}

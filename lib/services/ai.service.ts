@@ -11,6 +11,8 @@ interface GenerateWorkoutParams {
   focusAreas: string[];
   durationMinutes: number;
   daysPerWeek: number;
+  exercisesPerSession?: number;
+  circuitsPerSession?: number;
   difficultyLevel: string;
   additionalNotes?: string;
   subjective?: string;
@@ -34,6 +36,7 @@ interface GeneratedExercise {
 interface GeneratedPlan {
   title: string;
   description: string;
+  sessions: { dayOfWeek: number; name: string }[];
   exercises: GeneratedExercise[];
 }
 
@@ -288,6 +291,9 @@ Fitness Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ")
     )
     .join("\n");
 
+  const exercisesPerSession = params.exercisesPerSession ?? 6;
+  const circuitsPerSession = params.circuitsPerSession ?? 0;
+
   const userPrompt = `Create an exercise program with the following details:
 
 ${clientContext}
@@ -298,9 +304,13 @@ Program Parameters:
 - Days per Week: ${params.daysPerWeek}
 - Difficulty Level: ${params.difficultyLevel}
 - Allowed Weekdays: ${scheduleLabel} (${uniqueWeekdayIndices.join(", ")})
+- Exercises Per Session: EXACTLY ${exercisesPerSession} exercises total per day (including warmup, main, and cooldown)
+- Circuits / Supersets: ${circuitsPerSession === 0 ? "0 — use straight sets only, NO circuits or supersets" : `${circuitsPerSession} circuit block${circuitsPerSession > 1 ? "s" : ""} per session — remaining exercises use straight sets`}
 ${params.subjective ? `- Clinician Subjective: ${params.subjective}` : ""}
 ${params.clinicianPrompt ? `- Clinician Instructions: ${params.clinicianPrompt}` : ""}
 ${params.additionalNotes ? `- Additional Notes: ${params.additionalNotes}` : ""}
+
+CRITICAL VOLUME RULE: Each day must have EXACTLY ${exercisesPerSession} exercises — no more, no less. Distribute them across the required phases (WARMUP → ACTIVATION → STRENGTHENING → MOBILITY → COOLDOWN).
 
 Available Exercises (use ONLY these exercise IDs):
 ${exerciseListStr}
@@ -309,6 +319,9 @@ Respond with this exact JSON structure:
 {
   "title": "Program title",
   "description": "2-3 sentence clinical program description",
+  "sessions": [
+    { "dayOfWeek": 0, "name": "A short clinical session name, e.g. 'Hip Activation & Mobility' or 'Posterior Chain Strengthening'" }
+  ],
   "exercises": [
     {
       "exerciseId": "the exercise ID from the list above",
@@ -324,6 +337,8 @@ Respond with this exact JSON structure:
     }
   ]
 }
+
+Each entry in "sessions" must have one entry per unique dayOfWeek used in exercises. The session name should reflect the actual focus of that day's exercises (e.g. body region, dominant phase, clinical goal) — not a generic label.
 
 Rules:
 1. ONLY use exercise IDs from the list provided
@@ -430,16 +445,24 @@ export interface GeneratedProgram {
 export async function generateProgram(
   params: GenerateWorkoutParams
 ): Promise<GeneratedProgram> {
-  const indexToWeekdayShort = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const generatedPlan = await generateWorkoutPlan(params);
+
+  const sessionNameMap = new Map<number, string>(
+    (generatedPlan.sessions ?? []).map((s) => [s.dayOfWeek, s.name])
+  );
 
   const workoutsMap = new Map<number, GeneratedProgramWorkout>();
 
   generatedPlan.exercises.forEach((ex) => {
     const day = ex.dayOfWeek ?? 0;
     if (!workoutsMap.has(day)) {
+      const sessionNum = workoutsMap.size;
+      const name = sessionNameMap.get(day);
+      if (!name) {
+        console.warn(`[AI] No session name returned for dayOfWeek ${day} — using fallback`);
+      }
       workoutsMap.set(day, {
-        name: `Day ${day + 1} (${indexToWeekdayShort[day] ?? "Custom"}) Workout`,
+        name: name ?? `Session ${sessionNum + 1}`,
         dayIndex: day,
         blocks: [],
       });

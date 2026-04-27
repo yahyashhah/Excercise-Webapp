@@ -33,6 +33,8 @@ export function GenerateProgramForm({ patients }: GenerateProgramFormProps) {
   const [difficulty, setDifficulty] = useState("BEGINNER");
   const [duration, setDuration] = useState(25);
   const [daysPerWeek, setDaysPerWeek] = useState(3);
+  const [exercisesPerSession, setExercisesPerSession] = useState(6);
+  const [circuitsPerSession, setCircuitsPerSession] = useState(1);
   const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>([
     "Monday",
     "Wednesday",
@@ -74,6 +76,8 @@ export function GenerateProgramForm({ patients }: GenerateProgramFormProps) {
       focusAreas: selectedAreas,
       durationMinutes: duration,
       daysPerWeek,
+      exercisesPerSession,
+      circuitsPerSession,
       preferredWeekdays: selectedWeekdays,
       difficultyLevel: difficulty,
       additionalNotes: (formData.get("notes") as string) || undefined,
@@ -173,6 +177,34 @@ export function GenerateProgramForm({ patients }: GenerateProgramFormProps) {
               >
                 {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                   <option key={d} value={d}>{d} {d === 1 ? "day" : "days"}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Exercises Per Session</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={exercisesPerSession}
+                onChange={(e) => setExercisesPerSession(Number(e.target.value))}
+              >
+                {[4, 5, 6, 7, 8, 10, 12].map((n) => (
+                  <option key={n} value={n}>{n} exercises</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Circuits / Supersets Per Session</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={circuitsPerSession}
+                onChange={(e) => setCircuitsPerSession(Number(e.target.value))}
+              >
+                <option value={0}>None (straight sets only)</option>
+                {[1, 2, 3].map((n) => (
+                  <option key={n} value={n}>{n} circuit{n > 1 ? "s" : ""}</option>
                 ))}
               </select>
             </div>
