@@ -36,6 +36,7 @@ interface GeneratedExercise {
 interface GeneratedPlan {
   title: string;
   description: string;
+  sessions: { dayOfWeek: number; name: string }[];
   exercises: GeneratedExercise[];
 }
 
@@ -318,6 +319,9 @@ Respond with this exact JSON structure:
 {
   "title": "Program title",
   "description": "2-3 sentence clinical program description",
+  "sessions": [
+    { "dayOfWeek": 0, "name": "A short clinical session name, e.g. 'Hip Activation & Mobility' or 'Posterior Chain Strengthening'" }
+  ],
   "exercises": [
     {
       "exerciseId": "the exercise ID from the list above",
@@ -333,6 +337,8 @@ Respond with this exact JSON structure:
     }
   ]
 }
+
+Each entry in "sessions" must have one entry per unique dayOfWeek used in exercises. The session name should reflect the actual focus of that day's exercises (e.g. body region, dominant phase, clinical goal) — not a generic label.
 
 Rules:
 1. ONLY use exercise IDs from the list provided
@@ -439,16 +445,24 @@ export interface GeneratedProgram {
 export async function generateProgram(
   params: GenerateWorkoutParams
 ): Promise<GeneratedProgram> {
-  const indexToWeekdayShort = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const generatedPlan = await generateWorkoutPlan(params);
+
+  const sessionNameMap = new Map<number, string>(
+    (generatedPlan.sessions ?? []).map((s) => [s.dayOfWeek, s.name])
+  );
 
   const workoutsMap = new Map<number, GeneratedProgramWorkout>();
 
   generatedPlan.exercises.forEach((ex) => {
     const day = ex.dayOfWeek ?? 0;
     if (!workoutsMap.has(day)) {
+      const sessionNum = workoutsMap.size;
+      const name = sessionNameMap.get(day);
+      if (!name) {
+        console.warn(`[AI] No session name returned for dayOfWeek ${day} — using fallback`);
+      }
       workoutsMap.set(day, {
-        name: `Day ${day + 1} (${indexToWeekdayShort[day] ?? "Custom"}) Workout`,
+        name: name ?? `Session ${sessionNum + 1}`,
         dayIndex: day,
         blocks: [],
       });

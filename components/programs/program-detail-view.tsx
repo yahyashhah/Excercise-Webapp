@@ -193,12 +193,11 @@ export function ProgramDetailView({
                     <CardTitle className="text-lg">
                       {workout.name as string}
                     </CardTitle>
-                    <span className="text-sm text-muted-foreground ml-auto">
-                      Week {(workout.weekIndex as number) + 1}, Day{" "}
-                      {(workout.dayIndex as number) + 1}
-                      {!!workout.estimatedMinutes &&
-                        ` | ~${workout.estimatedMinutes as number} min`}
-                    </span>
+                    {!!workout.estimatedMinutes && (
+                      <span className="text-sm text-muted-foreground ml-auto">
+                        ~{workout.estimatedMinutes as number} min
+                      </span>
+                    )}
                   </CardHeader>
                   {isExpanded && (
                     <CardContent className="space-y-4">
