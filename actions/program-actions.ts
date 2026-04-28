@@ -221,6 +221,7 @@ export async function generateProgramAction(params: any) {
             blocks: {
               create: w.blocks.map((b: any) => ({
                 type: b.type || "NORMAL",
+                name: b.name || b.type || "NORMAL",
                 orderIndex: b.orderIndex,
                 exercises: {
                   create: b.exercises.map((e: any, idx: number) => ({
@@ -245,7 +246,7 @@ export async function generateProgramAction(params: any) {
       const scheduleResult = await scheduleProgramForPatientAction({
         programId: program.id,
         patientId: params.patientId,
-        startDate: new Date().toISOString().split("T")[0],
+        startDate: params.startDate ?? new Date().toISOString().split("T")[0],
         preferredWeekdays: params.preferredWeekdays || ["Monday", "Wednesday", "Friday"],
       });
       

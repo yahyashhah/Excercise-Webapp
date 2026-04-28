@@ -1,7 +1,7 @@
 import {  getPatientExerciseHistory } from "@/actions/exercise-history-actions";
 import { History } from "lucide-react";
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { GripVertical, Dumbbell, Trash2, Loader2, X, Plus, MoreVertical, Calendar as CalendarIcon, ChevronDown, ChevronRight, Settings, CheckCircle, Info } from "lucide-react";
+import { GripVertical, Dumbbell, Trash2, Loader2, X, Plus, MoreVertical, Calendar as CalendarIcon, ChevronDown, ChevronRight, Settings, CheckCircle, Info, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -92,6 +92,7 @@ interface WorkoutEditorPanelProps {
   onWorkoutCreated: () => void;
   onWorkoutDeleted: () => void;
   onWorkoutUpdated: () => void;
+  onAiGenerateClick?: (date: Date) => void;
   createAdHocWorkoutAction: (
     patientId: string,
     scheduledDate: string,
@@ -440,6 +441,7 @@ export function WorkoutEditorPanel({
   onWorkoutCreated,
   onWorkoutDeleted,
   onWorkoutUpdated,
+  onAiGenerateClick,
   createAdHocWorkoutAction,
 }: WorkoutEditorPanelProps) {
   const [session, setSession] = useState<SessionWithFullWorkout | null>(null);  
@@ -944,20 +946,54 @@ export function WorkoutEditorPanel({
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />                                                                            
                 </div>
               ) : panelState.mode === "creating" && !session ? (
-                /* Creating mode - show Create button */
-                <div className="text-center py-12 space-y-4">
-                  <Dumbbell className="h-10 w-10 text-muted-foreground mx-auto" />                                                                              
-                  <p className="text-muted-foreground">
-                    Create a new workout for {dateLabel}
+                /* Creating mode — choose manual or AI */
+                <div className="py-10 space-y-6">
+                  <p className="text-center text-sm text-muted-foreground">
+                    How would you like to create a workout for {dateLabel}?
                   </p>
-                  <Button onClick={handleCreateWorkout} disabled={saving || !workoutName.trim()}>                                                               
-                    {saving ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                    ) : (
-                      <Plus className="h-4 w-4 mr-1" />
-                    )}
-                    Create Workout
-                  </Button>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Manual */}
+                    <button
+                      onClick={handleCreateWorkout}
+                      disabled={saving || !workoutName.trim()}
+                      className="group flex flex-col items-center gap-3 rounded-xl border-2 border-border bg-background p-6 text-left transition-all hover:border-blue-400 hover:bg-blue-50/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600 group-hover:bg-blue-200 transition-colors">
+                        {saving ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <Plus className="h-5 w-5" />
+                        )}
+                      </div>
+                      <div className="text-center">
+                        <p className="font-semibold text-sm">Build Manually</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Pick exercises and build the session yourself
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* AI Generate */}
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onAiGenerateClick?.(
+                          panelState.mode === "creating" ? panelState.date : new Date()
+                        );
+                      }}
+                      className="group flex flex-col items-center gap-3 rounded-xl border-2 border-border bg-background p-6 text-left transition-all hover:border-violet-400 hover:bg-violet-50/50"
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-100 text-violet-600 group-hover:bg-violet-200 transition-colors">
+                        <Sparkles className="h-5 w-5" />
+                      </div>
+                      <div className="text-center">
+                        <p className="font-semibold text-sm">Generate with AI</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Let AI build a full program for this client
+                        </p>
+                      </div>
+                    </button>
+                  </div>
                 </div>
               ) : session ? (
                 /* Edit mode - show blocks & exercises */

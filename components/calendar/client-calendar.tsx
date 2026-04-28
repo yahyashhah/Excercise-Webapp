@@ -20,11 +20,12 @@ import {
 import { enUS } from "date-fns/locale";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Plus, Dumbbell, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Dumbbell, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { rescheduleSessionAction } from "@/actions/session-actions";
 import { createAdHocWorkout } from "@/actions/calendar-workout-actions";
 import { WorkoutEditorPanel } from "@/components/calendar/workout-editor-panel";
 import { AssignProgramDialog } from "@/components/calendar/assign-program-dialog";
+import { AiGenerateProgramDialog } from "@/components/calendar/ai-generate-program-dialog";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -141,12 +142,14 @@ function CustomToolbar({
   onNavigate,
   onView,
   onCreateClick,
+  onAiGenerateClick,
 }: {
   date: Date;
   view: View;
   onNavigate: (action: "PREV" | "NEXT" | "TODAY") => void;
   onView: (view: View) => void;
   onCreateClick: () => void;
+  onAiGenerateClick: () => void;
 }) {
   const title =
     view === Views.WEEK
@@ -200,7 +203,18 @@ function CustomToolbar({
         ))}
       </div>
 
-      {/* Create workout */}
+      {/* Generate with AI */}
+      <Button
+        size="sm"
+        className="h-8 gap-1.5 border-0 bg-linear-to-r from-violet-500 to-purple-600 text-white shadow-md shadow-purple-500/20 hover:from-violet-600 hover:to-purple-700"
+        onClick={onAiGenerateClick}
+      >
+        <Sparkles className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Generate with AI</span>
+        <span className="sm:hidden">AI</span>
+      </Button>
+
+      {/* Create workout manually */}
       <Button
         size="sm"
         className="h-8 gap-1.5 border-0 bg-linear-to-r from-blue-500 to-indigo-500 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
@@ -227,6 +241,7 @@ export function ClientCalendar({
   const [view, setView] = useState<View>(Views.MONTH);
   const [date, setDate] = useState(new Date());
   const [panelState, setPanelState] = useState<PanelState>({ mode: "closed" });
+  const [aiDialogDate, setAiDialogDate] = useState<Date | null>(null);
 
   // Build calendar events
   const events: SessionEvent[] = useMemo(
@@ -284,6 +299,14 @@ export function ClientCalendar({
     () => setPanelState({ mode: "creating", date: new Date() }),
     []
   );
+  const handleAiGenerateClick = useCallback(
+    () => setAiDialogDate(new Date()),
+    []
+  );
+  const handleAiGenerateFromDate = useCallback((date: Date) => {
+    setPanelState({ mode: "closed" });
+    setAiDialogDate(date);
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -336,6 +359,7 @@ export function ClientCalendar({
                 onNavigate={props.onNavigate}
                 onView={props.onView}
                 onCreateClick={handleCreateClick}
+                onAiGenerateClick={handleAiGenerateClick}
               />
             ),
           }}
@@ -360,7 +384,19 @@ export function ClientCalendar({
         onWorkoutDeleted={handleRefresh}
         onWorkoutUpdated={handleRefresh}
         createAdHocWorkoutAction={createAdHocWorkout}
+        onAiGenerateClick={handleAiGenerateFromDate}
       />
+
+      {/* AI generate program dialog */}
+      {aiDialogDate && (
+        <AiGenerateProgramDialog
+          open={aiDialogDate !== null}
+          onOpenChange={(open) => { if (!open) setAiDialogDate(null); }}
+          patientId={patientId}
+          initialDate={aiDialogDate}
+          onSuccess={handleRefresh}
+        />
+      )}
     </div>
   );
 }

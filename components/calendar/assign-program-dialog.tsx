@@ -141,11 +141,12 @@ export function AssignProgramDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={React.isValidElement(children) ? children : <button>{children}</button>} />
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="px-5 pt-5 pb-4 border-b shrink-0">
           <DialogTitle>Assign Program</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="space-y-4 px-5 py-4">
           <div className="space-y-2">
             <Label>Select Template</Label>
             <Select 
@@ -227,7 +228,8 @@ export function AssignProgramDialog({
             </TabsContent>
           </Tabs>
         </div>
-        <div className="flex justify-end gap-2">
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-4 border-t shrink-0">
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
