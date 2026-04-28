@@ -6,12 +6,22 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+interface CircuitConfig {
+  name: string;
+  focusType: string;
+  exerciseCount: number;
+}
+
 interface GenerateWorkoutParams {
   patientId?: string | null;
   focusAreas: string[];
   durationMinutes: number;
   daysPerWeek: number;
+  /** Per-circuit configuration — preferred over exercisesPerSession/circuitsPerSession */
+  circuits?: CircuitConfig[];
+  /** @deprecated Use circuits instead */
   exercisesPerSession?: number;
+  /** @deprecated Use circuits instead */
   circuitsPerSession?: number;
   difficultyLevel: string;
   additionalNotes?: string;
@@ -24,6 +34,7 @@ interface GeneratedExercise {
   exerciseId: string;
   exerciseName: string;
   phase: string;
+  circuitIndex?: number;
   sets: number;
   reps?: number;
   durationSeconds?: number;
@@ -291,8 +302,21 @@ Fitness Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ")
     )
     .join("\n");
 
-  const exercisesPerSession = params.exercisesPerSession ?? 6;
-  const circuitsPerSession = params.circuitsPerSession ?? 0;
+  const circuits = params.circuits;
+  const hasCircuits = circuits && circuits.length > 0;
+
+  const totalExercisesPerSession = hasCircuits
+    ? circuits.reduce((sum, c) => sum + c.exerciseCount, 0)
+    : (params.exercisesPerSession ?? 6);
+
+  const circuitStructureStr = hasCircuits
+    ? circuits
+        .map(
+          (c, i) =>
+            `  Circuit ${i} "${c.name}" (${c.focusType} focus): EXACTLY ${c.exerciseCount} exercise${c.exerciseCount !== 1 ? "s" : ""}`
+        )
+        .join("\n")
+    : null;
 
   const userPrompt = `Create an exercise program with the following details:
 
@@ -304,13 +328,25 @@ Program Parameters:
 - Days per Week: ${params.daysPerWeek}
 - Difficulty Level: ${params.difficultyLevel}
 - Allowed Weekdays: ${scheduleLabel} (${uniqueWeekdayIndices.join(", ")})
-- Exercises Per Session: EXACTLY ${exercisesPerSession} exercises total per day (including warmup, main, and cooldown)
-- Circuits / Supersets: ${circuitsPerSession === 0 ? "0 — use straight sets only, NO circuits or supersets" : `${circuitsPerSession} circuit block${circuitsPerSession > 1 ? "s" : ""} per session — remaining exercises use straight sets`}
+- Total Exercises Per Session: EXACTLY ${totalExercisesPerSession}
+${hasCircuits ? `- Circuit Structure (EXACT — follow precisely):\n${circuitStructureStr}` : `- Circuits / Supersets: ${(params.circuitsPerSession ?? 0) === 0 ? "None — use straight sets only" : `${params.circuitsPerSession} circuit block(s) per session`}`}
 ${params.subjective ? `- Clinician Subjective: ${params.subjective}` : ""}
 ${params.clinicianPrompt ? `- Clinician Instructions: ${params.clinicianPrompt}` : ""}
 ${params.additionalNotes ? `- Additional Notes: ${params.additionalNotes}` : ""}
 
-CRITICAL VOLUME RULE: Each day must have EXACTLY ${exercisesPerSession} exercises — no more, no less. Distribute them across the required phases (WARMUP → ACTIVATION → STRENGTHENING → MOBILITY → COOLDOWN).
+${hasCircuits ? `CIRCUIT ASSIGNMENT RULES (CRITICAL):
+- Each exercise MUST include "circuitIndex" set to its 0-based circuit number (0, 1, 2, ...).
+- Each circuit must have EXACTLY the number of exercises specified above — no more, no less.
+- Circuit focus guidelines for exercise selection:
+  WARMUP → lightweight warm-up, joint mobility, gentle activation (prefer exercisePhase: WARMUP or ACTIVATION)
+  LOWER_BODY → lower limb strength — quad, hamstring, glute, calf focus (bodyRegion: LOWER_BODY)
+  UPPER_BODY → shoulder, arm, chest, upper back exercises (bodyRegion: UPPER_BODY)
+  CORE → core stability, lumbar, abdominal (bodyRegion: CORE)
+  FULL_BODY → compound multi-joint or functional movement exercises
+  BALANCE → proprioception, single-leg stability, vestibular
+  FLEXIBILITY → static stretch, PNF, foam rolling (prefer exercisePhase: MOBILITY)
+  COOLDOWN → gentle cooldown, static stretch, breathing (prefer exercisePhase: COOLDOWN or MOBILITY)
+  CARDIO → cardiovascular conditioning, sustained effort exercises` : `CRITICAL VOLUME RULE: Each day must have EXACTLY ${totalExercisesPerSession} exercises — no more, no less. Distribute them across the required phases (WARMUP → ACTIVATION → STRENGTHENING → MOBILITY → COOLDOWN).`}
 
 Available Exercises (use ONLY these exercise IDs):
 ${exerciseListStr}
@@ -327,6 +363,7 @@ Respond with this exact JSON structure:
       "exerciseId": "the exercise ID from the list above",
       "exerciseName": "exercise name",
       "phase": "ACTIVATION",
+      ${hasCircuits ? `"circuitIndex": 0,` : ""}
       "sets": 3,
       "reps": 15,
       "durationSeconds": null,
@@ -347,8 +384,10 @@ Rules:
 4. Distribute exercises across ${params.daysPerWeek} days using ONLY these weekday indexes: ${uniqueWeekdayIndices.join(", ")}
 5. Keep total session time around ${params.durationMinutes} minutes
 6. Use either reps OR durationSeconds per exercise, not both (set unused to null)
-7. Follow the phase ordering strictly
-8. If subjective indicates shoulder pain with flexion, cuff weakness, and weight-bearing knee pain, include evidence-based cuff/scapular and knee-load management patterns with clear pain-guardrails`;
+${hasCircuits ? `7. Assign "circuitIndex" to every exercise — it MUST match one of the circuit indexes (0 through ${circuits.length - 1})
+8. Respect the exact exercise count per circuit — distribute across all ${params.daysPerWeek} days proportionally
+9. If subjective indicates shoulder pain with flexion, cuff weakness, and weight-bearing knee pain, include evidence-based cuff/scapular and knee-load management patterns with clear pain-guardrails` : `7. Follow the phase ordering strictly
+8. If subjective indicates shoulder pain with flexion, cuff weakness, and weight-bearing knee pain, include evidence-based cuff/scapular and knee-load management patterns with clear pain-guardrails`}`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -421,6 +460,8 @@ Rules:
 
 export interface GeneratedProgramWorkoutBlock {
   type: string;
+  name?: string;
+  circuitIndex?: number;
   orderIndex: number;
   exercises: {
     exerciseId: string;
@@ -442,10 +483,19 @@ export interface GeneratedProgram {
   workouts: GeneratedProgramWorkout[];
 }
 
+function circuitFocusToBlockType(focusType: string): string {
+  if (focusType === "WARMUP") return "WARMUP";
+  if (focusType === "COOLDOWN") return "COOLDOWN";
+  return "CIRCUIT";
+}
+
 export async function generateProgram(
   params: GenerateWorkoutParams
 ): Promise<GeneratedProgram> {
   const generatedPlan = await generateWorkoutPlan(params);
+
+  const circuits = params.circuits;
+  const hasCircuits = circuits && circuits.length > 0;
 
   const sessionNameMap = new Map<number, string>(
     (generatedPlan.sessions ?? []).map((s) => [s.dayOfWeek, s.name])
@@ -469,28 +519,62 @@ export async function generateProgram(
     }
     const workout = workoutsMap.get(day)!;
 
-    let targetType = ex.phase.toUpperCase();
-    if (["ACTIVATION", "STRENGTHENING", "MOBILITY"].includes(targetType)) {
-      targetType = "NORMAL";
-    }
+    if (hasCircuits) {
+      // Group by circuitIndex from the AI output
+      const circuitIdx = Math.max(
+        0,
+        Math.min(ex.circuitIndex ?? 0, circuits.length - 1)
+      );
+      const circuitConfig = circuits[circuitIdx];
 
-    let block = workout.blocks.find((b) => b.type === targetType);
-    if (!block) {
-      block = {
-        type: ["WARMUP", "COOLDOWN", "SUPERSET", "CIRCUIT", "AMRAP", "EMOM"].includes(targetType) ? targetType : "NORMAL",
-        orderIndex: workout.blocks.length,
-        exercises: [],
-      };
-      workout.blocks.push(block);
+      let block = workout.blocks.find((b) => b.circuitIndex === circuitIdx);
+      if (!block) {
+        block = {
+          type: circuitFocusToBlockType(circuitConfig.focusType),
+          name: circuitConfig.name,
+          circuitIndex: circuitIdx,
+          orderIndex: circuitIdx,
+          exercises: [],
+        };
+        workout.blocks.push(block);
+      }
+
+      block.exercises.push({
+        exerciseId: ex.exerciseId,
+        orderIndex: block.exercises.length,
+        sets: ex.sets || 3,
+        reps: ex.reps?.toString() || "10",
+      });
+    } else {
+      // Legacy: group by phase
+      let targetType = ex.phase.toUpperCase();
+      if (["ACTIVATION", "STRENGTHENING", "MOBILITY"].includes(targetType)) {
+        targetType = "NORMAL";
+      }
+
+      let block = workout.blocks.find((b) => b.type === targetType && b.circuitIndex === undefined);
+      if (!block) {
+        block = {
+          type: ["WARMUP", "COOLDOWN", "SUPERSET", "CIRCUIT", "AMRAP", "EMOM"].includes(targetType) ? targetType : "NORMAL",
+          orderIndex: workout.blocks.length,
+          exercises: [],
+        };
+        workout.blocks.push(block);
+      }
+
+      block.exercises.push({
+        exerciseId: ex.exerciseId,
+        orderIndex: block.exercises.length,
+        sets: ex.sets || 3,
+        reps: ex.reps?.toString() || "10",
+      });
     }
-    
-    block.exercises.push({
-      exerciseId: ex.exerciseId,
-      orderIndex: block.exercises.length,
-      sets: ex.sets || 3,
-      reps: ex.reps?.toString() || "10",
-    });
   });
+
+  // Ensure blocks are sorted by orderIndex within each workout
+  for (const workout of workoutsMap.values()) {
+    workout.blocks.sort((a, b) => a.orderIndex - b.orderIndex);
+  }
 
   const workouts = Array.from(workoutsMap.values()).sort((a, b) => a.dayIndex - b.dayIndex);
 

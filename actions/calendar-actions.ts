@@ -123,7 +123,10 @@ export async function scheduleProgramForPatientAction({
       return { success: false, error: "Program not found" };
     }
 
-    const sDate = new Date(startDate);
+    // Parse as local midnight to avoid UTC timezone shifting the date backward
+    const [syear, smonth, sday] = startDate.split("-").map(Number);
+    const sDate = new Date(syear, smonth - 1, sday);
+
     const weekdayToIndex: Record<string, number> = {
       monday: 0,
       tuesday: 1,
@@ -142,6 +145,7 @@ export async function scheduleProgramForPatientAction({
       )
     ).sort((a, b) => a - b);
 
+    // Find Monday of the week containing sDate (may be before sDate)
     const mondayStart = new Date(sDate);
     const day = mondayStart.getDay();
     const diff = day === 0 ? -6 : 1 - day;
@@ -187,6 +191,12 @@ export async function scheduleProgramForPatientAction({
               workoutDate.setDate(
                 workoutDate.getDate() + w.weekIndex * 7 + w.dayIndex
               );
+            }
+
+            // Never place a session before the requested start date —
+            // bump forward one week at a time until it lands on or after sDate
+            while (workoutDate < sDate) {
+              workoutDate.setDate(workoutDate.getDate() + 7);
             }
 
             return {

@@ -9,7 +9,11 @@ export const metadata = {
   description: "Generate a personalized program using AI",
 };
 
-export default async function GenerateProgramPage() {
+export default async function GenerateProgramPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ patientId?: string }>;
+}) {
   const { userId } = await auth();
 
   if (!userId) {
@@ -25,6 +29,7 @@ export default async function GenerateProgramPage() {
     redirect("/dashboard");
   }
 
+  const { patientId } = await searchParams;
 
   // Fetch patients for this clinician
   const patients = await getPatientsForClinician(user.id);
@@ -39,7 +44,7 @@ export default async function GenerateProgramPage() {
       </div>
 
       <div className="max-w-2xl">
-        <GenerateProgramForm patients={patients} />
+        <GenerateProgramForm patients={patients} initialPatientId={patientId} />
       </div>
     </div>
   );
