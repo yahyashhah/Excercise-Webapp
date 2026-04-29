@@ -431,7 +431,7 @@ export default function LandingPage() {
             >
               <Badge className="mb-8 gap-1.5 border border-blue-400/30 bg-blue-500/10 px-4 py-1.5 text-sm text-blue-300 backdrop-blur-sm hover:bg-blue-500/20">
                 <Zap className="h-3.5 w-3.5 fill-current" />
-                Powered by Claude AI
+                AI Powered Rehab Platform
               </Badge>
             </motion.div>
 
