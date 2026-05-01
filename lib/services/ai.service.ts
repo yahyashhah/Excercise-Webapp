@@ -239,8 +239,12 @@ export async function generateWorkoutPlan(
     );
   });
 
-  // Limit to 60 exercises max to control token usage
-  const exercises = filtered.slice(0, 60);
+  // Pool must be large enough so the AI can pick unique exercises across all days
+  const exercisesPerSession = params.circuits?.length
+    ? params.circuits.reduce((sum, c) => sum + c.exerciseCount, 0)
+    : (params.exercisesPerSession ?? 15);
+  const exercisePoolLimit = Math.max(80, params.daysPerWeek * exercisesPerSession);
+  const exercises = filtered.slice(0, exercisePoolLimit);
 
   if (exercises.length === 0) {
     throw new Error(
@@ -264,7 +268,7 @@ CLINICAL PRESCRIPTION RULES:
 4. ABSOLUTE CONTRAINDICATION COMPLIANCE: Zero tolerance — NEVER prescribe exercises with a matching contraindication to the patient's profile.
 5. EQUIPMENT COMPLIANCE: ONLY prescribe exercises using equipment listed as available. Default to bodyweight if none listed.
 6. VOLUME SCALING: BEGINNER: 2 sets, 60% default reps. INTERMEDIATE: 3 sets, 100% default reps. ADVANCED: 4 sets, 120% default reps.
-7. VARIETY: NEVER repeat the same exercise across different days. Rotate primary muscle groups between days.
+7. VARIETY: Minimize exercise repetition across days — prefer different exercises each day. If the exercise pool is too small to avoid all repeats across ${params.daysPerWeek} days, you MAY reuse an exercise after at least 2 days gap. Never repeat on consecutive days.
 8. CLINICAL NOTES: Write 2-3 specific coaching cues per exercise, tailored to this patient's diagnosis and limitations — not generic advice.
 9. TIME MANAGEMENT: Total session time within 5 minutes of requested duration. Estimate: sets × reps × 4 sec + rest.
 10. PROGRESSION LOGIC: Earlier phase post-surgery → more ACTIVATION and MOBILITY. Later phase → shift toward STRENGTHENING and BALANCE.
@@ -272,7 +276,7 @@ CLINICAL PRESCRIPTION RULES:
 12. ADVANCED QUALITY BAR: For ADVANCED, use multi-planar control, loaded eccentrics, or perturbation but respect pain limits.
 13. SCHEDULING COMPLIANCE: strictly use allowed weekday indexes and group focus properly.
 14. MEDIA PREFERENCE: Prefer exercises with video support when clinically appropriate to improve patient adherence.
-15. CLINICAL STRUCTURE: Programs should have "Activation/Pain-Free Strength" on Day 1, "Stability/Controlled Loading" on Day 2, and "Integration/Functional" on Day 3. Each day breaks into exactly: Warm-Up, Primary Region, Secondary Region, Balance/Core (optional), and Cool Down.
+15. CLINICAL STRUCTURE: Distribute training focus across all ${params.daysPerWeek} days (e.g. Activation → Stability → Strength → Integration). Each day breaks into: Warm-Up, Primary Region, Secondary Region, Balance/Core (optional), and Cool Down. Generate exercises for ALL ${params.daysPerWeek} days — do not stop after one day.
 16. DETAILED NOTES: Include clear guidelines (e.g. "Avoid painful arc into flexion", "Keep movements pain <=3/10").
 
 Respond with valid JSON only. No markdown, no explanation.`;
@@ -313,7 +317,7 @@ Fitness Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ")
     ? circuits
         .map(
           (c, i) =>
-            `  Circuit ${i} "${c.name}" (${c.focusType} focus): EXACTLY ${c.exerciseCount} exercise${c.exerciseCount !== 1 ? "s" : ""}`
+            `  Circuit ${i} "${c.name}" (${c.focusType} focus): EXACTLY ${c.exerciseCount} exercise${c.exerciseCount !== 1 ? "s" : ""} PER SESSION/DAY`
         )
         .join("\n")
     : null;
@@ -336,7 +340,9 @@ ${params.additionalNotes ? `- Additional Notes: ${params.additionalNotes}` : ""}
 
 ${hasCircuits ? `CIRCUIT ASSIGNMENT RULES (CRITICAL):
 - Each exercise MUST include "circuitIndex" set to its 0-based circuit number (0, 1, 2, ...).
-- Each circuit must have EXACTLY the number of exercises specified above — no more, no less.
+- Each circuit count is PER SESSION — every training day must have the FULL circuit exercise count, not a fraction of it.
+- Example: if Circuit 0 requires 4 exercises and there are ${params.daysPerWeek} days, you must output 4 exercises with circuitIndex=0 for EACH day (${params.daysPerWeek * (circuits?.[0]?.exerciseCount ?? 0)} total for that circuit across all days).
+- Total exercises in the "exercises" array must be EXACTLY ${totalExercisesPerSession * params.daysPerWeek} (${totalExercisesPerSession} per session × ${params.daysPerWeek} days).
 - Circuit focus guidelines for exercise selection:
   WARMUP → lightweight warm-up, joint mobility, gentle activation (prefer exercisePhase: WARMUP or ACTIVATION)
   LOWER_BODY → lower limb strength — quad, hamstring, glute, calf focus (bodyRegion: LOWER_BODY)
@@ -385,13 +391,13 @@ Rules:
 5. Keep total session time around ${params.durationMinutes} minutes
 6. Use either reps OR durationSeconds per exercise, not both (set unused to null)
 ${hasCircuits ? `7. Assign "circuitIndex" to every exercise — it MUST match one of the circuit indexes (0 through ${circuits.length - 1})
-8. Respect the exact exercise count per circuit — distribute across all ${params.daysPerWeek} days proportionally
+8. Every day must have EXACTLY ${totalExercisesPerSession} exercises total, with EXACTLY the specified count per circuit — DO NOT split or distribute a circuit's count across days; repeat the full circuit on each day
 9. If subjective indicates shoulder pain with flexion, cuff weakness, and weight-bearing knee pain, include evidence-based cuff/scapular and knee-load management patterns with clear pain-guardrails` : `7. Follow the phase ordering strictly
 8. If subjective indicates shoulder pain with flexion, cuff weakness, and weight-bearing knee pain, include evidence-based cuff/scapular and knee-load management patterns with clear pain-guardrails`}`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
-    max_tokens: 4096,
+    max_tokens: 16000,
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: systemPrompt },
