@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BODY_REGIONS, DIFFICULTY_LEVELS } from "@/lib/utils/constants";
 import { generateProgramAction } from "@/actions/program-actions";
 import { toast } from "sonner";
-import { Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
 
 interface CircuitConfig {
   id: string;
@@ -101,6 +101,18 @@ export function GenerateProgramForm({ patients, initialPatientId }: GenerateProg
     setCircuits((prev) =>
       prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
     );
+  }
+
+  function moveCircuit(id: string, direction: "up" | "down") {
+    setCircuits((prev) => {
+      const idx = prev.findIndex((c) => c.id === id);
+      if (idx === -1) return prev;
+      const newIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (newIdx < 0 || newIdx >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+      return next;
+    });
   }
 
   async function handleGenerate(e: React.FormEvent<HTMLFormElement>) {
@@ -269,6 +281,26 @@ export function GenerateProgramForm({ patients, initialPatientId }: GenerateProg
                   key={circuit.id}
                   className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3"
                 >
+                  {/* Reorder buttons */}
+                  <div className="flex flex-col shrink-0">
+                    <button
+                      type="button"
+                      disabled={index === 0}
+                      onClick={() => moveCircuit(circuit.id, "up")}
+                      className="h-4 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed"
+                    >
+                      <ChevronUp className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={index === circuits.length - 1}
+                      onClick={() => moveCircuit(circuit.id, "down")}
+                      className="h-4 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed"
+                    >
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </div>
+
                   <span className="text-xs font-medium text-muted-foreground w-5 shrink-0">
                     {index + 1}
                   </span>
