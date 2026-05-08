@@ -15,6 +15,17 @@ export const ourFileRouter = {
       return { url: file.ufsUrl };
     }),
 
+  bulkExerciseVideos: f({ video: { maxFileSize: "64MB", maxFileCount: 30 } })
+    .middleware(async () => {
+      const { userId } = await auth();
+      if (!userId) throw new Error("Unauthorized");
+      return { userId };
+    })
+    .onUploadComplete(async ({ metadata, file }) => {
+      console.log("Bulk exercise video uploaded by:", metadata.userId);
+      return { url: file.ufsUrl, name: file.name };
+    }),
+
   exerciseVideo: f({ video: { maxFileSize: "64MB", maxFileCount: 1 } })
     .middleware(async () => {
       const { userId } = await auth();
