@@ -6,7 +6,7 @@ import { ExerciseCard } from "@/components/exercises/exercise-card";
 import { ExerciseFilters } from "@/components/exercises/exercise-filters";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Dumbbell } from "lucide-react";
+import { Plus, Dumbbell, UploadCloud } from "lucide-react";
 import type { BodyRegion, DifficultyLevel, ExercisePhase } from "@prisma/client";
 
 interface Props {
@@ -39,12 +39,20 @@ export default async function ExercisesPage({ searchParams }: Props) {
           <p className="text-muted-foreground">{exercises.length} exercises available</p>
         </div>
         {user.role === "CLINICIAN" && (
-          <Button asChild>
-            <Link href="/exercises/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Exercise
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild variant="outline">
+              <Link href="/exercises/bulk-import">
+                <UploadCloud className="mr-2 h-4 w-4" />
+                Bulk Import
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/exercises/new">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Exercise
+              </Link>
+            </Button>
+          </div>
         )}
       </div>
 
