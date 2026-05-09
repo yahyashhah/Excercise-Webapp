@@ -6,17 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT } from "@/lib/utils/constants";
 import { bulkCreateExercisesAction, type BulkExerciseInput } from "@/actions/bulk-exercise-actions";
 import { useUploadThing } from "@/lib/uploadthing-client";
+import { isYouTubeUrl } from "@/lib/utils/video";
 import { toast } from "sonner";
 import {
   Loader2, Sparkles, ChevronDown, ChevronUp,
   Trash2, CheckCircle2, CloudUpload, Video,
-  AlertCircle, FileVideo, X,
+  AlertCircle, FileVideo, X, Youtube, Link2,
 } from "lucide-react";
 
 const EXERCISE_PHASES = [
@@ -28,11 +28,13 @@ const EXERCISE_PHASES = [
 ] as const;
 
 type AiStatus = "idle" | "loading" | "done" | "error";
+type ImportMode = "upload" | "youtube";
 
 interface ExerciseRow {
   rowId: string;
   videoUrl: string;
   videoFileName: string;
+  imageUrl: string;
   name: string;
   description: string;
   instructions: string;
@@ -49,11 +51,12 @@ interface ExerciseRow {
   expanded: boolean;
 }
 
-function makeRow(videoUrl: string, videoFileName: string): ExerciseRow {
+function makeRow(videoUrl: string, videoFileName: string, imageUrl = ""): ExerciseRow {
   return {
     rowId: crypto.randomUUID(),
     videoUrl,
     videoFileName,
+    imageUrl,
     name: "",
     description: "",
     instructions: "",
@@ -76,14 +79,28 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function parseYoutubeUrls(raw: string): string[] {
+  return raw
+    .split(/[\n,\s]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && isYouTubeUrl(s));
+}
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export function BulkImportForm() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [mode, setMode] = useState<ImportMode>("upload");
   const [dragOver, setDragOver] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  const [youtubeInput, setYoutubeInput] = useState("");
+  const [ytProcessing, setYtProcessing] = useState(false);
+  const [ytProgress, setYtProgress] = useState({ done: 0, total: 0 });
+
   const [rows, setRows] = useState<ExerciseRow[]>([]);
   const [publishing, setPublishing] = useState(false);
 
@@ -94,7 +111,7 @@ export function BulkImportForm() {
       setRows((prev) => [...prev, ...res.map((f) => makeRow(f.ufsUrl, f.name))]);
       setSelectedFiles([]);
       setUploadProgress(0);
-      toast.success(`${res.length} video${res.length === 1 ? "" : "s"} uploaded successfully`);
+      toast.success(`${res.length} video${res.length === 1 ? "" : "s"} uploaded`);
     },
     onUploadError: (error) => {
       setUploadProgress(0);
@@ -102,18 +119,13 @@ export function BulkImportForm() {
     },
   });
 
+  // ── File helpers ────────────────────────────────────────────────────────────
+
   const addFiles = useCallback((files: FileList | null) => {
     if (!files) return;
     const videoFiles = Array.from(files).filter((f) => f.type.startsWith("video/"));
-    if (!videoFiles.length) {
-      toast.error("Please select video files only");
-      return;
-    }
-    const total = selectedFiles.length + videoFiles.length;
-    if (total > 30) {
-      toast.error("Maximum 30 videos at a time");
-      return;
-    }
+    if (!videoFiles.length) { toast.error("Please select video files only"); return; }
+    if (selectedFiles.length + videoFiles.length > 30) { toast.error("Maximum 30 videos at a time"); return; }
     setSelectedFiles((prev) => {
       const names = new Set(prev.map((f) => f.name));
       return [...prev, ...videoFiles.filter((f) => !names.has(f.name))];
@@ -126,10 +138,65 @@ export function BulkImportForm() {
     addFiles(e.dataTransfer.files);
   }, [addFiles]);
 
-  async function handleUpload() {
-    if (!selectedFiles.length) return;
-    await startUpload(selectedFiles);
+  // ── YouTube processing ───────────────────────────────────────────────────────
+
+  async function processYoutubeUrls() {
+    const urls = parseYoutubeUrls(youtubeInput);
+    if (!urls.length) { toast.error("No valid YouTube URLs found"); return; }
+    if (urls.length > 30) { toast.error("Maximum 30 URLs at a time"); return; }
+
+    setYtProcessing(true);
+    setYtProgress({ done: 0, total: urls.length });
+    let successCount = 0;
+
+    for (const url of urls) {
+      try {
+        const res = await fetch("/api/ai/generate-exercise-metadata", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ youtubeUrl: url }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          toast.error(`Skipped one URL: ${err.error ?? "failed"}`);
+          setYtProgress((p) => ({ ...p, done: p.done + 1 }));
+          continue;
+        }
+
+        const { data: d } = await res.json();
+        const newRow = makeRow(d.videoUrl ?? url, d.exerciseName ?? url, d.imageUrl ?? "");
+        newRow.name = d.exerciseName ?? "";
+        newRow.description = d.description ?? "";
+        newRow.instructions = d.instructions ?? "";
+        newRow.bodyRegion = d.bodyRegion ?? "";
+        newRow.difficultyLevel = d.difficultyLevel ?? "";
+        newRow.exercisePhase = d.exercisePhase ?? "";
+        newRow.musclesTargeted = (d.musclesTargeted ?? []).join(", ");
+        newRow.equipmentRequired = d.equipmentRequired ?? [];
+        newRow.contraindications = (d.contraindications ?? []).join(", ");
+        newRow.commonMistakes = d.commonMistakes ?? "";
+        newRow.defaultSets = String(d.defaultSets ?? 3);
+        newRow.defaultReps = String(d.defaultReps ?? 10);
+        newRow.aiStatus = "done";
+
+        setRows((prev) => [...prev, newRow]);
+        successCount++;
+      } catch {
+        toast.error("Failed to process one URL — skipped");
+      }
+      setYtProgress((p) => ({ ...p, done: p.done + 1 }));
+    }
+
+    setYtProcessing(false);
+    setYtProgress({ done: 0, total: 0 });
+    if (successCount > 0) {
+      setYoutubeInput("");
+      toast.success(`${successCount} exercise${successCount === 1 ? "" : "s"} generated from YouTube`);
+    }
   }
+
+  // ── Row helpers ─────────────────────────────────────────────────────────────
 
   function updateRow(rowId: string, patch: Partial<ExerciseRow>) {
     setRows((prev) => prev.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)));
@@ -144,22 +211,14 @@ export function BulkImportForm() {
       prev.map((r) => {
         if (r.rowId !== rowId) return r;
         const has = r.equipmentRequired.includes(item);
-        return {
-          ...r,
-          equipmentRequired: has
-            ? r.equipmentRequired.filter((e) => e !== item)
-            : [...r.equipmentRequired, item],
-        };
+        return { ...r, equipmentRequired: has ? r.equipmentRequired.filter((e) => e !== item) : [...r.equipmentRequired, item] };
       })
     );
   }
 
   async function generateMetadata(rowId: string) {
     const row = rows.find((r) => r.rowId === rowId);
-    if (!row?.name.trim()) {
-      toast.error("Enter an exercise name first");
-      return;
-    }
+    if (!row?.name.trim()) { toast.error("Enter an exercise name first"); return; }
     updateRow(rowId, { aiStatus: "loading" });
     try {
       const res = await fetch("/api/ai/generate-exercise-metadata", {
@@ -192,21 +251,17 @@ export function BulkImportForm() {
 
   async function generateAll() {
     const pending = rows.filter((r) => r.name.trim() && r.aiStatus === "idle");
-    if (!pending.length) {
-      toast.error("Name the exercises first, then generate all");
-      return;
-    }
+    if (!pending.length) { toast.error("Name the exercises first, then generate all"); return; }
     for (const row of pending) await generateMetadata(row.rowId);
   }
+
+  // ── Publish ─────────────────────────────────────────────────────────────────
 
   const readyCount = rows.filter((r) => r.name.trim() && r.bodyRegion && r.difficultyLevel).length;
 
   async function handlePublish() {
     const ready = rows.filter((r) => r.name.trim() && r.bodyRegion && r.difficultyLevel);
-    if (!ready.length) {
-      toast.error("Each exercise needs a name, body region, and difficulty");
-      return;
-    }
+    if (!ready.length) { toast.error("Each exercise needs a name, body region, and difficulty"); return; }
     setPublishing(true);
     const payload: BulkExerciseInput[] = ready.map((r) => ({
       name: r.name.trim(),
@@ -222,6 +277,7 @@ export function BulkImportForm() {
       defaultSets: parseInt(r.defaultSets) || undefined,
       defaultReps: parseInt(r.defaultReps) || undefined,
       videoUrl: r.videoUrl || undefined,
+      imageUrl: r.imageUrl || undefined,
     }));
     const result = await bulkCreateExercisesAction(payload);
     setPublishing(false);
@@ -233,93 +289,113 @@ export function BulkImportForm() {
     }
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Derived ─────────────────────────────────────────────────────────────────
 
-  const showDropzone = !isUploading && rows.length === 0;
-  const showFileList = selectedFiles.length > 0 && !isUploading;
+  const ytUrls = parseYoutubeUrls(youtubeInput);
+  const ytProgressPct = ytProgress.total > 0 ? Math.round((ytProgress.done / ytProgress.total) * 100) : 0;
+
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-8">
 
-      {/* ── Upload zone ── */}
-      {!isUploading && (
+      {/* ── Mode tabs ── */}
+      <div className="flex gap-1 rounded-xl border bg-muted/40 p-1">
+        <button
+          type="button"
+          onClick={() => setMode("upload")}
+          className={[
+            "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",
+            mode === "upload"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          ].join(" ")}
+        >
+          <CloudUpload className="h-4 w-4" />
+          Upload Video Files
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("youtube")}
+          className={[
+            "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",
+            mode === "youtube"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          ].join(" ")}
+        >
+          <Youtube className="h-4 w-4" />
+          Import from YouTube
+        </button>
+      </div>
+
+      {/* ── Upload panel ── */}
+      {mode === "upload" && (
         <div className="space-y-4">
-          {/* Hidden native file input — accepts multiple */}
           <input
             ref={fileInputRef}
             type="file"
             accept="video/*"
             multiple
             className="hidden"
-            onChange={(e) => {
-              addFiles(e.target.files);
-              e.target.value = "";
-            }}
+            onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }}
           />
 
-          {/* Dropzone */}
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            className={[
-              "flex cursor-pointer flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-8 py-14 text-center transition-colors",
-              dragOver
-                ? "border-primary bg-primary/5"
-                : "border-border bg-muted/30 hover:border-primary/50 hover:bg-muted/50",
-            ].join(" ")}
-          >
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-background shadow-sm">
-              <CloudUpload className={`h-8 w-8 ${dragOver ? "text-primary" : "text-muted-foreground"}`} />
+          {isUploading ? (
+            <div className="rounded-xl border bg-background p-6 shadow-sm">
+              <div className="mb-3 flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <p className="font-medium">Uploading your videos…</p>
+                <span className="ml-auto text-sm font-semibold text-primary">{uploadProgress}%</span>
+              </div>
+              <Progress value={uploadProgress} className="h-2" />
+              <p className="mt-2 text-xs text-muted-foreground">Do not close this tab while uploading</p>
             </div>
-            <div>
-              <p className="text-base font-semibold">Drop your videos here</p>
-              <p className="mt-1 text-sm text-muted-foreground">or click anywhere to browse your files</p>
+          ) : (
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              className={[
+                "flex cursor-pointer flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-8 py-14 text-center transition-colors",
+                dragOver ? "border-primary bg-primary/5" : "border-border bg-muted/30 hover:border-primary/50 hover:bg-muted/50",
+              ].join(" ")}
+            >
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-background shadow-sm">
+                <CloudUpload className={`h-8 w-8 ${dragOver ? "text-primary" : "text-muted-foreground"}`} />
+              </div>
+              <div>
+                <p className="text-base font-semibold">Drop your videos here</p>
+                <p className="mt-1 text-sm text-muted-foreground">or click to browse — select as many as you want</p>
+              </div>
+              <p className="text-xs text-muted-foreground">MP4, MOV, AVI &nbsp;·&nbsp; Up to 30 videos &nbsp;·&nbsp; 64 MB each</p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              MP4, MOV, AVI &nbsp;·&nbsp; Up to 30 videos &nbsp;·&nbsp; 64 MB each
-            </p>
-            {rows.length > 0 && (
-              <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>
-                Add More Videos
-              </Button>
-            )}
-          </div>
+          )}
 
-          {/* Selected file list (pre-upload preview) */}
-          {showFileList && (
+          {selectedFiles.length > 0 && !isUploading && (
             <div className="rounded-xl border bg-background shadow-sm">
               <div className="flex items-center justify-between border-b px-4 py-3">
                 <p className="text-sm font-medium">
                   {selectedFiles.length} video{selectedFiles.length === 1 ? "" : "s"} selected
                 </p>
                 <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground"
-                    onClick={() => setSelectedFiles([])}
-                  >
+                  <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setSelectedFiles([])}>
                     Clear all
                   </Button>
-                  <Button size="sm" onClick={handleUpload}>
+                  <Button size="sm" onClick={() => startUpload(selectedFiles)}>
                     <CloudUpload className="mr-2 h-4 w-4" />
                     Upload {selectedFiles.length} Video{selectedFiles.length === 1 ? "" : "s"}
                   </Button>
                 </div>
               </div>
-              <ul className="divide-y max-h-64 overflow-y-auto">
+              <ul className="max-h-60 divide-y overflow-y-auto">
                 {selectedFiles.map((file, i) => (
                   <li key={i} className="flex items-center gap-3 px-4 py-2.5">
                     <FileVideo className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <span className="flex-1 truncate text-sm">{file.name}</span>
                     <span className="shrink-0 text-xs text-muted-foreground">{formatBytes(file.size)}</span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                      className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
-                    >
+                    <button type="button" onClick={() => setSelectedFiles((prev) => prev.filter((_, idx) => idx !== i))} className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground">
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </li>
@@ -330,18 +406,65 @@ export function BulkImportForm() {
         </div>
       )}
 
-      {/* ── Upload progress ── */}
-      {isUploading && (
-        <div className="rounded-xl border bg-background p-6 shadow-sm">
-          <div className="flex items-center gap-3 mb-4">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            <p className="font-medium">Uploading your videos…</p>
-            <span className="ml-auto text-sm font-semibold text-primary">{uploadProgress}%</span>
+      {/* ── YouTube panel ── */}
+      {mode === "youtube" && (
+        <div className="space-y-4">
+          <div className="rounded-xl border bg-background shadow-sm">
+            <div className="border-b px-5 py-4">
+              <p className="font-medium">Paste YouTube URLs</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                One URL per line — the AI will fetch each video&apos;s title and generate professional exercise metadata automatically.
+              </p>
+            </div>
+            <div className="p-4 space-y-3">
+              <Textarea
+                placeholder={`https://www.youtube.com/watch?v=abc123\nhttps://youtu.be/def456\nhttps://www.youtube.com/watch?v=ghi789`}
+                value={youtubeInput}
+                onChange={(e) => setYoutubeInput(e.target.value)}
+                rows={6}
+                className="font-mono text-sm resize-none"
+                disabled={ytProcessing}
+              />
+
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {ytUrls.length > 0
+                    ? <span className="text-foreground font-medium">{ytUrls.length} valid YouTube URL{ytUrls.length === 1 ? "" : "s"} detected</span>
+                    : "Paste YouTube links above"
+                  }
+                </p>
+                <Button
+                  onClick={processYoutubeUrls}
+                  disabled={ytUrls.length === 0 || ytProcessing}
+                >
+                  {ytProcessing
+                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    : <Sparkles className="mr-2 h-4 w-4" />
+                  }
+                  {ytProcessing
+                    ? `Processing ${ytProgress.done + 1} of ${ytProgress.total}…`
+                    : `Generate ${ytUrls.length > 0 ? ytUrls.length : ""} Exercise${ytUrls.length === 1 ? "" : "s"}`
+                  }
+                </Button>
+              </div>
+
+              {ytProcessing && (
+                <div className="space-y-1">
+                  <Progress value={ytProgressPct} className="h-1.5" />
+                  <p className="text-xs text-muted-foreground">
+                    AI is analyzing each video and generating clinical metadata… this takes a few seconds per video.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
-          <Progress value={uploadProgress} className="h-2" />
-          <p className="mt-2 text-xs text-muted-foreground">
-            Do not close this tab while uploading
-          </p>
+
+          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <Youtube className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              Works best with exercise-specific YouTube videos — the video title is used to generate the exercise name and all clinical details. Videos like &ldquo;Seated Knee Extension — Senior Physical Therapy&rdquo; produce excellent results.
+            </p>
+          </div>
         </div>
       )}
 
@@ -350,15 +473,21 @@ export function BulkImportForm() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-semibold text-lg">Add Exercise Details</h3>
+              <h3 className="text-lg font-semibold">
+                Review & Edit — {rows.length} Exercise{rows.length === 1 ? "" : "s"}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                Type a name for each exercise, then click <strong>AI Generate</strong> to fill in the rest automatically.
+                AI-filled fields are editable. At minimum each exercise needs a name, body region, and difficulty.
               </p>
             </div>
-            <Button variant="outline" onClick={generateAll} disabled={publishing || isUploading}>
-              <Sparkles className="mr-2 h-4 w-4" />
-              Generate All
-            </Button>
+            <div className="flex gap-2">
+              {mode === "upload" && (
+                <Button variant="outline" onClick={generateAll} disabled={publishing || isUploading || ytProcessing}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate All
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -375,7 +504,7 @@ export function BulkImportForm() {
             ))}
           </div>
 
-          {/* Publish bar */}
+          {/* Sticky publish bar */}
           <div className="sticky bottom-4 z-10">
             <div className="flex items-center justify-between rounded-xl border bg-background px-5 py-4 shadow-lg">
               <div>
@@ -383,14 +512,12 @@ export function BulkImportForm() {
                   {readyCount} of {rows.length} ready to publish
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Name + body region + difficulty required
+                  Needs name + body region + difficulty
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => router.back()} disabled={publishing}>
-                  Cancel
-                </Button>
-                <Button onClick={handlePublish} disabled={publishing || readyCount === 0 || isUploading}>
+                <Button variant="outline" onClick={() => router.back()} disabled={publishing}>Cancel</Button>
+                <Button onClick={handlePublish} disabled={publishing || readyCount === 0 || isUploading || ytProcessing}>
                   {publishing
                     ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     : <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -419,51 +546,44 @@ interface RowProps {
 
 function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleEquipment }: RowProps) {
   const isReady = !!(row.name.trim() && row.bodyRegion && row.difficultyLevel);
+  const isYT = isYouTubeUrl(row.videoUrl);
 
   return (
     <div className={`rounded-xl border bg-background shadow-sm transition-colors ${isReady ? "border-green-200" : ""}`}>
-      {/* ── Header row ── */}
+      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
           {index + 1}
         </span>
-
-        <Video className="h-4 w-4 shrink-0 text-muted-foreground" />
-
-        <p className="flex-1 truncate text-sm text-muted-foreground">{row.videoFileName}</p>
-
+        {isYT ? (
+          <Youtube className="h-4 w-4 shrink-0 text-red-500" />
+        ) : (
+          <Video className="h-4 w-4 shrink-0 text-muted-foreground" />
+        )}
+        <p className="flex-1 truncate text-sm text-muted-foreground">{row.videoFileName || row.videoUrl}</p>
         {isReady && <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />}
         {row.aiStatus === "done" && (
-          <Badge variant="secondary" className="shrink-0 text-xs gap-1">
+          <Badge variant="secondary" className="shrink-0 gap-1 text-xs">
             <Sparkles className="h-3 w-3" /> AI filled
           </Badge>
         )}
         {row.aiStatus === "error" && (
-          <Badge variant="destructive" className="shrink-0 text-xs gap-1">
+          <Badge variant="destructive" className="shrink-0 gap-1 text-xs">
             <AlertCircle className="h-3 w-3" /> Retry AI
           </Badge>
         )}
-
-        <button
-          type="button"
-          onClick={() => onUpdate({ expanded: !row.expanded })}
-          className="rounded p-1 text-muted-foreground hover:text-foreground"
-        >
+        <button type="button" onClick={() => onUpdate({ expanded: !row.expanded })} className="rounded p-1 text-muted-foreground hover:text-foreground">
           {row.expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </button>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="rounded p-1 text-muted-foreground hover:text-destructive"
-        >
+        <button type="button" onClick={onRemove} className="rounded p-1 text-muted-foreground hover:text-destructive">
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
 
-      {/* ── Name + AI button ── always visible */}
+      {/* Name + AI button */}
       <div className="flex gap-2 border-t px-4 py-3">
         <Input
-          placeholder="Exercise name — e.g. Seated Knee Extension"
+          placeholder="Exercise name"
           value={row.name}
           onChange={(e) => onUpdate({ name: e.target.value })}
           className="flex-1"
@@ -482,40 +602,27 @@ function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleE
         </Button>
       </div>
 
-      {/* ── Expanded fields ── */}
+      {/* Expanded fields */}
       {row.expanded && (
         <div className="space-y-4 border-t px-4 pb-5 pt-4">
-
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Body Region *</Label>
-              <select
-                value={row.bodyRegion}
-                onChange={(e) => onUpdate({ bodyRegion: e.target.value })}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
+              <select value={row.bodyRegion} onChange={(e) => onUpdate({ bodyRegion: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
                 <option value="">Select…</option>
                 {BODY_REGIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Difficulty *</Label>
-              <select
-                value={row.difficultyLevel}
-                onChange={(e) => onUpdate({ difficultyLevel: e.target.value })}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
+              <select value={row.difficultyLevel} onChange={(e) => onUpdate({ difficultyLevel: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
                 <option value="">Select…</option>
                 {DIFFICULTY_LEVELS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Phase</Label>
-              <select
-                value={row.exercisePhase}
-                onChange={(e) => onUpdate({ exercisePhase: e.target.value })}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
+              <select value={row.exercisePhase} onChange={(e) => onUpdate({ exercisePhase: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
                 <option value="">Select…</option>
                 {EXERCISE_PHASES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>
@@ -544,7 +651,7 @@ function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleE
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Muscles Targeted <span className="text-muted-foreground">(comma separated)</span></Label>
+            <Label className="text-xs font-medium">Muscles Targeted <span className="font-normal text-muted-foreground">(comma separated)</span></Label>
             <Input value={row.musclesTargeted} onChange={(e) => onUpdate({ musclesTargeted: e.target.value })} placeholder="e.g. Quadriceps, Glutes, Hamstrings" />
           </div>
 
@@ -570,13 +677,13 @@ function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleE
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Contraindications <span className="text-muted-foreground">(comma separated)</span></Label>
+            <Label className="text-xs font-medium">Contraindications <span className="font-normal text-muted-foreground">(comma separated)</span></Label>
             <Input value={row.contraindications} onChange={(e) => onUpdate({ contraindications: e.target.value })} placeholder="e.g. Acute knee injury, Recent hip replacement" />
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs font-medium">Common Mistakes</Label>
-            <Textarea rows={2} value={row.commonMistakes} onChange={(e) => onUpdate({ commonMistakes: e.target.value })} placeholder="Frequent form errors and how to correct them" />
+            <Textarea rows={2} value={row.commonMistakes} onChange={(e) => onUpdate({ commonMistakes: e.target.value })} placeholder="Frequent form errors and corrections" />
           </div>
         </div>
       )}
