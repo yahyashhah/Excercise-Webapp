@@ -145,19 +145,49 @@ export async function scheduleProgramForPatientAction({
       )
     ).sort((a, b) => a - b);
 
-    // Find Monday of the week containing sDate (may be before sDate)
-    const mondayStart = new Date(sDate);
-    const day = mondayStart.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    mondayStart.setDate(mondayStart.getDate() + diff);
-
     const sortedWorkouts = [...sourceProgram.workouts].sort((a, b) => {
       if (a.weekIndex !== b.weekIndex) return a.weekIndex - b.weekIndex;
       if (a.dayIndex !== b.dayIndex) return a.dayIndex - b.dayIndex;
       return a.orderIndex - b.orderIndex;
     });
 
-    const weekPositionMap = new Map<number, number>();
+    // Returns the next occurrence of a Mon-based weekday index (0=Mon…6=Sun)
+    // on or after `from`. Always advances forward, never backward.
+    function nextOccurrenceOnOrAfter(from: Date, monBasedIdx: number): Date {
+      // Convert Mon-based (0=Mon) to JS getDay (0=Sun, 1=Mon…)
+      const targetJsDay = monBasedIdx === 6 ? 0 : monBasedIdx + 1;
+      const result = new Date(from);
+      const diff = (targetJsDay - result.getDay() + 7) % 7;
+      result.setDate(result.getDate() + diff);
+      return result;
+    }
+
+    // Pre-compute each workout's date using a sequential cursor so that
+    // workouts are always placed in program order regardless of start date.
+    // e.g. startDate=Wednesday: DAY1→next Mon, DAY2→next Tue, DAY3→next Wed, DAY4→next Thu
+    // rather than anchoring to the current week and bumping only stale slots.
+    const workoutDateById = new Map<string, Date>();
+    let cursor = new Date(sDate);
+
+    for (let i = 0; i < sortedWorkouts.length; i++) {
+      const w = sortedWorkouts[i];
+      if (customWorkoutDates?.[w.id]) {
+        const raw = customWorkoutDates[w.id];
+        const [cy, cm, cd] = raw.split("-").map(Number);
+        workoutDateById.set(w.id, new Date(cy, cm - 1, cd));
+      } else if (selectedDayIndexes.length > 0) {
+        const targetDayIndex = selectedDayIndexes[i % selectedDayIndexes.length];
+        const workoutDate = nextOccurrenceOnOrAfter(cursor, targetDayIndex);
+        workoutDateById.set(w.id, workoutDate);
+        // Advance cursor past this workout so the next one is always later
+        cursor = new Date(workoutDate);
+        cursor.setDate(cursor.getDate() + 1);
+      } else {
+        const workoutDate = new Date(sDate);
+        workoutDate.setDate(workoutDate.getDate() + w.weekIndex * 7 + w.dayIndex);
+        workoutDateById.set(w.id, workoutDate);
+      }
+    }
 
     const newProgram = await db.program.create({
       data: {
@@ -174,30 +204,7 @@ export async function scheduleProgramForPatientAction({
         startDate: sDate,
         workouts: {
           create: sortedWorkouts.map((w) => {
-            const workoutDate = new Date(sDate);
-            if (customWorkoutDates && customWorkoutDates[w.id]) {
-               workoutDate.setTime(new Date(customWorkoutDates[w.id]).getTime());
-            } else if (selectedDayIndexes.length > 0) {
-              const weekPosition = weekPositionMap.get(w.weekIndex) ?? 0;
-              weekPositionMap.set(w.weekIndex, weekPosition + 1);
-              const targetDayIndex =
-                selectedDayIndexes[
-                  weekPosition % selectedDayIndexes.length
-                ];
-              const weekBase = new Date(mondayStart);
-              weekBase.setDate(weekBase.getDate() + w.weekIndex * 7 + targetDayIndex);
-              workoutDate.setTime(weekBase.getTime());
-            } else {
-              workoutDate.setDate(
-                workoutDate.getDate() + w.weekIndex * 7 + w.dayIndex
-              );
-            }
-
-            // Never place a session before the requested start date —
-            // bump forward one week at a time until it lands on or after sDate
-            while (workoutDate < sDate) {
-              workoutDate.setDate(workoutDate.getDate() + 7);
-            }
+            const workoutDate = workoutDateById.get(w.id) ?? new Date(sDate);
 
             return {
               name: w.name,

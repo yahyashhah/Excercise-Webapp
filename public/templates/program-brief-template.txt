@@ -1,0 +1,17 @@
+PROGRAM_TITLE: Example Knee Rehab - 4 Week Plan
+FOCUS_AREAS: lower body, core, balance
+DIFFICULTY: BEGINNER
+DURATION_MINUTES: 30
+DAYS_PER_WEEK: 3
+PREFERRED_WEEKDAYS: Monday, Wednesday, Friday
+CIRCUITS:
+- Warm Up | WARMUP | 4
+- Main Circuit | LOWER_BODY | 6
+- Core Stability | CORE | 3
+- Cool Down | COOLDOWN | 2
+SUBJECTIVE:
+Patient reports anterior knee pain with stairs and prolonged sitting. Pain 4/10. Avoid deep knee flexion.
+CLINICIAN_INSTRUCTIONS:
+Prioritize quad activation, hip stability, and pain-free ROM. Keep pain <= 3/10.
+ADDITIONAL_NOTES:
+No equipment beyond resistance bands and bodyweight.

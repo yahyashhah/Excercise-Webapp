@@ -58,6 +58,21 @@ export const ourFileRouter = {
       console.log("Progress photo uploaded by:", metadata.userId);
       return { url: file.ufsUrl };
     }),
+
+  programBrief: f({
+    pdf: { maxFileSize: "4MB", maxFileCount: 1 },
+    text: { maxFileSize: "1MB", maxFileCount: 1 },
+    blob: { maxFileSize: "4MB", maxFileCount: 1 },
+  })
+    .middleware(async () => {
+      const { userId } = await auth();
+      if (!userId) throw new Error("Unauthorized");
+      return { userId };
+    })
+    .onUploadComplete(async ({ metadata, file }) => {
+      console.log("Program brief uploaded by:", metadata.userId);
+      return { url: file.ufsUrl, name: file.name };
+    }),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;
