@@ -8,7 +8,8 @@
       "Bash(npx tsx:*)",
       "Bash(taskkill /F /IM node.exe /FI \"WINDOWTITLE eq *seed*\")",
       "Bash(node -e \":*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "WebSearch"
     ]
   }
 }

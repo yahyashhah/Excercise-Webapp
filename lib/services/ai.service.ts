@@ -27,7 +27,18 @@ interface GenerateWorkoutParams {
   additionalNotes?: string;
   subjective?: string;
   clinicianPrompt?: string;
+  programTitle?: string;
   preferredWeekdays?: string[];
+  preferredExerciseNames?: string[];
+  sessionBlueprint?: {
+    dayIndex: number;
+    title: string;
+    blocks: {
+      name: string;
+      sets?: number;
+      exercises: { name: string; sets?: number; reps?: number; durationSeconds?: number }[];
+    }[];
+  }[];
 }
 
 interface GeneratedExercise {
@@ -119,6 +130,51 @@ const PHASE_ORDER: Record<string, number> = {
   MOBILITY: 3,
   COOLDOWN: 4,
 };
+
+function normalizeExerciseName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function scoreNameSimilarity(a: string, b: string) {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.includes(b) || b.includes(a)) return 0.9;
+  const aTokens = new Set(a.split(" "));
+  const bTokens = new Set(b.split(" "));
+  let overlap = 0;
+  for (const t of aTokens) if (bTokens.has(t)) overlap += 1;
+  return overlap / Math.max(1, Math.max(aTokens.size, bTokens.size));
+}
+
+async function pickClosestExerciseNameAI(
+  target: string,
+  candidates: string[]
+) {
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    max_tokens: 400,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          "Select the single closest exercise name from the candidate list. Return JSON: { \"bestName\": string }. No extra text.",
+      },
+      {
+        role: "user",
+        content: `Target: ${target}\nCandidates:\n${candidates.join("\n")}`,
+      },
+    ],
+  });
+
+  const payload = response.choices[0].message.content ?? "{}";
+  const parsed = JSON.parse(payload) as { bestName?: string };
+  return parsed.bestName || "";
+}
 
 export async function generateWorkoutPlan(
   params: GenerateWorkoutParams
@@ -239,17 +295,142 @@ export async function generateWorkoutPlan(
     );
   });
 
+  let filteredForBrief = filtered;
+  const preferredNames = (params.preferredExerciseNames || [])
+    .map((n) => n.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim())
+    .filter(Boolean);
+
+  if (preferredNames.length) {
+    filteredForBrief = filtered.filter((e) => {
+      const exerciseName = e.name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      if (!exerciseName) return false;
+      return preferredNames.some(
+        (n) => exerciseName === n || exerciseName.includes(n) || n.includes(exerciseName)
+      );
+    });
+  }
+
   // Pool must be large enough so the AI can pick unique exercises across all days
   const exercisesPerSession = params.circuits?.length
     ? params.circuits.reduce((sum, c) => sum + c.exerciseCount, 0)
     : (params.exercisesPerSession ?? 15);
   const exercisePoolLimit = Math.max(80, params.daysPerWeek * exercisesPerSession);
-  const exercises = filtered.slice(0, exercisePoolLimit);
+  const exercises = filteredForBrief.slice(0, exercisePoolLimit);
 
   if (exercises.length === 0) {
     throw new Error(
-      "No suitable exercises found for the given focus areas and patient profile."
+      preferredNames.length
+        ? "No exercises from the brief matched your library. Please check exercise names."
+        : "No suitable exercises found for the given focus areas and patient profile."
     );
+  }
+
+  if (params.sessionBlueprint?.length) {
+    const circuits = params.circuits || [];
+    const circuitNameMap = new Map(
+      circuits.map((c, idx) => [normalizeExerciseName(c.name), idx])
+    );
+
+    const allBriefExercises = await prisma.exercise.findMany({
+      where: { isActive: true },
+    });
+
+    async function resolveExerciseByName(name: string) {
+      const normalizedTarget = normalizeExerciseName(name);
+      const exact = allBriefExercises.find(
+        (e) => normalizeExerciseName(e.name) === normalizedTarget
+      );
+      if (exact) return exact;
+
+      const ranked = allBriefExercises
+        .map((e) => ({
+          exercise: e,
+          score: scoreNameSimilarity(normalizeExerciseName(e.name), normalizedTarget),
+        }))
+        .sort((a, b) => b.score - a.score);
+
+      if (!ranked.length) return null;
+
+      const top = ranked.slice(0, 20).map((r) => r.exercise.name);
+      const aiPick = await pickClosestExerciseNameAI(name, top);
+      const best = allBriefExercises.find((e) => e.name === aiPick);
+      return best ?? ranked[0].exercise;
+    }
+
+    const sessions = params.sessionBlueprint.map((s) => ({
+      dayOfWeek: s.dayIndex,
+      name: s.title,
+    }));
+
+    const exercisesOutput: GeneratedExercise[] = [];
+
+    for (const session of params.sessionBlueprint) {
+      let orderIndex = 0;
+      for (let blockIdx = 0; blockIdx < session.blocks.length; blockIdx += 1) {
+        const block = session.blocks[blockIdx];
+        const blockKey = normalizeExerciseName(block.name);
+        const circuitIndex =
+          circuitNameMap.get(blockKey) ?? Math.min(blockIdx, Math.max(0, circuits.length - 1));
+
+        for (const exerciseBp of block.exercises) {
+          const exercise = await resolveExerciseByName(exerciseBp.name);
+          if (!exercise) {
+            console.warn(`[Brief] No exercises in library, skipping: ${exerciseBp.name}`);
+            continue;
+          }
+
+          // Prefer sets/reps from the brief; fall back to library defaults
+          const sets = exerciseBp.sets ?? exercise.defaultSets ?? 3;
+          const hasDuration =
+            exerciseBp.durationSeconds != null ||
+            (exerciseBp.reps == null && exercise.defaultHoldSeconds != null);
+          const reps = hasDuration ? undefined : (exerciseBp.reps ?? exercise.defaultReps ?? 10);
+          const durationSeconds =
+            exerciseBp.durationSeconds ??
+            (hasDuration ? (exercise.defaultHoldSeconds ?? undefined) : undefined);
+
+          const focusType = circuits[circuitIndex]?.focusType?.toUpperCase();
+          const phase =
+            focusType === "WARMUP"
+              ? "WARMUP"
+              : focusType === "COOLDOWN"
+                ? "COOLDOWN"
+                : focusType === "FLEXIBILITY"
+                  ? "MOBILITY"
+                  : focusType === "CARDIO"
+                    ? "ACTIVATION"
+                    : focusType === "BALANCE"
+                      ? "ACTIVATION"
+                      : "STRENGTHENING";
+
+          exercisesOutput.push({
+            exerciseId: exercise.id,
+            exerciseName: exercise.name,
+            phase,
+            circuitIndex,
+            sets,
+            reps,
+            durationSeconds,
+            restSeconds: undefined,
+            dayOfWeek: session.dayIndex,
+            orderIndex: orderIndex++,
+            notes: undefined,
+          });
+        }
+      }
+    }
+
+    const programTitle =
+      params.programTitle ||
+      params.clinicianPrompt?.split("\n")?.[0]?.replace(/^Program title:\s*/i, "").trim() ||
+      "Athletic Program";
+
+    return {
+      title: programTitle,
+      description: "Generated from uploaded brief",
+      sessions,
+      exercises: exercisesOutput,
+    };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -259,44 +440,38 @@ export async function generateWorkoutPlan(
     return Math.round((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24 * 7));
   }
 
-  const systemPrompt = `You are a licensed rehabilitation specialist (PT, DPT) creating evidence-based Home Exercise Programs (HEPs) for clinical use. Follow APTA and evidence-based rehabilitation standards.
+  const systemPrompt = `You are an expert exercise professional with deep knowledge in physical therapy, strength & conditioning, athletic performance, and general fitness. Create structured exercise programs that adapt to any program context — rehabilitation, athletic development, sports performance, or general fitness.
 
-CLINICAL PRESCRIPTION RULES:
-1. PHASE ORDERING is mandatory every session: WARMUP (1-2 exercises) → ACTIVATION (1-2 exercises) → STRENGTHENING (2-4 exercises) → MOBILITY (1-2 exercises) → COOLDOWN (1 exercise).
-2. DIAGNOSIS-SPECIFIC SELECTION: When a diagnosis is provided, prioritize exercises that target the specific impairments. Post-surgical: gentle activation and protected mobility. Chronic pain: graded exposure, avoid provocative positions. Neurological: motor control and balance focus.
-3. PAIN SCORE ADJUSTMENT: Pain 7-10/10 → gentle non-aggravating exercises only, fewer sets. Pain 4-6/10 → moderate intensity, monitor. Pain 0-3/10 → full program at prescribed difficulty.
-4. ABSOLUTE CONTRAINDICATION COMPLIANCE: Zero tolerance — NEVER prescribe exercises with a matching contraindication to the patient's profile.
-5. EQUIPMENT COMPLIANCE: ONLY prescribe exercises using equipment listed as available. Default to bodyweight if none listed.
-6. VOLUME SCALING: BEGINNER: 2 sets, 60% default reps. INTERMEDIATE: 3 sets, 100% default reps. ADVANCED: 4 sets, 120% default reps.
-7. VARIETY: Minimize exercise repetition across days — prefer different exercises each day. If the exercise pool is too small to avoid all repeats across ${params.daysPerWeek} days, you MAY reuse an exercise after at least 2 days gap. Never repeat on consecutive days.
-8. CLINICAL NOTES: Write 2-3 specific coaching cues per exercise, tailored to this patient's diagnosis and limitations — not generic advice.
-9. TIME MANAGEMENT: Total session time within 5 minutes of requested duration. Estimate: sets × reps × 4 sec + rest.
-10. PROGRESSION LOGIC: Earlier phase post-surgery → more ACTIVATION and MOBILITY. Later phase → shift toward STRENGTHENING and BALANCE.
-11. SUBJECTIVE-DRIVEN REASONING: Treat clinician subjective as primary truth. e.g., if "shoulder pain with flexion, weak cuff", focus on scapular control, sub-90° flexion, and isometric/supported external rotation.
-12. ADVANCED QUALITY BAR: For ADVANCED, use multi-planar control, loaded eccentrics, or perturbation but respect pain limits.
-13. SCHEDULING COMPLIANCE: strictly use allowed weekday indexes and group focus properly.
-14. MEDIA PREFERENCE: Prefer exercises with video support when clinically appropriate to improve patient adherence.
-15. CLINICAL STRUCTURE: Distribute training focus across all ${params.daysPerWeek} days (e.g. Activation → Stability → Strength → Integration). Each day breaks into: Warm-Up, Primary Region, Secondary Region, Balance/Core (optional), and Cool Down. Generate exercises for ALL ${params.daysPerWeek} days — do not stop after one day.
-16. DETAILED NOTES: Include clear guidelines (e.g. "Avoid painful arc into flexion", "Keep movements pain <=3/10").
+PROGRAM DESIGN RULES:
+1. STRUCTURE each session with phases appropriate to the program type. For rehab: Warm-up → Activation → Therapeutic work → Mobility → Cool-down. For athletic/performance: Dynamic warm-up → Power/Plyometrics → Strength work → Conditioning → Recovery. For general fitness: Warm-up → Main work → Cool-down.
+2. SELECT exercises that match the stated focus areas, difficulty level, and any documented limitations or contraindications. Never prescribe an exercise that directly conflicts with listed contraindications.
+3. EQUIPMENT: Use only exercises matching available equipment; default to bodyweight if none stated.
+4. VOLUME: Scale to difficulty — BEGINNER: 2-3 sets; INTERMEDIATE: 3-4 sets; ADVANCED: 4-5 sets. Follow any explicit set/rep prescriptions in the clinician instructions.
+5. VARIETY: Minimize exercise repetition across days. If the pool is too small, reuse only after a 2-day gap — never on consecutive days.
+6. SESSION NAMES: Use concise, descriptive names that reflect the actual training focus (e.g. "Lower Body Power", "Upper Body Pull", "Plyometric Development", "Mobility & Recovery") — not generic labels.
+7. NOTES: Write 1-2 specific technique cues per exercise relevant to the program goal and client profile.
+8. TIME: Total session time within 5 minutes of the requested duration.
+9. GENERATE exercises for ALL ${params.daysPerWeek} days — do not stop after the first day.
+10. CONTEXT-DRIVEN: If a diagnosis or subjective is provided, let it guide exercise selection and cue language. If athletic performance context is implied (plyometrics, power, sport-specific), adopt strength & conditioning principles rather than clinical rehab rules.
 
 Respond with valid JSON only. No markdown, no explanation.`;
 
   const clientContext = patient
     ? `CLIENT PROFILE:
 Name: ${patient.firstName} ${patient.lastName}
-Primary Diagnosis: ${profileExtended?.primaryDiagnosis ?? "Not specified"}
+Primary Diagnosis / Goal: ${profileExtended?.primaryDiagnosis ?? "Not specified"}
 Secondary Conditions: ${profileExtended?.secondaryDiagnoses?.length ? profileExtended.secondaryDiagnoses.join(", ") : "None"}
 Current Pain Score: ${profileExtended?.painScore != null ? `${profileExtended.painScore}/10` : "Not assessed"}
 Activity Level: ${profileExtended?.activityLevel ?? "Not assessed"}
 Physical Limitations: ${profile?.limitations ?? "None documented"}
 Comorbidities: ${profile?.comorbidities ?? "None"}
 Functional Challenges: ${profile?.functionalChallenges ?? "None"}
-Surgery/Injury History: ${profileExtended?.surgeryHistory ?? "None documented"}
+History: ${profileExtended?.surgeryHistory ?? "None documented"}
 Occupation: ${profileExtended?.occupation ?? "Not specified"}
 Time Since Injury/Surgery: ${profileExtended?.injuryDate ? calculateWeeksSince(new Date(profileExtended.injuryDate)) + " weeks ago" : "Not specified"}
 Prior Injuries: ${profileExtended?.priorInjuries?.length ? profileExtended.priorInjuries.join(", ") : "None"}
 Available Equipment: ${profile?.availableEquipment?.length ? profile.availableEquipment.join(", ") : "Bodyweight only"}
-Fitness Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ") : "General rehabilitation"}`
+Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ") : "General fitness"}`
     : "No specific client assigned. Create a general program suitable for the parameters below.";
 
   const exerciseListStr = exercises
@@ -392,8 +567,8 @@ Rules:
 6. Use either reps OR durationSeconds per exercise, not both (set unused to null)
 ${hasCircuits ? `7. Assign "circuitIndex" to every exercise — it MUST match one of the circuit indexes (0 through ${circuits.length - 1})
 8. Every day must have EXACTLY ${totalExercisesPerSession} exercises total, with EXACTLY the specified count per circuit — DO NOT split or distribute a circuit's count across days; repeat the full circuit on each day
-9. If subjective indicates shoulder pain with flexion, cuff weakness, and weight-bearing knee pain, include evidence-based cuff/scapular and knee-load management patterns with clear pain-guardrails` : `7. Follow the phase ordering strictly
-8. If subjective indicates shoulder pain with flexion, cuff weakness, and weight-bearing knee pain, include evidence-based cuff/scapular and knee-load management patterns with clear pain-guardrails`}`;
+9. Let the clinician instructions and subjective guide exercise selection, cue language, and loading strategy` : `7. Follow the phase ordering appropriate to the program type
+8. Let the clinician instructions and subjective guide exercise selection, cue language, and loading strategy`}`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -471,6 +646,7 @@ export interface GeneratedProgramWorkoutBlock {
   orderIndex: number;
   exercises: {
     exerciseId: string;
+    exerciseName?: string;
     orderIndex: number;
     sets: number;
     reps: string;
@@ -547,9 +723,14 @@ export async function generateProgram(
 
       block.exercises.push({
         exerciseId: ex.exerciseId,
+        exerciseName: ex.exerciseName,
         orderIndex: block.exercises.length,
         sets: ex.sets || 3,
-        reps: ex.reps?.toString() || "10",
+        reps: ex.reps != null
+          ? ex.reps.toString()
+          : ex.durationSeconds != null
+            ? `${ex.durationSeconds}s`
+            : "10",
       });
     } else {
       // Legacy: group by phase
@@ -570,6 +751,7 @@ export async function generateProgram(
 
       block.exercises.push({
         exerciseId: ex.exerciseId,
+        exerciseName: ex.exerciseName,
         orderIndex: block.exercises.length,
         sets: ex.sets || 3,
         reps: ex.reps?.toString() || "10",

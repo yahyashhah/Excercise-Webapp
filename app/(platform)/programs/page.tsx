@@ -7,6 +7,7 @@ interface Props {
     search?: string;
     status?: string;
     template?: string;
+    tab?: string;
   }>;
 }
 
@@ -14,12 +15,17 @@ export default async function ProgramsPage({ searchParams }: Props) {
   const user = await getCurrentUser();
   const params = await searchParams;
 
+  const tab =
+    params.tab === "templates" || params.template === "true"
+      ? "templates"
+      : "programs";
+
   const programs =
     user.role === "CLINICIAN"
       ? await programService.getPrograms(user.id, {
           search: params.search,
           status: params.status as any,
-          isTemplate: params.template === "true" ? true : undefined,
+          isTemplate: tab === "templates",
         })
       : await programService.getProgramsForPatient(user.id);
 

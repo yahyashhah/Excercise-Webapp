@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +34,7 @@ import {
   Pencil,
   Users,
   Dumbbell,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -86,14 +87,28 @@ export function ProgramListClient({
   role?: string;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [templateOnly, setTemplateOnly] = useState(false);
+
+  const activeTab =
+    searchParams.get("tab") === "templates" ? "templates" : "programs";
+
+  function handleTabChange(nextTab: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextTab === "programs") {
+      params.delete("tab");
+    } else {
+      params.set("tab", "templates");
+    }
+    const nextQuery = params.toString();
+    router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname);
+  }
 
   const filtered = programs.filter((p) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (statusFilter !== "all" && p.status !== statusFilter) return false;
-    if (templateOnly && !p.isTemplate) return false;
     return true;
   });
 
@@ -119,13 +134,21 @@ export function ProgramListClient({
 
   return (
     <div className="space-y-6">
+      {role === "CLINICIAN" && (
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          <TabsList className="grid w-full max-w-sm grid-cols-2">
+            <TabsTrigger value="programs">Programs</TabsTrigger>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
       {/* Toolbar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-48 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search programs..."
+              placeholder={activeTab === "templates" ? "Search templates..." : "Search programs..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -143,14 +166,16 @@ export function ProgramListClient({
               <SelectItem value="COMPLETED">Completed</SelectItem>
             </SelectContent>
           </Select>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <Switch checked={templateOnly} onCheckedChange={setTemplateOnly} />
-            <span className="text-sm text-muted-foreground whitespace-nowrap">Templates only</span>
-          </label>
         </div>
 
         {role === "CLINICIAN" && (
           <div className="flex shrink-0 items-center gap-2">
+            <Button variant="outline" className="gap-2" asChild>
+              <Link href="/programs/upload">
+                <Upload className="h-4 w-4 text-emerald-600" />
+                Upload Brief
+              </Link>
+            </Button>
             <Button variant="outline" className="gap-2" asChild>
               <Link href="/programs/generate">
                 <Sparkles className="h-4 w-4 text-blue-600" />
@@ -171,10 +196,14 @@ export function ProgramListClient({
       {filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-12 text-center">
           <Library className="mx-auto h-12 w-12 text-muted-foreground/40" />
-          <h3 className="mt-4 font-semibold">No programs found</h3>
+          <h3 className="mt-4 font-semibold">
+            {activeTab === "templates" ? "No templates found" : "No programs found"}
+          </h3>
           <p className="mt-1 text-sm text-muted-foreground">
             {role === "CLINICIAN"
-              ? "Generate an AI program or create one manually to get started."
+              ? activeTab === "templates"
+                ? "Create a template or duplicate a program to build your library."
+                : "Generate an AI program or create one manually to get started."
               : "No programs have been assigned to you yet."}
           </p>
           {role === "CLINICIAN" && (
