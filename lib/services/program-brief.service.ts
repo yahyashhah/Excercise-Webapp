@@ -82,6 +82,7 @@ type BlockBlueprint = {
 
 type SessionBlueprint = {
   dayIndex: number;
+  weekIndex?: number;
   title: string;
   blocks: BlockBlueprint[];
 };
@@ -293,11 +294,11 @@ function isSeparatorLine(line: string): boolean {
   return t.length >= 3 && /^[-—–=_]+$/.test(t);
 }
 
-// An "exercise-like" line: labelled exercise (A1:), has sets×reps (NxN), or has a URL
+// An "exercise-like" line: labelled exercise (A1: or A3 without colon), has sets×reps, or has a URL
 function looksLikeExercise(line: string): boolean {
   const t = line.trim();
   return (
-    /^[A-Z]\d\s*:/i.test(t) ||
+    /^[A-Z]\d[\s:]/i.test(t) ||   // A1: chin ups  OR  A3 deep chest stretch (no colon)
     /\b\d+\s*x\s*\d+\b/i.test(t) ||
     /https?:\/\//i.test(t)
   );
@@ -313,13 +314,21 @@ function isSessionTitleLine(lineIdx: number, lines: string[]): boolean {
   if (isSeparatorLine(line)) return false;
   if (/^day\s*\d+/i.test(line)) return false;
 
-  // Exclude exercise descriptions that lack the A1: prefix (e.g. warm-up drills)
+  // Brief-format header lines (e.g. "PREFERRED_WEEKDAYS: Monday", "PROGRAM_TITLE:", "SUBJECTIVE:")
+  if (/^[A-Z_]{4,}\s*:/.test(line)) return false;
+  // Pipe-separated lines are CIRCUITS brief format ("- Main Circuit | LOWER_BODY | 6")
+  if (/\|/.test(line)) return false;
+  // Any line containing "/" is either a prescription ratio ("90/90s", "5/side") or a
+  // schedule description ("3 days / week — Monday, Wednesday, Friday") — not a session title.
+  if (line.includes('/')) return false;
+
   const wordCount = line.replace(/\([^)]*\)/g, "").split(/\s+/).filter(Boolean).length;
+  if (wordCount < 2) return false; // Single words like "Butterfly" or "90/90s" are not session titles
   if (wordCount > 9) return false;
-  // Contains common movement words → likely an exercise, not a session name
-  if (/\b(hops?|jumps?|skips?|bounds?|sprints?|throws?|tosses?|slams?|planks?|dribblers?|walks?)\b/i.test(line)) return false;
-  // Has "x N" without explicit sets (e.g. "Broad jumps x 20 yards")
-  if (/\bx\s*\d+\b/i.test(line)) return false;
+  // Contains common movement/exercise words → likely a drill or exercise name, not a session title
+  if (/\b(hops?|jumps?|skips?|bounds?|sprints?|throws?|toss(?:es)?|slams?|planks?|dribblers?|walks?|stretch(?:es)?|passes?|curls?|raises?|swings?|rotations?)\b/i.test(line)) return false;
+  // Has "x N" pattern (with or without units like "60sec", "5m") — exercise prescription
+  if (/\bx\s*\d/i.test(line)) return false;
 
   // Look ahead for a block header within 12 non-empty lines
   for (let j = lineIdx + 1; j < Math.min(lineIdx + 14, lines.length); j++) {
@@ -391,9 +400,21 @@ function extractSessionBlueprint(text: string) {
   }
 
   // Pass C – named session titles detected by look-ahead (no separator / DAY prefix)
+  // Track whether we have seen at least one exercise-like line before the current candidate.
+  // This prevents document metadata at the top (title, focus areas, schedule) from being
+  // treated as session boundaries when no exercises precede them.
+  let seenExerciseBeforeCandidate = false;
   for (let i = 0; i < lines.length; i++) {
     if (usedLines.has(i)) continue;
+    const line = lines[i].trim();
+    if (!line) continue;
+    if (looksLikeExercise(line)) {
+      seenExerciseBeforeCandidate = true;
+      continue;
+    }
     if (!isSessionTitleLine(i, lines)) continue;
+    // Skip candidates that appear in a metadata cluster before the first exercise line
+    if (!seenExerciseBeforeCandidate && sessionStarts.length > 0) continue;
     const already = sessionStarts.some((s) => Math.abs(s.index - i) <= 2);
     if (!already) {
       sessionStarts.push({ index: i, title: lines[i].trim().replace(/:$/, "").trim() });
@@ -689,8 +710,11 @@ export async function parseProgramBriefFlexible(
 
   const blueprint = extractSessionBlueprint(text);
   if (blueprint.sessions.length) {
-    if (!normalized.daysPerWeek || !Number.isFinite(normalized.daysPerWeek)) {
-      normalized.daysPerWeek = blueprint.sessions.length;
+    if (!normalized.daysPerWeek || !Number.isFinite(normalized.daysPerWeek) || normalized.daysPerWeek > 7) {
+      // For multi-week programs (>7 sessions), cap at 7 so daysPerWeek stays valid.
+      // GPT-4o should have correctly inferred the per-week count from the document context;
+      // if it failed we fall back to the raw session count capped at 7.
+      normalized.daysPerWeek = Math.min(blueprint.sessions.length, 7);
     }
 
     if (!normalized.programTitle) {
@@ -797,6 +821,19 @@ export async function parseProgramBriefFlexible(
     const inferredDuration = inferDurationMinutes(text);
     if (inferredDuration) normalized.durationMinutes = inferredDuration;
   }
+
+  // Re-index sessions for multi-week programs: assign weekIndex and per-week dayIndex
+  if (normalized.sessionBlueprint?.length && normalized.daysPerWeek > 0) {
+    const dpw = normalized.daysPerWeek;
+    if (normalized.sessionBlueprint.length > dpw) {
+      normalized.sessionBlueprint = normalized.sessionBlueprint.map((s, i) => ({
+        ...s,
+        weekIndex: Math.floor(i / dpw),
+        dayIndex: i % dpw,
+      }));
+    }
+  }
+
   const errors = validate(normalized);
   if (errors.length) return { ok: false, errors };
   return { ok: true, data: normalized };

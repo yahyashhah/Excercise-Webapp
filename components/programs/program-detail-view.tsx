@@ -23,7 +23,7 @@ import {
 import { toast } from "sonner";
 import { duplicateProgramAction } from "@/actions/program-actions";
 import { AssignProgramDialog } from "@/components/programs/assign-program-dialog";
-import { CalendarWithSidebar } from "@/components/calendar/calendar-with-sidebar";
+import { ProgramScheduleView } from "@/components/programs/program-schedule-view";
 import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
 import {
   Dialog,
@@ -164,7 +164,7 @@ export function ProgramDetailView({
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          {!!patientId && <TabsTrigger value="calendar">Schedule</TabsTrigger>}
+          <TabsTrigger value="schedule">Schedule</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="space-y-4 mt-4">
           {workouts.length === 0 ? (
@@ -293,22 +293,13 @@ export function ProgramDetailView({
             })
           )}
         </TabsContent>
-        {!!patientId && (
-          <TabsContent value="calendar" className="mt-4">
-            {sessions.length === 0 ? (
-              <Card className="p-10 text-center">
-                <p className="text-muted-foreground">
-                  No sessions scheduled yet. Assign this program to place workouts on the calendar.
-                </p>
-              </Card>
-            ) : (
-              <CalendarWithSidebar
-                sessions={sessions}
-                isClinician={isClinician}
-              />
-            )}
-          </TabsContent>
-        )}
+        <TabsContent value="schedule" className="mt-4">
+          <ProgramScheduleView
+            rawWorkouts={workouts}
+            rawSessions={sessions}
+            isClinician={isClinician}
+          />
+        </TabsContent>
       </Tabs>
 
       {/* Assign Dialog */}

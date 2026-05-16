@@ -41,6 +41,7 @@ type PreviewState = {
     workouts: {
       name: string;
       dayIndex: number;
+      weekIndex: number;
       blocks: {
         name?: string;
         type: string;

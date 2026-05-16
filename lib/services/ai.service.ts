@@ -32,6 +32,7 @@ interface GenerateWorkoutParams {
   preferredExerciseNames?: string[];
   sessionBlueprint?: {
     dayIndex: number;
+    weekIndex?: number;
     title: string;
     blocks: {
       name: string;
@@ -50,6 +51,7 @@ interface GeneratedExercise {
   reps?: number;
   durationSeconds?: number;
   restSeconds?: number;
+  weekIndex?: number;
   dayOfWeek?: number;
   orderIndex: number;
   notes?: string;
@@ -58,7 +60,7 @@ interface GeneratedExercise {
 interface GeneratedPlan {
   title: string;
   description: string;
-  sessions: { dayOfWeek: number; name: string }[];
+  sessions: { dayOfWeek: number; weekIndex?: number; name: string }[];
   exercises: GeneratedExercise[];
 }
 
@@ -357,8 +359,20 @@ export async function generateWorkoutPlan(
       return best ?? ranked[0].exercise;
     }
 
+    // Map per-week dayIndex (0,1,2) → actual weekday index using preferredWeekdays
+    // e.g. ["Monday","Wednesday","Friday"] → [0,2,4], so dayIndex 1 → Wednesday (2) not Tuesday (1)
+    const preferredDayIndices = (params.preferredWeekdays ?? [])
+      .map((d) => weekdayToIndex[d.toLowerCase().trim()])
+      .filter((d): d is number => Number.isInteger(d));
+
+    function toActualDayOfWeek(dayIndex: number): number {
+      if (preferredDayIndices.length === 0) return dayIndex;
+      return preferredDayIndices[dayIndex % preferredDayIndices.length];
+    }
+
     const sessions = params.sessionBlueprint.map((s) => ({
-      dayOfWeek: s.dayIndex,
+      dayOfWeek: toActualDayOfWeek(s.dayIndex),
+      weekIndex: s.weekIndex ?? 0,
       name: s.title,
     }));
 
@@ -412,7 +426,8 @@ export async function generateWorkoutPlan(
             reps,
             durationSeconds,
             restSeconds: undefined,
-            dayOfWeek: session.dayIndex,
+            weekIndex: session.weekIndex ?? 0,
+            dayOfWeek: toActualDayOfWeek(session.dayIndex),
             orderIndex: orderIndex++,
             notes: undefined,
           });
@@ -650,12 +665,15 @@ export interface GeneratedProgramWorkoutBlock {
     orderIndex: number;
     sets: number;
     reps: string;
+    notes?: string;
+    restSeconds?: number;
   }[];
 }
 
 export interface GeneratedProgramWorkout {
   name: string;
   dayIndex: number;
+  weekIndex: number;
   blocks: GeneratedProgramWorkoutBlock[];
 }
 
@@ -679,27 +697,30 @@ export async function generateProgram(
   const circuits = params.circuits;
   const hasCircuits = circuits && circuits.length > 0;
 
-  const sessionNameMap = new Map<number, string>(
-    (generatedPlan.sessions ?? []).map((s) => [s.dayOfWeek, s.name])
+  const sessionNameMap = new Map<string, string>(
+    (generatedPlan.sessions ?? []).map((s) => [`${s.weekIndex ?? 0}_${s.dayOfWeek}`, s.name])
   );
 
-  const workoutsMap = new Map<number, GeneratedProgramWorkout>();
+  const workoutsMap = new Map<string, GeneratedProgramWorkout>();
 
   generatedPlan.exercises.forEach((ex) => {
     const day = ex.dayOfWeek ?? 0;
-    if (!workoutsMap.has(day)) {
+    const week = ex.weekIndex ?? 0;
+    const key = `${week}_${day}`;
+    if (!workoutsMap.has(key)) {
       const sessionNum = workoutsMap.size;
-      const name = sessionNameMap.get(day);
+      const name = sessionNameMap.get(key);
       if (!name) {
-        console.warn(`[AI] No session name returned for dayOfWeek ${day} — using fallback`);
+        console.warn(`[AI] No session name returned for week ${week} day ${day} — using fallback`);
       }
-      workoutsMap.set(day, {
+      workoutsMap.set(key, {
         name: name ?? `Session ${sessionNum + 1}`,
         dayIndex: day,
+        weekIndex: week,
         blocks: [],
       });
     }
-    const workout = workoutsMap.get(day)!;
+    const workout = workoutsMap.get(key)!;
 
     if (hasCircuits) {
       // Group by circuitIndex from the AI output
@@ -731,6 +752,8 @@ export async function generateProgram(
           : ex.durationSeconds != null
             ? `${ex.durationSeconds}s`
             : "10",
+        notes: ex.notes,
+        restSeconds: ex.restSeconds,
       });
     } else {
       // Legacy: group by phase
@@ -755,6 +778,8 @@ export async function generateProgram(
         orderIndex: block.exercises.length,
         sets: ex.sets || 3,
         reps: ex.reps?.toString() || "10",
+        notes: ex.notes,
+        restSeconds: ex.restSeconds,
       });
     }
   });
@@ -764,7 +789,10 @@ export async function generateProgram(
     workout.blocks.sort((a, b) => a.orderIndex - b.orderIndex);
   }
 
-  const workouts = Array.from(workoutsMap.values()).sort((a, b) => a.dayIndex - b.dayIndex);
+  const workouts = Array.from(workoutsMap.values()).sort((a, b) => {
+    if (a.weekIndex !== b.weekIndex) return a.weekIndex - b.weekIndex;
+    return a.dayIndex - b.dayIndex;
+  });
 
   return {
     name: generatedPlan.title || "AI Generated Program",
