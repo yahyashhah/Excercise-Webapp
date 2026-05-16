@@ -3,7 +3,6 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import * as programService from "@/lib/services/program.service";
-import * as sessionService from "@/lib/services/session.service";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { ProgramDetailView } from "@/components/programs/program-detail-view";
@@ -41,12 +40,38 @@ export default async function ProgramDetailPage({
     patients = links.map((l) => l.patient);
   }
 
-  // Load sessions for this program's patient (for calendar tab)
+  // Load sessions for workouts in this specific program (template + assigned)
+  const workoutIds = (program.workouts ?? []).map((w) => w.id);
   let sessions: Record<string, unknown>[] = [];
-  if (program.patientId) {
-    sessions = await sessionService.getSessionsForPatient(
-      program.patientId
-    );
+  if (workoutIds.length > 0) {
+    sessions = (await prisma.workoutSessionV2.findMany({
+      where: { workoutId: { in: workoutIds } },
+      include: {
+        workout: {
+          include: {
+            program: { select: { id: true, name: true } },
+            blocks: {
+              include: {
+                exercises: {
+                  include: {
+                    exercise: true,
+                    sets: { orderBy: { orderIndex: "asc" } },
+                  },
+                  orderBy: { orderIndex: "asc" },
+                },
+              },
+              orderBy: { orderIndex: "asc" },
+            },
+          },
+        },
+        exerciseLogs: {
+          include: { setLogs: { orderBy: { setIndex: "asc" } } },
+          orderBy: { orderIndex: "asc" },
+        },
+        feedback: true,
+      },
+      orderBy: { scheduledDate: "asc" },
+    })) as unknown as Record<string, unknown>[];
   }
 
   return (

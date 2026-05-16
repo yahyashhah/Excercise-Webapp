@@ -275,35 +275,23 @@ export async function assignProgram(
   patientId: string,
   startDate: Date
 ) {
+  // Narrow select: only pull the workout fields needed to compute session dates
   const program = await prisma.program.update({
     where: { id: programId },
-    data: {
-      patientId,
-      startDate,
-      status: "ACTIVE",
+    data: { patientId, startDate, status: "ACTIVE" },
+    select: {
+      id: true,
+      workouts: { select: { id: true, dayIndex: true, weekIndex: true } },
     },
-    include: programDetailInclude,
   });
 
-  // Create WorkoutSessionV2 records for each workout
-  const sessions: { workoutId: string; scheduledDate: Date }[] = [];
-
-  for (const workout of program.workouts) {
-    const scheduledDate = new Date(startDate);
-    scheduledDate.setDate(
-      scheduledDate.getDate() + workout.weekIndex * 7 + workout.dayIndex
-    );
-    sessions.push({ workoutId: workout.id, scheduledDate });
-  }
-
-  if (sessions.length > 0) {
+  if (program.workouts.length > 0) {
     await prisma.workoutSessionV2.createMany({
-      data: sessions.map((s) => ({
-        workoutId: s.workoutId,
-        patientId,
-        scheduledDate: s.scheduledDate,
-        status: "SCHEDULED",
-      })),
+      data: program.workouts.map((w) => {
+        const d = new Date(startDate);
+        d.setDate(d.getDate() + w.weekIndex * 7 + w.dayIndex);
+        return { workoutId: w.id, patientId, scheduledDate: d, status: "SCHEDULED" as const };
+      }),
     });
   }
 
