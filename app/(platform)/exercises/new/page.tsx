@@ -1,8 +1,8 @@
-import { requireRole } from "@/lib/current-user";
+import { requireSuperAdmin } from "@/lib/current-user";
 import { ExerciseForm } from "@/components/exercises/exercise-form";
 
 export default async function NewExercisePage() {
-  await requireRole("CLINICIAN");
+  await requireSuperAdmin();
 
   return (
     <div className="mx-auto max-w-2xl">

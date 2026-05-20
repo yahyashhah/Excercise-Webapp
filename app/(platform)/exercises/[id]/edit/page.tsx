@@ -14,7 +14,8 @@ export default async function EditExercisePage({ params }: Props) {
   const { id } = await params;
   const user = await getCurrentUser();
 
-  if (user.role !== "CLINICIAN") redirect("/exercises");
+  const { isSuperAdmin } = await import("@/lib/current-user");
+  if (!(await isSuperAdmin())) redirect("/exercises");
 
   const exercise = await getExerciseById(id);
   if (!exercise) notFound();

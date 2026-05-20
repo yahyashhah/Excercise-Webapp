@@ -28,3 +28,42 @@ export async function requireRole(role: "CLINICIAN" | "PATIENT"): Promise<User> 
   if (user.role !== role) redirect("/dashboard");
   return user;
 }
+
+export async function requireSuperAdmin(): Promise<User> {
+  const { userId, sessionClaims } = await auth();
+  if (!userId) redirect("/sign-in");
+
+  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!user) redirect("/sign-in");
+
+  // Clerk publicMetadata path (used once Clerk dashboard is configured)
+  const meta = sessionClaims?.publicMetadata as { superAdmin?: boolean } | undefined;
+  const hasClerkFlag = meta?.superAdmin === true;
+
+  // Env-var fallback — add SUPER_ADMIN_EMAILS=you@example.com to .env
+  const allowedEmails = (process.env.SUPER_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  const hasEmailFlag = allowedEmails.includes(user.email.toLowerCase());
+
+  if (!hasClerkFlag && !hasEmailFlag) redirect("/dashboard");
+  return user;
+}
+
+export async function isSuperAdmin(): Promise<boolean> {
+  const { userId, sessionClaims } = await auth();
+  if (!userId) return false;
+
+  const meta = sessionClaims?.publicMetadata as { superAdmin?: boolean } | undefined;
+  if (meta?.superAdmin === true) return true;
+
+  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!user) return false;
+
+  const allowedEmails = (process.env.SUPER_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return allowedEmails.includes(user.email.toLowerCase());
+}

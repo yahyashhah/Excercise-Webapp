@@ -143,8 +143,110 @@ function useDebouncedCallback<T extends (...args: never[]) => unknown>(
   );
 }
 
+// ---------------------------------------------------------------------------
+// Block Name Input
+// ---------------------------------------------------------------------------
+function BlockNameInput({ blockId, initialName, onSave, disabled }: {
+  blockId: string;
+  initialName: string | null;
+  onSave: (name: string | null) => void;
+  disabled?: boolean;
+}) {
+  const [editing, setEditing] = React.useState(false);
+  const [value, setValue] = React.useState(initialName ?? "");
+
+  React.useEffect(() => { setValue(initialName ?? ""); }, [initialName]);
+
+  if (disabled) {
+    return initialName ? <span className="text-sm font-medium">{initialName}</span> : null;
+  }
+
+  if (editing) {
+    return (
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => { setEditing(false); onSave(value.trim() || null); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { setEditing(false); onSave(value.trim() || null); }
+          if (e.key === "Escape") { setValue(initialName ?? ""); setEditing(false); }
+        }}
+        autoFocus
+        placeholder="Block name..."
+        className="h-6 text-sm px-2 py-0 w-36 shadow-none"
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      className="text-sm text-muted-foreground hover:text-foreground px-1 py-0.5 rounded hover:bg-muted transition-colors"
+      title="Click to edit block name"
+    >
+      {initialName ?? <span className="italic text-muted-foreground/40 text-xs">Add name...</span>}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Circuit Controls (rounds + rest)
+// ---------------------------------------------------------------------------
+function CircuitControls({ blockIndex, blockId, rounds, restBetweenRounds, onSave, disabled }: {
+  blockIndex: number;
+  blockId: string;
+  rounds: number;
+  restBetweenRounds: number | null;
+  onSave: (blockIndex: number, blockId: string, data: { rounds?: number; restBetweenRounds?: number | null }) => void;
+  disabled?: boolean;
+}) {
+  const [localRounds, setLocalRounds] = React.useState(String(rounds));
+  const [localRest, setLocalRest] = React.useState(restBetweenRounds != null ? String(restBetweenRounds) : "");
+
+  React.useEffect(() => { setLocalRounds(String(rounds)); }, [rounds]);
+  React.useEffect(() => { setLocalRest(restBetweenRounds != null ? String(restBetweenRounds) : ""); }, [restBetweenRounds]);
+
+  return (
+    <div className="flex items-center gap-3 ml-1">
+      <div className="flex items-center gap-1">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Sets</span>
+        <Input
+          type="number"
+          min={1}
+          max={20}
+          value={localRounds}
+          onChange={(e) => setLocalRounds(e.target.value)}
+          onBlur={() => {
+            const v = parseInt(localRounds);
+            if (!isNaN(v) && v >= 1) onSave(blockIndex, blockId, { rounds: v });
+          }}
+          disabled={disabled}
+          className="h-6 w-12 text-xs px-1.5 text-center shadow-none"
+        />
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Rest</span>
+        <Input
+          type="number"
+          min={0}
+          value={localRest}
+          onChange={(e) => setLocalRest(e.target.value)}
+          onBlur={() => {
+            const v = localRest === "" ? null : parseInt(localRest);
+            onSave(blockIndex, blockId, { restBetweenRounds: isNaN(v as number) ? null : v });
+          }}
+          disabled={disabled}
+          placeholder="—"
+          className="h-6 w-14 text-xs px-1.5 text-center shadow-none"
+        />
+        <span className="text-[10px] text-muted-foreground">sec</span>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------  // Sortable Exercise Item
-// ---------------------------------------------------------------------------  
+// ---------------------------------------------------------------------------
 function SortableExercise({
   
   id,
@@ -163,7 +265,7 @@ function SortableExercise({
   sessionStatus,
   exerciseLog
 }: any) {
-  const [expanded, setExpanded] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(false);
   const {
     attributes,
     listeners,
@@ -807,8 +909,33 @@ export function WorkoutEditorPanel({
     }
   }
 
+  // Update a block field (name, rounds, restBetweenRounds)
+  async function handleUpdateBlockField(
+    blockIndex: number,
+    blockId: string,
+    data: { name?: string | null; rounds?: number; restBetweenRounds?: number | null }
+  ) {
+    const result = await updateBlock(blockId, data);
+    if (result.success) {
+      setSession((prev) => {
+        if (!prev) return prev;
+        const blocks = [...prev.workout.blocks];
+        blocks[blockIndex] = {
+          ...blocks[blockIndex],
+          name: result.data.name,
+          rounds: result.data.rounds,
+          timeCap: result.data.timeCap,
+          restBetweenRounds: result.data.restBetweenRounds,
+        };
+        return { ...prev, workout: { ...prev.workout, blocks } };
+      });
+    } else {
+      toast.error(result.error);
+    }
+  }
+
   // Change block type
-  async function handleChangeBlockType(blockIndex: number, newType: string) {   
+  async function handleChangeBlockType(blockIndex: number, newType: string) {
     if (!session) return;
     const blockId = session.workout.blocks[blockIndex].id;
     const result = await updateBlock(blockId, { type: newType });
@@ -821,6 +948,7 @@ export function WorkoutEditorPanel({
           type: result.data.type,
           rounds: result.data.rounds,
           timeCap: result.data.timeCap,
+          restBetweenRounds: result.data.restBetweenRounds,
         };
         return { ...prev, workout: { ...prev.workout, blocks } };
       });
@@ -1027,24 +1155,30 @@ export function WorkoutEditorPanel({
                         key={block.id}
                         className="mb-6 relative"   
                       >
-                        {/* Block header - Cleaner, Floating */}
-                        <div className="flex items-center justify-between mb-2 pb-1 border-b border-muted">                                                      
-                          <div className="flex items-center gap-2">
+                        {/* Block header */}
+                        <div className="flex items-center justify-between mb-2 pb-1 border-b border-muted">
+                          <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
                             <Badge
                               variant="secondary"
                               className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0 rounded-sm ${typeConfig.color}`}
                             >
                               {typeConfig.label}
                             </Badge>
-                            {isCircuit && block.rounds > 1 && (  
-                              <span className="text-xs font-semibold text-muted-foreground ml-1">  
-                                {block.rounds} Rounds
-                              </span>
-                            )}
-                            {block.name && (
-                              <span className="text-sm font-medium text-muted-foreground">
-                                - {block.name}
-                              </span>
+                            <BlockNameInput
+                              blockId={block.id}
+                              initialName={block.name}
+                              disabled={session.status === "COMPLETED"}
+                              onSave={(name) => handleUpdateBlockField(blockIndex, block.id, { name })}
+                            />
+                            {isCircuit && (
+                              <CircuitControls
+                                blockIndex={blockIndex}
+                                blockId={block.id}
+                                rounds={block.rounds}
+                                restBetweenRounds={block.restBetweenRounds}
+                                disabled={session.status === "COMPLETED"}
+                                onSave={handleUpdateBlockField}
+                              />
                             )}
                           </div>
                           
