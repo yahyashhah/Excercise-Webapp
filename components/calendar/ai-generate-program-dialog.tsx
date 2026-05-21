@@ -23,6 +23,8 @@ interface CircuitConfig {
   name: string;
   focusType: string;
   exerciseCount: number;
+  rounds: number;
+  restBetweenRounds: number | null;
 }
 
 const CIRCUIT_FOCUS_OPTIONS = [
@@ -73,9 +75,9 @@ export function AiGenerateProgramDialog({
     "Friday",
   ]);
   const [circuits, setCircuits] = useState<CircuitConfig[]>([
-    { id: "1", name: "Warm Up", focusType: "WARMUP", exerciseCount: 4 },
-    { id: "2", name: "Main Circuit", focusType: "FULL_BODY", exerciseCount: 6 },
-    { id: "3", name: "Cool Down", focusType: "COOLDOWN", exerciseCount: 3 },
+    { id: "1", name: "Warm Up", focusType: "WARMUP", exerciseCount: 4, rounds: 1, restBetweenRounds: null },
+    { id: "2", name: "Main Circuit", focusType: "FULL_BODY", exerciseCount: 6, rounds: 3, restBetweenRounds: 60 },
+    { id: "3", name: "Cool Down", focusType: "COOLDOWN", exerciseCount: 3, rounds: 1, restBetweenRounds: null },
   ]);
   const [subjective, setSubjective] = useState("");
   const [clinicianPrompt, setClinicianPrompt] = useState("");
@@ -96,7 +98,7 @@ export function AiGenerateProgramDialog({
   function addCircuit() {
     setCircuits((prev) => [
       ...prev,
-      { id: Date.now().toString(), name: "Circuit", focusType: "FULL_BODY", exerciseCount: 4 },
+      { id: Date.now().toString(), name: "Circuit", focusType: "FULL_BODY", exerciseCount: 4, rounds: 3, restBetweenRounds: 60 },
     ]);
   }
 
@@ -109,7 +111,15 @@ export function AiGenerateProgramDialog({
   }
 
   function updateCircuit(id: string, updates: Partial<Omit<CircuitConfig, "id">>) {
-    setCircuits((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+    setCircuits((prev) => prev.map((c) => {
+      if (c.id !== id) return c;
+      const merged = { ...c, ...updates };
+      if (updates.focusType && (updates.focusType === "WARMUP" || updates.focusType === "COOLDOWN")) {
+        merged.rounds = 1;
+        merged.restBetweenRounds = null;
+      }
+      return merged;
+    }));
   }
 
   function moveCircuit(id: string, direction: "up" | "down") {
@@ -144,10 +154,12 @@ export function AiGenerateProgramDialog({
       focusAreas: selectedAreas,
       durationMinutes: duration,
       daysPerWeek,
-      circuits: circuits.map(({ name, focusType, exerciseCount }) => ({
+      circuits: circuits.map(({ name, focusType, exerciseCount, rounds, restBetweenRounds }) => ({
         name,
         focusType,
         exerciseCount,
+        rounds,
+        restBetweenRounds,
       })),
       preferredWeekdays: selectedWeekdays,
       difficultyLevel: difficulty,
@@ -335,6 +347,41 @@ export function AiGenerateProgramDialog({
                         className="h-8 w-14 text-sm text-center"
                       />
                       <span className="text-xs text-muted-foreground whitespace-nowrap">ex.</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={8}
+                        value={circuit.rounds}
+                        onChange={(e) =>
+                          updateCircuit(circuit.id, {
+                            rounds: Math.max(1, Math.min(8, Number(e.target.value))),
+                          })
+                        }
+                        disabled={circuit.focusType === "WARMUP" || circuit.focusType === "COOLDOWN"}
+                        className="h-8 w-14 text-sm text-center disabled:opacity-50"
+                        title="Sets / Cycles"
+                      />
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">sets</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={300}
+                        value={circuit.restBetweenRounds ?? ""}
+                        placeholder="—"
+                        onChange={(e) =>
+                          updateCircuit(circuit.id, {
+                            restBetweenRounds: e.target.value === "" ? null : Math.max(0, Math.min(300, Number(e.target.value))),
+                          })
+                        }
+                        disabled={circuit.rounds <= 1}
+                        className="h-8 w-14 text-sm text-center disabled:opacity-50"
+                        title="Rest between sets (seconds)"
+                      />
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">s rest</span>
                     </div>
                     <Button
                       type="button"

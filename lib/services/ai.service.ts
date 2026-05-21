@@ -10,6 +10,8 @@ interface CircuitConfig {
   name: string;
   focusType: string;
   exerciseCount: number;
+  rounds?: number;
+  restBetweenRounds?: number | null;
 }
 
 interface GenerateWorkoutParams {
@@ -659,6 +661,8 @@ export interface GeneratedProgramWorkoutBlock {
   name?: string;
   circuitIndex?: number;
   orderIndex: number;
+  rounds?: number;
+  restBetweenRounds?: number | null;
   exercises: {
     exerciseId: string;
     exerciseName?: string;
@@ -687,6 +691,11 @@ function circuitFocusToBlockType(focusType: string): string {
   if (focusType === "WARMUP") return "WARMUP";
   if (focusType === "COOLDOWN") return "COOLDOWN";
   return "CIRCUIT";
+}
+
+function defaultRoundsForFocusType(focusType: string): number {
+  if (focusType === "WARMUP" || focusType === "COOLDOWN") return 1;
+  return 3;
 }
 
 export async function generateProgram(
@@ -737,6 +746,8 @@ export async function generateProgram(
           name: circuitConfig.name,
           circuitIndex: circuitIdx,
           orderIndex: circuitIdx,
+          rounds: circuitConfig.rounds ?? defaultRoundsForFocusType(circuitConfig.focusType),
+          restBetweenRounds: circuitConfig.restBetweenRounds ?? null,
           exercises: [],
         };
         workout.blocks.push(block);
@@ -746,7 +757,7 @@ export async function generateProgram(
         exerciseId: ex.exerciseId,
         exerciseName: ex.exerciseName,
         orderIndex: block.exercises.length,
-        sets: ex.sets || 3,
+        sets: 1, // circuits: 1 set per exercise; block.rounds controls repetition
         reps: ex.reps != null
           ? ex.reps.toString()
           : ex.durationSeconds != null

@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
   ClipboardList,
-  Activity,
   MessageSquare,
   TrendingUp,
   Play,
@@ -14,7 +13,8 @@ import {
   CheckCircle2,
   Calendar,
 } from "lucide-react";
-import { formatSessionStatus, formatDate } from "@/lib/utils/formatting";
+import { formatDate } from "@/lib/utils/formatting";
+import { PatientSessionCalendar } from "./patient-session-calendar";
 
 interface PatientDashboardProps {
   upcomingSessions: {
@@ -23,20 +23,23 @@ interface PatientDashboardProps {
     status: string;
     workout?: { name?: string | null } | null;
   }[];
+  calendarSessions: {
+    id: string;
+    scheduledDate: Date;
+    status: string;
+    workout: {
+      name: string | null;
+      blocks: { exercises: { id: string }[] }[];
+    } | null;
+  }[];
   weeklyCompliance: number;
   recentAssessments: { id: string; assessmentType: string; value: number; unit: string; createdAt: Date }[];
   unreadMessages: number;
 }
 
-const sessionStatusColors: Record<string, string> = {
-  SCHEDULED: "bg-blue-100 text-blue-700",
-  IN_PROGRESS: "bg-amber-100 text-amber-700",
-  COMPLETED: "bg-emerald-100 text-emerald-700",
-  MISSED: "bg-red-100 text-red-700",
-};
-
 export function PatientDashboard({
   upcomingSessions,
+  calendarSessions,
   weeklyCompliance,
   recentAssessments,
   unreadMessages,
@@ -76,7 +79,7 @@ export function PatientDashboard({
             </div>
             <Button
               size="lg"
-              className="shrink-0 bg-white font-semibold text-blue-700 shadow-lg hover:bg-blue-50 border-0"
+              className="shrink-0 bg-white! font-semibold text-black shadow-lg border-0"
               asChild
             >
               <Link href={`/sessions/${nextWorkout.id}`}>
@@ -171,46 +174,8 @@ export function PatientDashboard({
         </CardContent>
       </Card>
 
-      {/* Upcoming sessions list */}
-      {upcomingSessions.length > 0 && (
-        <Card id="sessions">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div className="flex items-center gap-2">
-              <Activity className="h-4.5 w-4.5 text-primary" />
-              <CardTitle className="text-base font-semibold">Upcoming Sessions</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {upcomingSessions.map((session, i) => (
-                <Link
-                  key={session.id}
-                  href={`/sessions/${session.id}`}
-                  className="group flex items-center gap-4 rounded-xl border border-border/60 bg-muted/20 p-4 transition-all hover:bg-muted/50 hover:border-border"
-                >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-blue-500 to-indigo-600 text-sm font-bold text-white">
-                    {i + 1}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium group-hover:text-primary transition-colors">
-                      {session.workout?.name || "Workout Session"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{formatDate(session.scheduledDate)}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge
-                      className={`border-0 text-xs font-medium ${sessionStatusColors[session.status] || "bg-muted text-muted-foreground"}`}
-                    >
-                      {formatSessionStatus(session.status)}
-                    </Badge>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Schedule calendar */}
+      <PatientSessionCalendar sessions={calendarSessions} />
 
       {/* Recent Assessments */}
       {recentAssessments.length > 0 && (

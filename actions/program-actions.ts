@@ -85,6 +85,8 @@ async function createProgramFromGeneratedPlan(params: {
           type: b.type || "NORMAL",
           name: b.name || b.type || "NORMAL",
           orderIndex: b.orderIndex,
+          rounds: b.rounds ?? 1,
+          restBetweenRounds: b.restBetweenRounds ?? null,
         },
         select: { id: true },
       })
@@ -372,6 +374,7 @@ export async function generateProgramPreviewFromBriefAction(input: {
         name: c.name,
         focusType: c.focusType,
         exerciseCount: c.exerciseCount,
+        rounds: c.rounds,
       })),
       difficultyLevel: brief.difficultyLevel,
       preferredWeekdays: brief.preferredWeekdays,

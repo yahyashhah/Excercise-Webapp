@@ -4,14 +4,17 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import { WorkoutSessionTracker } from "@/components/workout/workout-session-tracker";
+import { WorkoutModeWrapper } from "@/components/workout/workout-mode-wrapper";
 
 export default async function SessionPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ mode?: string }>;
 }) {
   const { id } = await params;
+  const { mode } = await searchParams;
   const user = await getCurrentUser();
 
   const session = await prisma.workoutSessionV2.findUnique({
@@ -32,7 +35,13 @@ export default async function SessionPage({
           },
           blocks: {
             orderBy: { orderIndex: "asc" },
-            include: {
+            select: {
+              id: true,
+              type: true,
+              rounds: true,
+              restBetweenRounds: true,
+              name: true,
+              orderIndex: true,
               exercises: {
                 orderBy: { orderIndex: "asc" },
                 include: {
@@ -70,7 +79,10 @@ export default async function SessionPage({
           Back to Dashboard
         </Link>
       </Button>
-      <WorkoutSessionTracker session={session as any} />
+      <WorkoutModeWrapper
+        session={session as any}
+        initialMode={mode === "checklist" || mode === "session" ? mode : undefined}
+      />
     </div>
   );
 }
