@@ -65,6 +65,7 @@ type CircuitConfig = {
   name: string;
   focusType: string;
   exerciseCount: number;
+  rounds?: number;
 };
 
 export type ExerciseBlueprint = {
@@ -149,11 +150,18 @@ function parseCircuits(lines: string[]): CircuitConfig[] {
     .map((l) => l.replace(/^[-*]\s*/, ""))
     .map((l) => l.split("|").map((s) => s.trim()))
     .filter((parts) => parts.length >= 3)
-    .map(([name, focusType, exerciseCount]) => ({
-      name,
-      focusType: focusType.toUpperCase(),
-      exerciseCount: Number.parseInt(exerciseCount, 10),
-    }));
+    .map(([name, focusType, exerciseCount, rounds]) => {
+      const ft = focusType.toUpperCase();
+      const parsedRounds = rounds !== undefined ? Number.parseInt(rounds, 10) : undefined;
+      return {
+        name,
+        focusType: ft,
+        exerciseCount: Number.parseInt(exerciseCount, 10),
+        rounds: parsedRounds && !Number.isNaN(parsedRounds) ? parsedRounds
+          : ft === "WARMUP" || ft === "COOLDOWN" ? 1
+          : 3,
+      };
+    });
 }
 
 function normalizeWeekday(value: string) {
@@ -741,11 +749,15 @@ export async function parseProgramBriefFlexible(
 
       if (circuitCounts.size > 0) {
         normalized.circuits = Array.from(circuitCounts.entries()).map(
-          ([name, count]) => ({
-            name,
-            focusType: inferCircuitFocusType(name),
-            exerciseCount: count,
-          })
+          ([name, count]) => {
+            const ft = inferCircuitFocusType(name);
+            return {
+              name,
+              focusType: ft,
+              exerciseCount: count,
+              rounds: ft === "WARMUP" || ft === "COOLDOWN" ? 1 : 3,
+            };
+          }
         );
       }
     }

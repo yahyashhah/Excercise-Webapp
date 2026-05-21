@@ -117,12 +117,84 @@ export async function completeSessionV2Action(
         overallNotes
       }
     });
-    
+
     revalidatePath("/dashboard");
     revalidatePath("/sessions/" + sessionId);
     return { success: true, data: session };
   } catch (error) {
     console.error(error);
     return { success: false, error: "Failed to complete session" };
+  }
+}
+
+export async function markExerciseDoneAction(
+  sessionId: string,
+  blockExerciseId: string,
+  setCount: number,
+  done: boolean
+) {
+  const { userId } = await auth();
+  if (!userId) return { success: false as const, error: "Unauthorized" };
+
+  try {
+    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!dbUser) return { success: false as const, error: "User not found" };
+
+    const session = await prisma.workoutSessionV2.findUnique({
+      where: { id: sessionId, patientId: dbUser.id },
+      select: { status: true },
+    });
+    if (!session) return { success: false as const, error: "Session not found" };
+
+    if (session.status === "SCHEDULED") {
+      await prisma.workoutSessionV2.update({
+        where: { id: sessionId },
+        data: { status: "IN_PROGRESS", startedAt: new Date() },
+      });
+    }
+
+    if (done) {
+      const blockEx = await prisma.blockExerciseV2.findUnique({ where: { id: blockExerciseId } });
+      let exerciseLog = await prisma.sessionExerciseLog.findFirst({
+        where: { sessionId, blockExerciseId },
+      });
+      if (!exerciseLog) {
+        exerciseLog = await prisma.sessionExerciseLog.create({
+          data: { sessionId, blockExerciseId, orderIndex: blockEx?.orderIndex ?? 0, status: "COMPLETED", completedAt: new Date() },
+        });
+      } else {
+        await prisma.sessionExerciseLog.update({
+          where: { id: exerciseLog.id },
+          data: { status: "COMPLETED", completedAt: new Date() },
+        });
+      }
+      for (let i = 0; i < Math.max(1, setCount); i++) {
+        const existing = await prisma.setLog.findFirst({
+          where: { sessionExerciseLogId: exerciseLog.id, setIndex: i },
+        });
+        if (!existing) {
+          await prisma.setLog.create({
+            data: { sessionExerciseLogId: exerciseLog.id, setIndex: i, completedAt: new Date() },
+          });
+        }
+      }
+    } else {
+      const exerciseLog = await prisma.sessionExerciseLog.findFirst({
+        where: { sessionId, blockExerciseId },
+      });
+      if (exerciseLog) {
+        await prisma.sessionExerciseLog.update({
+          where: { id: exerciseLog.id },
+          data: { status: "PENDING", completedAt: null },
+        });
+      }
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/sessions/" + sessionId);
+    return { success: true as const };
+  } catch (error) {
+    console.error(error);
+    return { success: false as const, error: "Failed to update exercise" };
   }
 }

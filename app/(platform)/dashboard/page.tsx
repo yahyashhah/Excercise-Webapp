@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { ClinicianDashboard } from "@/components/dashboard/clinician-dashboard";
 import { PatientDashboard } from "@/components/dashboard/patient-dashboard";
 import * as sessionService from "@/lib/services/session.service";
-import { startOfWeek, endOfWeek } from "date-fns";
+import { startOfWeek, endOfWeek, startOfDay } from "date-fns";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -70,7 +70,10 @@ export default async function DashboardPage() {
   }
 
   // Patient dashboard
-  const [recentAssessments, unreadMessages, upcomingSessions, completedThisWeek] = await Promise.all([
+  const calendarStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const calendarEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59);
+
+  const [recentAssessments, unreadMessages, calendarSessions, completedThisWeek] = await Promise.all([
     prisma.assessment.findMany({
       where: { patientId: user.id },
       orderBy: { createdAt: "desc" },
@@ -80,26 +83,43 @@ export default async function DashboardPage() {
     prisma.workoutSessionV2.findMany({
       where: {
         patientId: user.id,
-        status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+        scheduledDate: { gte: calendarStart, lte: calendarEnd },
       },
-      include: {
-        workout: true
+      select: {
+        id: true,
+        scheduledDate: true,
+        status: true,
+        workout: {
+          select: {
+            name: true,
+            blocks: {
+              select: {
+                exercises: { select: { id: true } },
+              },
+            },
+          },
+        },
       },
       orderBy: { scheduledDate: "asc" },
-      take: 5,
     }),
     prisma.workoutSessionV2.count({
       where: {
         patientId: user.id,
         status: "COMPLETED",
-        completedAt: { gte: weekStart, lte: weekEnd }
-      }
-    })
+        completedAt: { gte: weekStart, lte: weekEnd },
+      },
+    }),
   ]);
+
+  // The hero "next workout" uses the first upcoming session
+  const upcomingSessions = calendarSessions.filter(
+    (s) => (s.status === "SCHEDULED" || s.status === "IN_PROGRESS") && new Date(s.scheduledDate) >= startOfDay(now)
+  );
 
   return (
     <PatientDashboard
-      upcomingSessions={upcomingSessions}
+      upcomingSessions={upcomingSessions as any}
+      calendarSessions={calendarSessions as any}
       weeklyCompliance={completedThisWeek}
       recentAssessments={recentAssessments}
       unreadMessages={unreadMessages}

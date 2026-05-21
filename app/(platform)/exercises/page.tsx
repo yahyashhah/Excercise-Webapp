@@ -1,12 +1,10 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/current-user";
 import { getExercises } from "@/lib/services/exercise.service";
 import { ExerciseCard } from "@/components/exercises/exercise-card";
 import { ExerciseFilters } from "@/components/exercises/exercise-filters";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Dumbbell, UploadCloud } from "lucide-react";
+import { Dumbbell } from "lucide-react";
 import type { BodyRegion, DifficultyLevel, ExercisePhase } from "@prisma/client";
 
 interface Props {
@@ -20,7 +18,7 @@ interface Props {
 }
 
 export default async function ExercisesPage({ searchParams }: Props) {
-  const user = await getCurrentUser();
+  await getCurrentUser();
   const params = await searchParams;
 
   const exercises = await getExercises({
@@ -33,27 +31,9 @@ export default async function ExercisesPage({ searchParams }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Exercise Library</h2>
-          <p className="text-muted-foreground">{exercises.length} exercises available</p>
-        </div>
-        {user.role === "CLINICIAN" && (
-          <div className="flex gap-2">
-            <Button asChild variant="outline">
-              <Link href="/exercises/bulk-import">
-                <UploadCloud className="mr-2 h-4 w-4" />
-                Bulk Import
-              </Link>
-            </Button>
-            <Button asChild>
-              <Link href="/exercises/new">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Exercise
-              </Link>
-            </Button>
-          </div>
-        )}
+      <div>
+        <h2 className="text-2xl font-bold">Exercise Library</h2>
+        <p className="text-muted-foreground">{exercises.length} exercises available</p>
       </div>
 
       <Suspense fallback={<Skeleton className="h-10 w-full max-w-lg" />}>
@@ -83,7 +63,7 @@ export default async function ExercisesPage({ searchParams }: Props) {
               imageUrl={exercise.imageUrl}
               videoUrl={exercise.videoUrl}
               isActive={exercise.isActive}
-              isClinician={user.role === "CLINICIAN"}
+              isClinician={false}
             />
           ))}
         </div>

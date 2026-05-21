@@ -1,8 +1,8 @@
-import { requireRole } from "@/lib/current-user";
+import { requireSuperAdmin } from "@/lib/current-user";
 import { BulkImportForm } from "@/components/exercises/bulk-import-form";
 
 export default async function BulkImportPage() {
-  await requireRole("CLINICIAN");
+  await requireSuperAdmin();
 
   return (
     <div className="mx-auto max-w-5xl">

@@ -16,6 +16,7 @@ import {
   ClipboardCheck,
   Flame,
   TrendingUp,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,7 @@ interface SidebarProps {
   userEmail: string;
   userImageUrl?: string | null;
   mobileMode?: boolean;
+  isAdmin?: boolean;
 }
 
 const clinicianLinks = [
@@ -58,6 +60,7 @@ export function Sidebar({
   userName,
   userEmail,
   mobileMode = false,
+  isAdmin = false,
 }: SidebarProps) {
   const pathname = usePathname();
   const links = role === "CLINICIAN" ? clinicianLinks : patientLinks;
@@ -84,7 +87,7 @@ export function Sidebar({
         )}
         <Icon
           className={cn(
-            "h-[18px] w-[18px] shrink-0 transition-transform duration-150 group-hover:scale-105",
+            "h-4.5 w-4.5 shrink-0 transition-transform duration-150 group-hover:scale-105",
             isActive ? "text-sidebar-primary" : "text-sidebar-foreground/50"
           )}
         />
@@ -141,6 +144,27 @@ export function Sidebar({
           </p>
         </div>
         {navItem("/settings", "Settings", Settings)}
+
+        {isAdmin && (
+          <>
+            <div className="my-5 h-px bg-sidebar-border/40" />
+            <div className="mb-1 px-3 pb-2">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">
+                Admin
+              </p>
+            </div>
+            <Link
+              href="/admin"
+              className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-all duration-150"
+            >
+              <Shield className="h-4.5 w-4.5 shrink-0 text-sidebar-primary/70 group-hover:scale-105 transition-transform duration-150" />
+              <span className="flex-1">Super Admin</span>
+              <span className="rounded-full bg-sidebar-primary/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sidebar-primary">
+                Admin
+              </span>
+            </Link>
+          </>
+        )}
       </ScrollArea>
 
       {/* User section */}

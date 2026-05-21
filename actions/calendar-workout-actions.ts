@@ -567,8 +567,8 @@ export async function updateWorkoutName(
 
 export async function updateBlock(
   blockId: string,
-  data: { name?: string | null; type?: string; rounds?: number; timeCap?: number | null }
-): Promise<ActionResult<{ id: string; name: string | null; type: string; rounds: number; timeCap: number | null }>> {
+  data: { name?: string | null; type?: string; rounds?: number; timeCap?: number | null; restBetweenRounds?: number | null }
+): Promise<ActionResult<{ id: string; name: string | null; type: string; rounds: number; timeCap: number | null; restBetweenRounds: number | null }>> {
   const user = await getClinicianUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
@@ -598,6 +598,7 @@ export async function updateBlock(
         type: updated.type,
         rounds: updated.rounds,
         timeCap: updated.timeCap,
+        restBetweenRounds: updated.restBetweenRounds,
       },
     };
   } catch (error) {

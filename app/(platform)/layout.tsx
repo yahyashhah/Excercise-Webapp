@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { isSuperAdmin } from "@/lib/current-user";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 
@@ -12,7 +13,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   if (!user) redirect("/onboarding");
   if (!user.onboarded) redirect("/onboarding");
 
-  const [unreadMessageCount, unreadNotificationCount, initialNotifications] =
+  const [unreadMessageCount, unreadNotificationCount, initialNotifications, adminAccess] =
     await Promise.all([
       prisma.message.count({
         where: { recipientId: user.id, isRead: false },
@@ -25,6 +26,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
         orderBy: { createdAt: "desc" },
         take: 20,
       }),
+      isSuperAdmin(),
     ]);
 
   return (
@@ -36,6 +38,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
         userName={`${user.firstName} ${user.lastName}`}
         userEmail={user.email}
         userImageUrl={user.imageUrl}
+        isAdmin={adminAccess}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header
