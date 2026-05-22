@@ -17,13 +17,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ExercisePickerDialog } from "@/components/programs/exercise-picker-dialog";
 import type { SessionWithFullWorkout } from "@/actions/calendar-workout-actions";                                                                               
 import {
@@ -990,19 +990,18 @@ export function WorkoutEditorPanel({
 
   return (
     <>
-      <Sheet open={isOpen} onOpenChange={handleOpenChange}>
-        <SheetContent
-          side="right"
-          className="w-full sm:max-w-xl md:max-w-3xl lg:max-w-4xl overflow-hidden flex flex-col p-0"                                                                         
+      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+        <DialogContent
+          className="w-full sm:max-w-3xl lg:max-w-5xl max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0"
           showCloseButton={false}
         >
           {/* Header */}
-          <SheetHeader className="border-b px-5 py-4">
+          <DialogHeader className="border-b px-6 py-4 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
-                <SheetTitle className="sr-only">
-                  {panelState.mode === "creating" ? "Create Workout" : "Edit Workout"}                                                                          
-                </SheetTitle>
+                <DialogTitle className="sr-only">
+                  {panelState.mode === "creating" ? "Create Workout" : "Edit Workout"}
+                </DialogTitle>
                 {panelState.mode === "creating" && !session ? (
                   <Input
                     value={workoutName}
@@ -1064,11 +1063,11 @@ export function WorkoutEditorPanel({
                 </Button>
               </div>
             </div>
-          </SheetHeader>
+          </DialogHeader>
 
           {/* Body */}
-          <ScrollArea className="flex-1 overflow-y-auto">
-            <div className="p-5 space-y-4">
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="px-6 py-5 space-y-4">
               {loading ? (
                 <div className="flex items-center justify-center py-20">        
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />                                                                            
@@ -1304,24 +1303,23 @@ export function WorkoutEditorPanel({
 
           {/* Footer */}
           {session && nameChanged && (
-            <SheetFooter className="border-t">
+            <DialogFooter className="border-t px-6 py-3 m-0 bg-transparent rounded-none shrink-0 sm:justify-end">
               <Button
                 onClick={handleSaveName}
                 disabled={saving}
-                className="w-full"
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-1" />
                 ) : null}
                 Save Name
               </Button>
-            </SheetFooter>
+            </DialogFooter>
           )}
-          <SheetDescription className="sr-only">
-            Workout editor panel for creating and editing workout sessions      
-          </SheetDescription>
-        </SheetContent>
-      </Sheet>
+          <DialogDescription className="sr-only">
+            Workout editor for creating and editing workout sessions
+          </DialogDescription>
+        </DialogContent>
+      </Dialog>
 
       {/* Exercise picker dialog */}
       <ExercisePickerDialog
