@@ -246,49 +246,47 @@ export function WorkoutChecklistTracker({
     if (result.success) {
       const entry: SetLogEntry = { ...data, completed: true };
 
-      let latestCache: SetLogCache = {};
+      // loggingKey prevents concurrent logging, so exerciseSetLogs is current
+      // for all previously-logged sets. Build the updated state synchronously.
+      const updatedExLogs = {
+        ...(exerciseSetLogs[ex.id] ?? {}),
+        [setIndex]: entry,
+      };
+      const setCount = getSetCount(ex, block);
+      const allDone = Array.from({ length: setCount }, (_, i) => i).every(
+        (i) => updatedExLogs[i]?.completed
+      );
 
-      setExerciseSetLogs((prev) => {
-        const next: SetLogCache = {
-          ...prev,
-          [ex.id]: { ...(prev[ex.id] ?? {}), [setIndex]: entry },
-        };
-        latestCache = next;
-        return next;
-      });
+      setExerciseSetLogs((prev) => ({
+        ...prev,
+        [ex.id]: { ...(prev[ex.id] ?? {}), [setIndex]: entry },
+      }));
 
       onSetLogged?.(ex.id, setIndex, entry);
 
-      // Use queueMicrotask to run after the state update above has been enqueued
-      queueMicrotask(() => {
-        const setCount = getSetCount(ex, block);
-        const exLogs = latestCache[ex.id] ?? {};
-        const allDone = Array.from({ length: setCount }, (_, i) => i).every(
-          (i) => exLogs[i]?.completed
-        );
-        if (allDone) {
-          setExpandedExercises((prev) => {
-            const next = new Set(prev);
-            next.delete(ex.id);
-            return next;
-          });
-          // Auto-open next incomplete exercise
-          let found = false;
-          for (const b of session.workout.blocks) {
-            for (const e of b.exercises) {
-              if (found) {
-                const sc = getSetCount(e, b);
-                const st = getExerciseStatus(e.id, sc, latestCache);
-                if (st !== "complete" && !additionalCompleted?.has(e.id)) {
-                  setExpandedExercises((prev) => new Set([...prev, e.id]));
-                  break;
-                }
+      if (allDone) {
+        setExpandedExercises((prev) => {
+          const next = new Set(prev);
+          next.delete(ex.id);
+          return next;
+        });
+        // Auto-open next incomplete exercise
+        const updatedCache: SetLogCache = { ...exerciseSetLogs, [ex.id]: updatedExLogs };
+        let found = false;
+        for (const b of session.workout.blocks) {
+          for (const e of b.exercises) {
+            if (found) {
+              const sc = getSetCount(e, b);
+              const st = getExerciseStatus(e.id, sc, updatedCache);
+              if (st !== "complete" && !additionalCompleted?.has(e.id)) {
+                setExpandedExercises((prev) => new Set([...prev, e.id]));
+                break;
               }
-              if (e.id === ex.id) found = true;
             }
+            if (e.id === ex.id) found = true;
           }
         }
-      });
+      }
     } else {
       toast.error(result.error ?? "Failed to log set");
     }
