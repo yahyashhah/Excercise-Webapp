@@ -25,6 +25,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Check, SkipForward, X, Play, Loader2, Timer, ChevronRight, ChevronLeft, Trophy, RotateCcw, ClipboardList } from "lucide-react";
+import type { SetLogEntry, SetLogCache } from "./types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type MediaItem = { id: string; url: string; type: string };
@@ -139,6 +140,8 @@ interface WorkoutSessionTrackerProps {
   onSwitchMode?: () => void;
   additionalCompleted?: Set<string>;
   onExerciseToggle?: (blockExerciseId: string, done: boolean) => void;
+  setLogCache?: SetLogCache;
+  onSetLogged?: (blockExerciseId: string, setIndex: number, data: SetLogEntry) => void;
 }
 
 export function WorkoutSessionTracker({
@@ -146,6 +149,8 @@ export function WorkoutSessionTracker({
   onSwitchMode,
   additionalCompleted,
   onExerciseToggle,
+  setLogCache,
+  onSetLogged,
 }: WorkoutSessionTrackerProps) {
   const router = useRouter();
 
@@ -175,7 +180,26 @@ export function WorkoutSessionTracker({
     return keys;
   });
 
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    const idx = flatItems.findIndex((item) => {
+      if (item.kind !== "exercise") return false;
+      const id = item.blockExercise.id;
+      if (additionalCompleted?.has(id)) return false;
+      if (!setLogCache?.[id]) return true;
+      const block = session.workout.blocks.find((b) =>
+        b.exercises.some((e) => e.id === id)
+      );
+      if (!block) return true;
+      const setCount = isCircuitBlock(block.type)
+        ? Math.max(1, block.rounds ?? 1)
+        : item.blockExercise.sets.length;
+      const allDone = Array.from({ length: setCount }, (_, i) => i).every(
+        (i) => setLogCache[id]?.[i]?.completed
+      );
+      return !allDone;
+    });
+    return idx >= 0 ? idx : 0;
+  });
   const currentIndexRef = useRef(0);
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
 
@@ -251,20 +275,22 @@ export function WorkoutSessionTracker({
     if (isCircuit) {
       const targetSet = blockExercise.sets[0];
       const existing = sessionLog?.setLogs.find((sl) => sl.setIndex === round);
+      const cacheEntry = setLogCache?.[blockExercise.id]?.[round];
       initial[0] = {
-        actualReps: existing?.actualReps ?? targetSet?.targetReps ?? undefined,
-        actualWeight: existing?.actualWeight ?? targetSet?.targetWeight ?? undefined,
-        actualDuration: existing?.actualDuration ?? targetSet?.targetDuration ?? undefined,
-        completed: !!existing || completedKeys.has(key),
+        actualReps: cacheEntry?.actualReps ?? existing?.actualReps ?? targetSet?.targetReps ?? undefined,
+        actualWeight: cacheEntry?.actualWeight ?? existing?.actualWeight ?? targetSet?.targetWeight ?? undefined,
+        actualDuration: cacheEntry?.actualDuration ?? existing?.actualDuration ?? targetSet?.targetDuration ?? undefined,
+        completed: cacheEntry?.completed ?? (!!existing || completedKeys.has(key)),
       };
     } else {
       blockExercise.sets.forEach((set, i) => {
         const existing = sessionLog?.setLogs.find((sl) => sl.setIndex === i);
+        const cacheEntry = setLogCache?.[blockExercise.id]?.[i];
         initial[i] = {
-          actualReps: existing?.actualReps ?? set.targetReps ?? undefined,
-          actualWeight: existing?.actualWeight ?? set.targetWeight ?? undefined,
-          actualDuration: existing?.actualDuration ?? set.targetDuration ?? undefined,
-          completed: !!existing || completedKeys.has(key),
+          actualReps: cacheEntry?.actualReps ?? existing?.actualReps ?? set.targetReps ?? undefined,
+          actualWeight: cacheEntry?.actualWeight ?? existing?.actualWeight ?? set.targetWeight ?? undefined,
+          actualDuration: cacheEntry?.actualDuration ?? existing?.actualDuration ?? set.targetDuration ?? undefined,
+          completed: cacheEntry?.completed ?? (!!existing || completedKeys.has(key)),
         };
       });
     }
@@ -305,6 +331,12 @@ export function WorkoutSessionTracker({
       setActiveSetLogs((prev) => ({ ...prev, [setIdx]: { ...prev[setIdx], completed: true } }));
       setCompletedKeys((prev) => new Set(prev).add(key));
       onExerciseToggle?.(blockExercise.id, true);
+      onSetLogged?.(blockExercise.id, dbSetIndex, {
+        actualReps: logData?.actualReps,
+        actualWeight: logData?.actualWeight,
+        actualDuration: logData?.actualDuration,
+        completed: true,
+      });
 
       if (!isCircuit) {
         const allDone = blockExercise.sets.every((_, i) => i === setIdx || activeSetLogs[i]?.completed);
