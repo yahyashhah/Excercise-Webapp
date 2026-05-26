@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { WorkoutSessionTracker } from "./workout-session-tracker";
 import { WorkoutChecklistTracker } from "./workout-checklist-tracker";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ClipboardList, Zap, ChevronRight } from "lucide-react";
+import type { SetLogEntry, SetLogCache } from "./types";
 
 type Mode = "pick" | "checklist" | "session";
 
@@ -14,23 +15,72 @@ interface Props {
   initialMode?: "checklist" | "session";
 }
 
+function isCircuitBlock(type: string) {
+  const t = type.toUpperCase();
+  return t === "CIRCUIT" || t === "SUPERSET" || t === "WARMUP" || t === "COOLDOWN";
+}
+
 export function WorkoutModeWrapper({ session, initialMode }: Props) {
   const [mode, setMode] = useState<Mode>(initialMode ?? "pick");
-  const [sharedCompleted, setSharedCompleted] = useState<Set<string>>(() => {
+
+  // Cache of set-level logs accumulated across both modes this session.
+  // blockExerciseId -> setIndex -> entry
+  const [setLogCache, setSetLogCache] = useState<SetLogCache>(() => {
+    const cache: SetLogCache = {};
+    for (const log of session.exerciseLogs ?? []) {
+      for (const sl of log.setLogs ?? []) {
+        if (!cache[log.blockExerciseId]) cache[log.blockExerciseId] = {};
+        cache[log.blockExerciseId][sl.setIndex] = {
+          actualReps: sl.actualReps ?? undefined,
+          actualWeight: sl.actualWeight ?? undefined,
+          actualDuration: sl.actualDuration ?? undefined,
+          completed: true,
+        };
+      }
+    }
+    return cache;
+  });
+
+  // Number of prescribed sets per blockExerciseId (used to derive completion).
+  const setCountMap = useMemo<Record<string, number>>(() => {
+    const map: Record<string, number> = {};
+    for (const block of session.workout?.blocks ?? []) {
+      const circuit = isCircuitBlock(block.type);
+      for (const ex of block.exercises ?? []) {
+        map[ex.id] = circuit ? Math.max(1, block.rounds ?? 1) : (ex.sets?.length ?? 0);
+      }
+    }
+    return map;
+  }, [session.workout?.blocks]);
+
+  // Derive the set of fully-completed blockExerciseIds from the cache.
+  const sharedCompleted = useMemo<Set<string>>(() => {
     const s = new Set<string>();
+    // Legacy: exercises marked COMPLETED via markExerciseDoneAction
     for (const log of session.exerciseLogs ?? []) {
       if (log.status === "COMPLETED") s.add(log.blockExerciseId);
     }
+    // New: exercises whose every prescribed set appears in the cache as completed
+    for (const [id, sets] of Object.entries(setLogCache)) {
+      const total = setCountMap[id] ?? 0;
+      if (total === 0) continue;
+      const allDone = Array.from({ length: total }, (_, i) => i).every(
+        (i) => sets[i]?.completed
+      );
+      if (allDone) s.add(id);
+    }
     return s;
-  });
+  }, [session.exerciseLogs, setLogCache, setCountMap]);
 
-  function handleExerciseToggle(blockExerciseId: string, done: boolean) {
-    setSharedCompleted((prev) => {
-      const next = new Set(prev);
-      if (done) next.add(blockExerciseId);
-      else next.delete(blockExerciseId);
-      return next;
-    });
+  function handleSetLogged(
+    blockExerciseId: string,
+    setIndex: number,
+    data: SetLogEntry
+  ) {
+    setSetLogCache((prev) => ({
+      ...prev,
+      [blockExerciseId]: { ...(prev[blockExerciseId] ?? {}), [setIndex]: data },
+    }));
   }
 
   if (mode === "checklist") {
@@ -39,7 +89,8 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
         session={session}
         onSwitchMode={() => setMode("session")}
         additionalCompleted={sharedCompleted}
-        onExerciseToggle={handleExerciseToggle}
+        setLogCache={setLogCache}
+        onSetLogged={handleSetLogged}
       />
     );
   }
@@ -50,12 +101,13 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
         session={session}
         onSwitchMode={() => setMode("checklist")}
         additionalCompleted={sharedCompleted}
-        onExerciseToggle={handleExerciseToggle}
+        setLogCache={setLogCache}
+        onSetLogged={handleSetLogged}
       />
     );
   }
 
-  // Mode picker screen
+  // ── Mode picker ──────────────────────────────────────────────────────────
   const totalExercises = (session.workout?.blocks ?? []).reduce(
     (n: number, b: any) => n + (b.exercises?.length ?? 0),
     0
@@ -65,7 +117,6 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
-      {/* Hero */}
       <div className="overflow-hidden rounded-2xl bg-linear-to-br from-blue-600 via-indigo-600 to-violet-600 p-6 text-white shadow-xl shadow-blue-500/25">
         <div className="relative">
           {isReturning && (
@@ -80,7 +131,6 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
         </div>
       </div>
 
-      {/* Mode cards */}
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
@@ -117,7 +167,6 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
         </button>
       </div>
 
-      {/* Overview */}
       <Card className="border-0 shadow-sm ring-1 ring-border/50">
         <CardContent className="p-4 space-y-2">
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Today&apos;s Workout</p>
