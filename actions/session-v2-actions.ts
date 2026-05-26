@@ -49,6 +49,13 @@ export async function updateSetLogV2Action(
     });
     if (!session) return { success: false, error: "Session not found" };
 
+    if (session.status === "SCHEDULED") {
+      await prisma.workoutSessionV2.update({
+        where: { id: sessionId },
+        data: { status: "IN_PROGRESS", startedAt: new Date() },
+      });
+    }
+
     let exerciseLog = await prisma.sessionExerciseLog.findFirst({
       where: { sessionId, blockExerciseId }
     });
