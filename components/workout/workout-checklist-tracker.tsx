@@ -95,6 +95,7 @@ function getExerciseStatus(
   setCount: number,
   logs: SetLogCache
 ): "pending" | "partial" | "complete" {
+  if (setCount === 0) return "complete";
   const exLogs = logs[blockExerciseId];
   if (!exLogs) return "pending";
   const completedCount = Object.values(exLogs).filter((l) => l.completed).length;
@@ -245,48 +246,49 @@ export function WorkoutChecklistTracker({
     if (result.success) {
       const entry: SetLogEntry = { ...data, completed: true };
 
+      let latestCache: SetLogCache = {};
+
       setExerciseSetLogs((prev) => {
-        const next = {
+        const next: SetLogCache = {
           ...prev,
           [ex.id]: { ...(prev[ex.id] ?? {}), [setIndex]: entry },
         };
+        latestCache = next;
         return next;
       });
 
       onSetLogged?.(ex.id, setIndex, entry);
 
-      // Close accordion if now fully complete
-      const setCount = getSetCount(ex, block);
-      const updatedLogs = {
-        ...(exerciseSetLogs[ex.id] ?? {}),
-        [setIndex]: entry,
-      };
-      const allDone = Array.from({ length: setCount }, (_, i) => i).every(
-        (i) => updatedLogs[i]?.completed
-      );
-      if (allDone) {
-        setExpandedExercises((prev) => {
-          const next = new Set(prev);
-          next.delete(ex.id);
-          return next;
-        });
-        // Auto-open next incomplete exercise
-        let found = false;
-        for (const b of session.workout.blocks) {
-          for (const e of b.exercises) {
-            if (found) {
-              const sc = getSetCount(e, b);
-              const updatedCache = { ...exerciseSetLogs, [ex.id]: updatedLogs };
-              const st = getExerciseStatus(e.id, sc, updatedCache);
-              if (st !== "complete" && !additionalCompleted?.has(e.id)) {
-                setExpandedExercises((prev) => new Set([...prev, e.id]));
-                break;
+      // Use queueMicrotask to run after the state update above has been enqueued
+      queueMicrotask(() => {
+        const setCount = getSetCount(ex, block);
+        const exLogs = latestCache[ex.id] ?? {};
+        const allDone = Array.from({ length: setCount }, (_, i) => i).every(
+          (i) => exLogs[i]?.completed
+        );
+        if (allDone) {
+          setExpandedExercises((prev) => {
+            const next = new Set(prev);
+            next.delete(ex.id);
+            return next;
+          });
+          // Auto-open next incomplete exercise
+          let found = false;
+          for (const b of session.workout.blocks) {
+            for (const e of b.exercises) {
+              if (found) {
+                const sc = getSetCount(e, b);
+                const st = getExerciseStatus(e.id, sc, latestCache);
+                if (st !== "complete" && !additionalCompleted?.has(e.id)) {
+                  setExpandedExercises((prev) => new Set([...prev, e.id]));
+                  break;
+                }
               }
+              if (e.id === ex.id) found = true;
             }
-            if (e.id === ex.id) found = true;
           }
         }
-      }
+      });
     } else {
       toast.error(result.error ?? "Failed to log set");
     }
@@ -532,6 +534,10 @@ export function WorkoutChecklistTracker({
                                 Log Your Sets
                               </p>
 
+                              {setCount === 0 && (
+                                <p className="text-xs text-muted-foreground">No sets prescribed.</p>
+                              )}
+
                               {Array.from({ length: setCount }, (_, i) => {
                                 const setDef = isCircuit ? ex.sets[0] : ex.sets[i];
                                 const logEntry = exerciseSetLogs[ex.id]?.[i];
@@ -567,7 +573,7 @@ export function WorkoutChecklistTracker({
                                         {setDef?.targetReps && ` · target ${setDef.targetReps} reps`}
                                         {setDef?.targetDuration && ` · target ${setDef.targetDuration}s`}
                                       </span>
-                                      {isDone && logEntry?.actualReps === 0 && (
+                                      {isDone && logEntry?.actualReps === 0 && !logEntry?.actualDuration && (
                                         <Badge
                                           variant="outline"
                                           className="ml-auto text-[10px] text-amber-600 border-amber-200 bg-amber-50"
@@ -579,6 +585,11 @@ export function WorkoutChecklistTracker({
                                         <span className="ml-auto text-[11px] text-emerald-600 font-medium">
                                           {logEntry?.actualReps} reps
                                           {logEntry?.actualWeight ? ` @ ${logEntry.actualWeight} lbs` : ""}
+                                        </span>
+                                      )}
+                                      {isDone && logEntry?.actualDuration && (
+                                        <span className="ml-auto text-[11px] text-emerald-600 font-medium">
+                                          {logEntry.actualDuration}s
                                         </span>
                                       )}
                                     </div>
