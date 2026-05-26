@@ -464,7 +464,7 @@ PROGRAM DESIGN RULES:
 2. SELECT exercises that match the stated focus areas, difficulty level, and any documented limitations or contraindications. Never prescribe an exercise that directly conflicts with listed contraindications.
 3. EQUIPMENT: Use only exercises matching available equipment; default to bodyweight if none stated.
 4. VOLUME: Scale to difficulty — BEGINNER: 2-3 sets; INTERMEDIATE: 3-4 sets; ADVANCED: 4-5 sets. Follow any explicit set/rep prescriptions in the clinician instructions.
-5. VARIETY: Minimize exercise repetition across days. If the pool is too small, reuse only after a 2-day gap — never on consecutive days.
+5. VARIETY: Every training day MUST use a COMPLETELY DIFFERENT set of exercise IDs. Never use the same exerciseId on more than one day. Each session should feel like a fresh workout with its own exercise selection drawn from the provided pool.
 6. SESSION NAMES: Use concise, descriptive names that reflect the actual training focus (e.g. "Lower Body Power", "Upper Body Pull", "Plyometric Development", "Mobility & Recovery") — not generic labels.
 7. NOTES: Write 1-2 specific technique cues per exercise relevant to the program goal and client profile.
 8. TIME: Total session time within 5 minutes of the requested duration.
@@ -535,6 +535,7 @@ ${hasCircuits ? `CIRCUIT ASSIGNMENT RULES (CRITICAL):
 - Each circuit count is PER SESSION — every training day must have the FULL circuit exercise count, not a fraction of it.
 - Example: if Circuit 0 requires 4 exercises and there are ${params.daysPerWeek} days, you must output 4 exercises with circuitIndex=0 for EACH day (${params.daysPerWeek * (circuits?.[0]?.exerciseCount ?? 0)} total for that circuit across all days).
 - Total exercises in the "exercises" array must be EXACTLY ${totalExercisesPerSession * params.daysPerWeek} (${totalExercisesPerSession} per session × ${params.daysPerWeek} days).
+- VARIETY (CRITICAL): Each day MUST use COMPLETELY DIFFERENT exercise IDs from every other day. NEVER repeat the same exerciseId across different dayOfWeek values. Treat each day as a fully independent workout and select a fresh set of exercises from the pool for each one. Do NOT copy Day 1's exercises to Day 2 or Day 3.
 - Circuit focus guidelines for exercise selection:
   WARMUP → lightweight warm-up, joint mobility, gentle activation (prefer exercisePhase: WARMUP or ACTIVATION)
   LOWER_BODY → lower limb strength — quad, hamstring, glute, calf focus (bodyRegion: LOWER_BODY)
@@ -544,7 +545,8 @@ ${hasCircuits ? `CIRCUIT ASSIGNMENT RULES (CRITICAL):
   BALANCE → proprioception, single-leg stability, vestibular
   FLEXIBILITY → static stretch, PNF, foam rolling (prefer exercisePhase: MOBILITY)
   COOLDOWN → gentle cooldown, static stretch, breathing (prefer exercisePhase: COOLDOWN or MOBILITY)
-  CARDIO → cardiovascular conditioning, sustained effort exercises` : `CRITICAL VOLUME RULE: Each day must have EXACTLY ${totalExercisesPerSession} exercises — no more, no less. Distribute them across the required phases (WARMUP → ACTIVATION → STRENGTHENING → MOBILITY → COOLDOWN).`}
+  CARDIO → cardiovascular conditioning, sustained effort exercises` : `CRITICAL VOLUME RULE: Each day must have EXACTLY ${totalExercisesPerSession} exercises — no more, no less. Distribute them across the required phases (WARMUP → ACTIVATION → STRENGTHENING → MOBILITY → COOLDOWN).
+VARIETY (CRITICAL): Each day MUST use COMPLETELY DIFFERENT exercise IDs from every other day. NEVER repeat the same exerciseId across different dayOfWeek values. Treat each day as a fully independent workout.`}
 
 Available Exercises (use ONLY these exercise IDs):
 ${exerciseListStr}

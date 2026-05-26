@@ -38,19 +38,19 @@ const clinicianLinks = [
   { href: "/patients",    label: "Clients",      icon: Users },
   { href: "/programs",    label: "Programs",     icon: Library },
   { href: "/exercises",   label: "Exercises",    icon: Dumbbell },
-  { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
-  { href: "/habits",      label: "Habits",       icon: Flame },
+  // { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
+  // { href: "/habits",      label: "Habits",       icon: Flame },
   { href: "/messages",    label: "Messages",     icon: MessageSquare },
-  { href: "/assessments", label: "Assessments",  icon: BarChart3 },
+  // { href: "/assessments", label: "Assessments",  icon: BarChart3 },
 ];
 
 const patientLinks = [
   { href: "/dashboard",   label: "Dashboard",    icon: LayoutDashboard },
   { href: "/programs",    label: "My Programs",  icon: ClipboardList },
-  { href: "/habits",      label: "Habits",       icon: Flame },
-  { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
+  // { href: "/habits",      label: "Habits",       icon: Flame },
+  // { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
   { href: "/exercises",   label: "Exercises",    icon: Dumbbell },
-  { href: "/assessments", label: "Assessments",  icon: TrendingUp },
+  // { href: "/assessments", label: "Assessments",  icon: TrendingUp },
   { href: "/messages",    label: "Messages",     icon: MessageSquare },
 ];
 
