@@ -178,6 +178,8 @@ model Exercise {
   defaultReps        Int?
   defaultHoldSeconds Int?
   cuesThumbnail      String?
+  indicationTags     String[]
+  rehabStage         String?
   isActive           Boolean         @default(true)
   createdById        String?         @db.ObjectId
   createdBy          User?           @relation(fields: [createdById], references: [id])
