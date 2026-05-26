@@ -367,6 +367,23 @@ export function WorkoutSessionTracker({
       }
       setCompletedKeys((prev) => new Set(prev).add(key));
       onExerciseToggle?.(blockExercise.id, true);
+      if (isCircuit) {
+        onSetLogged?.(blockExercise.id, round, {
+          actualReps: activeSetLogs[0]?.actualReps,
+          actualWeight: activeSetLogs[0]?.actualWeight,
+          actualDuration: activeSetLogs[0]?.actualDuration,
+          completed: true,
+        });
+      } else {
+        for (let i = 0; i < blockExercise.sets.length; i++) {
+          onSetLogged?.(blockExercise.id, i, {
+            actualReps: activeSetLogs[i]?.actualReps,
+            actualWeight: activeSetLogs[i]?.actualWeight,
+            actualDuration: activeSetLogs[i]?.actualDuration,
+            completed: true,
+          });
+        }
+      }
       advanceToNext();
     } catch {
       toast.error("Failed to save progress");
