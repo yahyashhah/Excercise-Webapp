@@ -157,11 +157,24 @@ export function WorkoutChecklistTracker({
   );
 
   const [expandedExercises, setExpandedExercises] = useState<Set<string>>(() => {
+    // Build the initial logs cache inline (can't reference sibling useState)
+    const initialLogs: SetLogCache = {};
+    for (const log of session.exerciseLogs) {
+      for (const sl of log.setLogs) {
+        if (!initialLogs[log.blockExerciseId]) initialLogs[log.blockExerciseId] = {};
+        initialLogs[log.blockExerciseId][sl.setIndex] = { completed: true };
+      }
+    }
+    if (externalCache) {
+      for (const [id, sets] of Object.entries(externalCache)) {
+        initialLogs[id] = { ...(initialLogs[id] ?? {}), ...sets };
+      }
+    }
     // Auto-open the first incomplete exercise
     for (const block of session.workout.blocks) {
       for (const ex of block.exercises) {
         const setCount = getSetCount(ex, block);
-        const status = getExerciseStatus(ex.id, setCount, {});
+        const status = getExerciseStatus(ex.id, setCount, initialLogs);
         if (status !== "complete" && !additionalCompleted?.has(ex.id)) {
           return new Set([ex.id]);
         }
