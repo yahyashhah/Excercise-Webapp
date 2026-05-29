@@ -19,6 +19,7 @@ import type {
   CreateProgramInput,
   UpdateProgramInput,
 } from "@/lib/validators/program";
+import type { WeekPlan } from "@/lib/ai/types/program-generation";
 
 async function getClinicianUser() {
   const { userId } = await auth();
@@ -323,12 +324,24 @@ export async function getProgramAction(programId: string) {
 }
 
 
-export async function generateProgramAction(params: any) {
+export async function generateProgramAction(
+  params: {
+    patientId?: string | null;
+    startDate?: string | null;
+    durationWeeks?: number;          // NEW
+    weekPlan?: WeekPlan[];           // NEW
+    [key: string]: unknown;
+  }
+) {
   const user = await getClinicianUser();
   if (!user) return { success: false as const, error: "Unauthorized" };
 
   try {
-    const aiPlan = await generateProgram(params);
+    const aiPlan = await generateProgram({
+      ...params,
+      weekPlan: params.weekPlan,
+      durationWeeks: params.durationWeeks,
+    } as Parameters<typeof generateProgram>[0]);
     const program = await createProgramFromGeneratedPlan({
       aiPlan,
       clinicianId: user.id,

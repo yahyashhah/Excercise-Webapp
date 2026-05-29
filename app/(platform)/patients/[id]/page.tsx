@@ -85,7 +85,7 @@ export default async function PatientDetailPage({ params }: Props) {
             <Button variant="outline" size="sm" asChild>
               <Link href={`/patients/${id}/adherence`}>
                 <Activity className="mr-1 h-4 w-4" />
-                Adherence
+                Sessions
               </Link>
             </Button>
             <Button variant="outline" size="sm" asChild>

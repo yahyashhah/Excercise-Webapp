@@ -2,7 +2,6 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { GenerateProgramForm } from "@/components/programs/generate-program-form";
-import { getPatientsForClinician } from "@/lib/services/patient.service";
 
 export const metadata = {
   title: "Generate AI Program - Unity Health",
@@ -31,8 +30,37 @@ export default async function GenerateProgramPage({
 
   const { patientId } = await searchParams;
 
-  // Fetch patients for this clinician
-  const patients = await getPatientsForClinician(user.id);
+  // Fetch patients for this clinician with profile fields needed for the inline summary
+  const rawPatients = await prisma.user.findMany({
+    where: {
+      role: 'PATIENT',
+      patientLinks: { some: { clinicianId: user.id, status: 'active' } },
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      patientProfile: {
+        select: {
+          primaryDiagnosis: true,
+          painScore: true,
+          limitations: true,
+          availableEquipment: true,
+        },
+      },
+    },
+    orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+  })
+
+  const patients = rawPatients.map(p => ({
+    id: p.id,
+    firstName: p.firstName,
+    lastName: p.lastName,
+    primaryDiagnosis: p.patientProfile?.primaryDiagnosis ?? null,
+    painScore: p.patientProfile?.painScore ?? null,
+    limitations: p.patientProfile?.limitations ?? null,
+    availableEquipment: p.patientProfile?.availableEquipment ?? [],
+  }))
 
   return (
     <div className="space-y-6">

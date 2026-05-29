@@ -234,7 +234,7 @@ export function WorkoutChecklistTracker({
 
     const pending = pendingInputs[key] ?? {};
     const data = skipSet
-      ? { actualReps: 0 }
+      ? { actualReps: 0, notes: "Unable to complete" }
       : {
           actualReps: pending.actualReps,
           actualWeight: pending.actualWeight,
