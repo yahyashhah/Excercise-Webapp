@@ -114,10 +114,6 @@ export function GenerateProgramForm({ patients, initialPatientId }: GenerateProg
     setCircuits((prev) => prev.map((c) => {
       if (c.id !== id) return c;
       const merged = { ...c, ...updates };
-      if (updates.focusType && (updates.focusType === "WARMUP" || updates.focusType === "COOLDOWN")) {
-        merged.rounds = 1;
-        merged.restBetweenRounds = null;
-      }
       return merged;
     }));
   }
@@ -461,7 +457,6 @@ export function GenerateProgramForm({ patients, initialPatientId }: GenerateProg
                               rounds: Math.max(1, Math.min(8, Number(e.target.value))),
                             })
                           }
-                          disabled={circuit.focusType === "WARMUP" || circuit.focusType === "COOLDOWN"}
                           className="h-8 w-14 text-sm text-center disabled:opacity-50"
                         />
                         <span className="text-xs text-muted-foreground whitespace-nowrap">sets</span>
