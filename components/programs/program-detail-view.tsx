@@ -19,6 +19,7 @@ import {
   ChevronDown,
   ChevronRight,
   Play,
+  Dumbbell,
 } from "lucide-react";
 import { toast } from "sonner";
 import { duplicateProgramAction } from "@/actions/program-actions";
@@ -32,6 +33,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
+import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
 
 interface ProgramDetailViewProps {
   program: Record<string, unknown>;
@@ -98,6 +100,7 @@ export function ProgramDetailView({
 
   const patient = program.patient as Record<string, string> | null;
   const patientId = program.patientId as string | null;
+  const equipmentNeeded = aggregateProgramEquipment(workouts);
 
   return (
     <div className="space-y-6">
@@ -167,6 +170,23 @@ export function ProgramDetailView({
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="space-y-4 mt-4">
+          {equipmentNeeded.length > 0 && (
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Dumbbell className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-semibold">Equipment needed</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {equipmentNeeded.map((eq) => (
+                    <Badge key={eq} variant="secondary" className="text-xs">
+                      {eq}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {workouts.length === 0 ? (
             <Card className="p-12 text-center">
               <p className="text-muted-foreground">
