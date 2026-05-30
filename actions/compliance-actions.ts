@@ -1,8 +1,11 @@
 "use server";
 
-import { getCurrentUser } from "@/lib/current-user";
+import React from "react";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { createComplianceAlert, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { getResend } from "@/lib/email/resend";
+import { MissedSessionEmail } from "@/lib/email/templates/missed-session";
 import type { Prisma } from "@prisma/client";
 
 const MISSED_SESSION_THRESHOLD = 2;
@@ -20,8 +23,13 @@ const DEDUP_HOURS = 24;
  */
 export async function checkComplianceAndNotify(): Promise<{ alerted: number }> {
   try {
-    const clinician = await getCurrentUser();
-    if (clinician.role !== "CLINICIAN") return { alerted: 0 };
+    const { userId } = await auth();
+    if (!userId) return { alerted: 0 };
+    const clinician = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { id: true, role: true, email: true, firstName: true, lastName: true },
+    });
+    if (!clinician || clinician.role !== "CLINICIAN") return { alerted: 0 };
 
     const lookbackStart = new Date();
     lookbackStart.setDate(lookbackStart.getDate() - LOOKBACK_DAYS);
@@ -76,7 +84,7 @@ export async function checkComplianceAndNotify(): Promise<{ alerted: number }> {
 
       if (alreadyAlerted) continue;
 
-      // Create the alert — metadata includes patientId for future deduplication
+      // Create the in-app alert — metadata includes patientId for future deduplication
       await prisma.notification.create({
         data: {
           userId: clinician.id,
@@ -91,6 +99,25 @@ export async function checkComplianceAndNotify(): Promise<{ alerted: number }> {
           } satisfies Prisma.InputJsonObject,
         },
       });
+
+      // Send email to clinician — non-blocking
+      try {
+        const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://inmotusrx.vercel.app";
+        await getResend().emails.send({
+          from: process.env.RESEND_FROM_EMAIL ?? "noreply@inmotusrx.com",
+          to: clinician.email,
+          subject: `Missed sessions: ${patientName}`,
+          react: React.createElement(MissedSessionEmail, {
+            clinicianName: `${clinician.firstName} ${clinician.lastName}`,
+            patientName,
+            missedCount,
+            lookbackDays: LOOKBACK_DAYS,
+            patientLink: `${appBaseUrl}/patients`,
+          }),
+        });
+      } catch (emailErr) {
+        console.error("Failed to send missed-session email (non-fatal):", emailErr);
+      }
 
       alerted++;
     }

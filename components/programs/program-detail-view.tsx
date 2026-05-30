@@ -6,6 +6,14 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Tabs,
   TabsContent,
@@ -20,6 +28,10 @@ import {
   ChevronRight,
   Play,
   Dumbbell,
+  Share2,
+  Download,
+  Mail,
+  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { duplicateProgramAction } from "@/actions/program-actions";
@@ -34,6 +46,7 @@ import {
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
+import { shareProgramViaEmailAction } from "@/actions/program-actions";
 
 interface ProgramDetailViewProps {
   program: Record<string, unknown>;
@@ -102,6 +115,40 @@ export function ProgramDetailView({
   const patientId = program.patientId as string | null;
   const equipmentNeeded = aggregateProgramEquipment(workouts);
 
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareTo, setShareTo] = useState(patient?.email ?? "");
+  const [shareCc, setShareCc] = useState("");
+  const [shareLoading, setShareLoading] = useState(false);
+
+  async function handleDownloadPdf() {
+    const res = await fetch(`/api/programs/${program.id as string}/pdf`);
+    if (!res.ok) { toast.error("Failed to generate PDF"); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(program.name as string).replace(/[^a-z0-9]/gi, "_").toLowerCase()}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleSendEmail() {
+    if (!shareTo) { toast.error("Enter a recipient email"); return; }
+    setShareLoading(true);
+    const result = await shareProgramViaEmailAction(
+      program.id as string,
+      shareTo,
+      shareCc
+    );
+    setShareLoading(false);
+    if (result.success) {
+      toast.success("Plan sent successfully");
+      setShareOpen(false);
+    } else {
+      toast.error(result.error ?? "Failed to send email");
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -159,6 +206,72 @@ export function ProgramDetailView({
                 <UserPlus className="mr-2 h-4 w-4" /> Assign
               </Button>
             )}
+            <Popover open={shareOpen} onOpenChange={setShareOpen}>
+              <PopoverTrigger render={
+                <Button variant="outline">
+                  <Share2 className="mr-2 h-4 w-4" /> Share
+                </Button>
+              } />
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold">Share Exercise Plan</p>
+                  <Separator />
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-2"
+                    onClick={() => { setShareOpen(false); void handleDownloadPdf(); }}
+                  >
+                    <Download className="h-4 w-4" /> Download PDF
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-2"
+                    onClick={() => {
+                      setShareOpen(false);
+                      window.open(`/api/programs/${program.id as string}/pdf`);
+                    }}
+                  >
+                    <Printer className="h-4 w-4" /> Print
+                  </Button>
+                  <Separator />
+                  <div className="space-y-2">
+                    <div>
+                      <Label htmlFor="share-to" className="text-xs">To</Label>
+                      <Input
+                        id="share-to"
+                        type="email"
+                        placeholder="patient@email.com"
+                        value={shareTo}
+                        onChange={(e) => setShareTo(e.target.value)}
+                        className="h-8 text-sm mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="share-cc" className="text-xs text-muted-foreground">
+                        CC (comma-separated)
+                      </Label>
+                      <Input
+                        id="share-cc"
+                        type="text"
+                        placeholder="other@email.com, ..."
+                        value={shareCc}
+                        onChange={(e) => setShareCc(e.target.value)}
+                        className="h-8 text-sm mt-1"
+                      />
+                    </div>
+                    <Button
+                      className="w-full gap-2"
+                      size="sm"
+                      onClick={() => void handleSendEmail()}
+                      disabled={shareLoading || !shareTo}
+                    >
+                      <Mail className="h-4 w-4" />
+                      {shareLoading ? "Sending…" : "Send Email"}
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         )}
       </div>

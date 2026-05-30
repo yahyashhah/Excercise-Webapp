@@ -1,8 +1,66 @@
 ﻿"use server";
 
+import React from "react";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { createNotification, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { getResend } from "@/lib/email/resend";
+import { SessionCompletedEmail } from "@/lib/email/templates/session-completed";
+
+async function notifyClinicianOnCompletion(
+  sessionId: string,
+  patient: { id: string; firstName: string; lastName: string }
+) {
+  const session = await prisma.workoutSessionV2.findUnique({
+    where: { id: sessionId },
+    include: {
+      workout: {
+        include: {
+          program: {
+            include: {
+              clinician: {
+                select: { id: true, firstName: true, lastName: true, email: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!session?.workout.program.clinician) return;
+
+  const { clinician } = session.workout.program;
+  const patientName = `${patient.firstName} ${patient.lastName}`;
+  const workoutName = session.workout.name;
+  const programName = session.workout.program.name;
+  const programId = session.workout.program.id;
+  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://inmotusrx.vercel.app";
+  const patientLink = `${appBaseUrl}/programs/${programId}`;
+
+  await createNotification({
+    userId: clinician.id,
+    type: NOTIFICATION_TYPES.SESSION_COMPLETED,
+    title: "Session Completed",
+    body: `${patientName} completed "${workoutName}".`,
+    link: patientLink,
+    metadata: { patientId: patient.id, patientName, workoutName, programId },
+  });
+
+  await getResend().emails.send({
+    from: process.env.RESEND_FROM_EMAIL ?? "noreply@inmotusrx.com",
+    to: clinician.email,
+    subject: `${patientName} completed a session`,
+    react: React.createElement(SessionCompletedEmail, {
+      clinicianName: `${clinician.firstName} ${clinician.lastName}`,
+      patientName,
+      workoutName,
+      programName,
+      patientLink,
+    }),
+  });
+}
 
 export async function startSessionV2Action(sessionId: string) {
   const { userId } = await auth();
@@ -115,19 +173,25 @@ export async function completeSessionV2Action(
     const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
     if (!dbUser) return { success: false, error: "User not found" };
 
-    const session = await prisma.workoutSessionV2.update({
+    await prisma.workoutSessionV2.update({
       where: { id: sessionId, patientId: dbUser.id },
-      data: {
-        status: "COMPLETED",
-        completedAt: new Date(),
-        overallRPE,
-        overallNotes
-      }
+      data: { status: "COMPLETED", completedAt: new Date(), overallRPE, overallNotes },
     });
+
+    // Fire clinician notification — non-blocking, failures must not break completion
+    try {
+      await notifyClinicianOnCompletion(sessionId, {
+        id: dbUser.id,
+        firstName: dbUser.firstName,
+        lastName: dbUser.lastName,
+      });
+    } catch (notifyErr) {
+      console.error("Completion notification failed (non-fatal):", notifyErr);
+    }
 
     revalidatePath("/dashboard");
     revalidatePath("/sessions/" + sessionId);
-    return { success: true, data: session };
+    return { success: true };
   } catch (error) {
     console.error(error);
     return { success: false, error: "Failed to complete session" };
