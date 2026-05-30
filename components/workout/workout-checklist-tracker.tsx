@@ -3,16 +3,22 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { markExerciseDoneAction, completeSessionV2Action } from "@/actions/session-v2-actions";
+import { updateSetLogV2Action, completeSessionV2Action } from "@/actions/session-v2-actions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Check, Trophy, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { ExerciseVideoPlayer } from "@/components/exercises/exercise-video-player";
+import {
+  Check, Trophy, Loader2, ChevronDown, ChevronUp, ChevronRight,
+  AlertCircle,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { SetLogEntry, SetLogCache } from "./types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type MediaItem = { id: string; url: string; type: string };
@@ -31,12 +37,13 @@ type BlockExerciseSet = {
   targetReps?: number | null;
   targetDuration?: number | null;
   targetWeight?: number | null;
+  restAfter?: number | null;
 };
 type SessionExerciseLog = {
   id: string;
   blockExerciseId: string;
   status: string;
-  setLogs: { id: string; setIndex: number }[];
+  setLogs: { id: string; setIndex: number; actualReps?: number | null; actualWeight?: number | null; actualDuration?: number | null }[];
 };
 type BlockExercise = {
   id: string;
@@ -60,86 +67,231 @@ type WorkoutSessionV2 = {
   exerciseLogs: SessionExerciseLog[];
 };
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function isCircuitBlock(type: string) {
   const t = type.toUpperCase();
   return t === "CIRCUIT" || t === "SUPERSET" || t === "WARMUP" || t === "COOLDOWN";
 }
 
 function getPrescriptionText(ex: BlockExercise, block: WorkoutBlock): string {
-  const rounds = isCircuitBlock(block.type) ? block.rounds : 1;
+  const isCircuit = isCircuitBlock(block.type);
+  const rounds = isCircuit ? block.rounds : 1;
   const set = ex.sets[0];
   if (!set) return "";
-  const setsLabel = isCircuitBlock(block.type)
-    ? rounds > 1
-      ? `${rounds} rounds`
-      : "1 round"
+  const setsLabel = isCircuit
+    ? rounds > 1 ? `${rounds} rounds` : "1 round"
     : `${ex.sets.length} ${ex.sets.length === 1 ? "set" : "sets"}`;
   if (set.targetReps) return `${setsLabel} × ${set.targetReps} reps`;
   if (set.targetDuration) return `${setsLabel} × ${set.targetDuration}s`;
   return setsLabel;
 }
 
+function getSetCount(ex: BlockExercise, block: WorkoutBlock): number {
+  return isCircuitBlock(block.type) ? Math.max(1, block.rounds ?? 1) : ex.sets.length;
+}
+
+function getExerciseStatus(
+  blockExerciseId: string,
+  setCount: number,
+  logs: SetLogCache
+): "pending" | "partial" | "complete" {
+  if (setCount === 0) return "complete";
+  const exLogs = logs[blockExerciseId];
+  if (!exLogs) return "pending";
+  const completedCount = Object.values(exLogs).filter((l) => l.completed).length;
+  if (completedCount === 0) return "pending";
+  if (completedCount >= setCount) return "complete";
+  return "partial";
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 interface Props {
   session: WorkoutSessionV2;
   onSwitchMode: () => void;
   additionalCompleted?: Set<string>;
-  onExerciseToggle?: (blockExerciseId: string, done: boolean) => void;
+  setLogCache?: SetLogCache;
+  onSetLogged?: (blockExerciseId: string, setIndex: number, data: SetLogEntry) => void;
 }
 
-export function WorkoutChecklistTracker({ session, onSwitchMode, additionalCompleted, onExerciseToggle }: Props) {
+export function WorkoutChecklistTracker({
+  session,
+  onSwitchMode,
+  additionalCompleted,
+  setLogCache: externalCache,
+  onSetLogged,
+}: Props) {
   const router = useRouter();
 
-  const [checkedIds, setCheckedIds] = useState<Set<string>>(() => {
-    const s = new Set<string>();
+  // ── Set log state ──────────────────────────────────────────────────────────
+  const [exerciseSetLogs, setExerciseSetLogs] = useState<SetLogCache>(() => {
+    const result: SetLogCache = {};
     for (const log of session.exerciseLogs) {
-      if (log.status === "COMPLETED") s.add(log.blockExerciseId);
+      for (const sl of log.setLogs) {
+        if (!result[log.blockExerciseId]) result[log.blockExerciseId] = {};
+        result[log.blockExerciseId][sl.setIndex] = {
+          actualReps: sl.actualReps ?? undefined,
+          actualWeight: sl.actualWeight ?? undefined,
+          actualDuration: sl.actualDuration ?? undefined,
+          completed: true,
+        };
+      }
     }
-    if (additionalCompleted) additionalCompleted.forEach((id) => s.add(id));
-    return s;
+    // Merge external cache (set in session mode before switching here)
+    if (externalCache) {
+      for (const [id, sets] of Object.entries(externalCache)) {
+        result[id] = { ...(result[id] ?? {}), ...sets };
+      }
+    }
+    return result;
   });
 
-  const [loadingId, setLoadingId] = useState<string | null>(null);
+  // Pending input values (before the user taps "Log Set")
+  const [pendingInputs, setPendingInputs] = useState<
+    Record<string, { actualReps?: number; actualWeight?: number; actualDuration?: number }>
+  >({});
+
+  const [loggingKey, setLoggingKey] = useState<string | null>(null);
+
+  // ── Accordion state ────────────────────────────────────────────────────────
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(
     () => new Set(session.workout.blocks.map((b) => b.id))
   );
+
+  const [expandedExercises, setExpandedExercises] = useState<Set<string>>(() => {
+    // Build the initial logs cache inline (can't reference sibling useState)
+    const initialLogs: SetLogCache = {};
+    for (const log of session.exerciseLogs) {
+      for (const sl of log.setLogs) {
+        if (!initialLogs[log.blockExerciseId]) initialLogs[log.blockExerciseId] = {};
+        initialLogs[log.blockExerciseId][sl.setIndex] = { completed: true };
+      }
+    }
+    if (externalCache) {
+      for (const [id, sets] of Object.entries(externalCache)) {
+        initialLogs[id] = { ...(initialLogs[id] ?? {}), ...sets };
+      }
+    }
+    // Auto-open the first incomplete exercise
+    for (const block of session.workout.blocks) {
+      for (const ex of block.exercises) {
+        const setCount = getSetCount(ex, block);
+        const status = getExerciseStatus(ex.id, setCount, initialLogs);
+        if (status !== "complete" && !additionalCompleted?.has(ex.id)) {
+          return new Set([ex.id]);
+        }
+      }
+    }
+    return new Set();
+  });
+
+  // ── Finish dialog ──────────────────────────────────────────────────────────
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [rpe, setRpe] = useState(5);
   const [notes, setNotes] = useState("");
   const [isCompleting, setIsCompleting] = useState(false);
 
-  const allExercises = session.workout.blocks.flatMap((b) => b.exercises);
+  // ── Derived progress ───────────────────────────────────────────────────────
+  const allExercises = session.workout.blocks.flatMap((b) =>
+    b.exercises.map((ex) => ({ ex, block: b }))
+  );
   const totalCount = allExercises.length;
-  const doneCount = allExercises.filter((ex) => checkedIds.has(ex.id)).length;
+  const doneCount = allExercises.filter(({ ex, block }) => {
+    if (additionalCompleted?.has(ex.id)) return true;
+    const setCount = getSetCount(ex, block);
+    return getExerciseStatus(ex.id, setCount, exerciseSetLogs) === "complete";
+  }).length;
   const progress = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
 
-  async function handleToggle(block: WorkoutBlock, ex: BlockExercise) {
-    const isDone = checkedIds.has(ex.id);
-    const newDone = !isDone;
-    setLoadingId(ex.id);
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  function inputKey(exerciseId: string, setIndex: number) {
+    return `${exerciseId}_${setIndex}`;
+  }
 
-    // Optimistic update
-    setCheckedIds((prev) => {
-      const next = new Set(prev);
-      if (newDone) next.add(ex.id);
-      else next.delete(ex.id);
-      return next;
-    });
-    onExerciseToggle?.(ex.id, newDone);
+  function handleInputChange(
+    exerciseId: string,
+    setIndex: number,
+    field: "actualReps" | "actualWeight" | "actualDuration",
+    value: string
+  ) {
+    const key = inputKey(exerciseId, setIndex);
+    setPendingInputs((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] ?? {}),
+        [field]: value === "" ? undefined : Number(value),
+      },
+    }));
+  }
 
-    const setCount = isCircuitBlock(block.type) ? block.rounds : ex.sets.length;
-    const result = await markExerciseDoneAction(session.id, ex.id, setCount, newDone);
-    if (!result.success) {
-      // Revert
-      setCheckedIds((prev) => {
-        const next = new Set(prev);
-        if (!newDone) next.add(ex.id);
-        else next.delete(ex.id);
-        return next;
-      });
-      onExerciseToggle?.(ex.id, !newDone);
-      toast.error(result.error ?? "Failed to update");
+  async function handleLogSet(
+    block: WorkoutBlock,
+    ex: BlockExercise,
+    setIndex: number,
+    skipSet = false
+  ) {
+    const key = inputKey(ex.id, setIndex);
+    setLoggingKey(key);
+
+    const pending = pendingInputs[key] ?? {};
+    const data = skipSet
+      ? { actualReps: 0, notes: "Unable to complete" }
+      : {
+          actualReps: pending.actualReps,
+          actualWeight: pending.actualWeight,
+          actualDuration: pending.actualDuration,
+        };
+
+    const result = await updateSetLogV2Action(session.id, ex.id, setIndex, data);
+
+    if (result.success) {
+      const entry: SetLogEntry = { ...data, completed: true };
+
+      // loggingKey prevents concurrent logging, so exerciseSetLogs is current
+      // for all previously-logged sets. Build the updated state synchronously.
+      const updatedExLogs = {
+        ...(exerciseSetLogs[ex.id] ?? {}),
+        [setIndex]: entry,
+      };
+      const setCount = getSetCount(ex, block);
+      const allDone = Array.from({ length: setCount }, (_, i) => i).every(
+        (i) => updatedExLogs[i]?.completed
+      );
+
+      setExerciseSetLogs((prev) => ({
+        ...prev,
+        [ex.id]: { ...(prev[ex.id] ?? {}), [setIndex]: entry },
+      }));
+
+      onSetLogged?.(ex.id, setIndex, entry);
+
+      if (allDone) {
+        setExpandedExercises((prev) => {
+          const next = new Set(prev);
+          next.delete(ex.id);
+          return next;
+        });
+        // Auto-open next incomplete exercise
+        const updatedCache: SetLogCache = { ...exerciseSetLogs, [ex.id]: updatedExLogs };
+        let found = false;
+        for (const b of session.workout.blocks) {
+          for (const e of b.exercises) {
+            if (found) {
+              const sc = getSetCount(e, b);
+              const st = getExerciseStatus(e.id, sc, updatedCache);
+              if (st !== "complete" && !additionalCompleted?.has(e.id)) {
+                setExpandedExercises((prev) => new Set([...prev, e.id]));
+                break;
+              }
+            }
+            if (e.id === ex.id) found = true;
+          }
+        }
+      }
+    } else {
+      toast.error(result.error ?? "Failed to log set");
     }
-    setLoadingId(null);
+
+    setLoggingKey(null);
   }
 
   async function handleFinish() {
@@ -154,18 +306,10 @@ export function WorkoutChecklistTracker({ session, onSwitchMode, additionalCompl
     setIsCompleting(false);
   }
 
-  function toggleBlock(blockId: string) {
-    setExpandedBlocks((prev) => {
-      const next = new Set(prev);
-      if (next.has(blockId)) next.delete(blockId);
-      else next.add(blockId);
-      return next;
-    });
-  }
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="mx-auto max-w-lg space-y-4 pb-24">
-      {/* Header bar */}
+      {/* Header */}
       <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-card px-4 py-3 shadow-sm">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100">
@@ -192,18 +336,30 @@ export function WorkoutChecklistTracker({ session, onSwitchMode, additionalCompl
 
       {/* Blocks */}
       {session.workout.blocks.map((block) => {
-        const isExpanded = expandedBlocks.has(block.id);
-        const blockDone = block.exercises.filter((ex) => checkedIds.has(ex.id)).length;
+        const isBlockExpanded = expandedBlocks.has(block.id);
+        const blockDone = block.exercises.filter((ex) => {
+          if (additionalCompleted?.has(ex.id)) return true;
+          const sc = getSetCount(ex, block);
+          return getExerciseStatus(ex.id, sc, exerciseSetLogs) === "complete";
+        }).length;
         const blockTotal = block.exercises.length;
         const blockName = block.name || block.type;
         const isCircuit = isCircuitBlock(block.type);
 
         return (
           <Card key={block.id} className="overflow-hidden border-0 shadow-sm ring-1 ring-border/50">
+            {/* Block header */}
             <button
               type="button"
               className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
-              onClick={() => toggleBlock(block.id)}
+              onClick={() =>
+                setExpandedBlocks((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(block.id)) next.delete(block.id);
+                  else next.add(block.id);
+                  return next;
+                })
+              }
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -222,7 +378,7 @@ export function WorkoutChecklistTracker({ session, onSwitchMode, additionalCompl
                 {blockDone === blockTotal && blockTotal > 0 && (
                   <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] px-1.5">Done</Badge>
                 )}
-                {isExpanded ? (
+                {isBlockExpanded ? (
                   <ChevronUp className="h-4 w-4 text-muted-foreground" />
                 ) : (
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -230,42 +386,308 @@ export function WorkoutChecklistTracker({ session, onSwitchMode, additionalCompl
               </div>
             </button>
 
-            {isExpanded && (
-              <CardContent className="p-0 border-t">
-                {block.exercises.map((ex, i) => {
-                  const done = checkedIds.has(ex.id);
-                  const loading = loadingId === ex.id;
+            {/* Exercise rows */}
+            {isBlockExpanded && (
+              <CardContent className="p-0 border-t divide-y divide-border/40">
+                {block.exercises.map((ex) => {
+                  const isFullyDone =
+                    additionalCompleted?.has(ex.id) ||
+                    getExerciseStatus(ex.id, getSetCount(ex, block), exerciseSetLogs) === "complete";
+                  const isPartial =
+                    getExerciseStatus(ex.id, getSetCount(ex, block), exerciseSetLogs) === "partial";
+                  const isExOpen = expandedExercises.has(ex.id);
+                  const setCount = getSetCount(ex, block);
+                  const hasVideo =
+                    ex.exercise.videoUrl || ex.exercise.media.some((m) => m.type === "VIDEO");
+
                   return (
-                    <button
-                      key={ex.id}
-                      type="button"
-                      className={cn(
-                        "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
-                        i > 0 && "border-t border-border/40",
-                        done ? "bg-emerald-50/50" : "hover:bg-muted/30"
-                      )}
-                      onClick={() => !loading && handleToggle(block, ex)}
-                      disabled={loading}
-                    >
-                      <div
+                    <div key={ex.id}>
+                      {/* Exercise header row */}
+                      <button
+                        type="button"
                         className={cn(
-                          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                          done ? "border-emerald-500 bg-emerald-500" : "border-muted-foreground/30 bg-background"
+                          "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
+                          isFullyDone ? "bg-emerald-50/50" : isPartial ? "bg-amber-50/30" : "hover:bg-muted/30"
                         )}
+                        onClick={() =>
+                          setExpandedExercises((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(ex.id)) next.delete(ex.id);
+                            else next.add(ex.id);
+                            return next;
+                          })
+                        }
                       >
-                        {loading ? (
-                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                        ) : done ? (
-                          <Check className="h-3 w-3 text-white" />
-                        ) : null}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={cn("text-sm font-medium", done && "line-through text-muted-foreground")}>
-                          {ex.exercise.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{getPrescriptionText(ex, block)}</p>
-                      </div>
-                    </button>
+                        {/* Status indicator */}
+                        <div
+                          className={cn(
+                            "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                            isFullyDone
+                              ? "border-emerald-500 bg-emerald-500"
+                              : isPartial
+                              ? "border-amber-400 bg-amber-400"
+                              : "border-muted-foreground/30 bg-background"
+                          )}
+                        >
+                          {isFullyDone ? (
+                            <Check className="h-3 w-3 text-white" />
+                          ) : isPartial ? (
+                            <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                          ) : null}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={cn(
+                              "text-sm font-medium",
+                              isFullyDone && "text-muted-foreground"
+                            )}
+                          >
+                            {ex.exercise.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {getPrescriptionText(ex, block)}
+                            {isPartial && (
+                              <span className="ml-1.5 text-amber-600 font-medium">· partial</span>
+                            )}
+                          </p>
+                        </div>
+
+                        <ChevronRight
+                          className={cn(
+                            "h-4 w-4 text-muted-foreground shrink-0 transition-transform",
+                            isExOpen && "rotate-90"
+                          )}
+                        />
+                      </button>
+
+                      {/* Exercise body */}
+                      {isExOpen && (
+                        <div className="px-4 pb-4 pt-2 bg-muted/20 space-y-3">
+                          {/* Info chips */}
+                          <div className="flex flex-wrap gap-1.5">
+                            <Badge variant="secondary" className="text-[11px]">
+                              {isCircuit ? `${block.rounds} rounds` : `${ex.sets.length} sets`}
+                            </Badge>
+                            {ex.sets[0]?.targetReps && (
+                              <Badge variant="secondary" className="text-[11px]">
+                                {ex.sets[0].targetReps} reps
+                              </Badge>
+                            )}
+                            {ex.sets[0]?.targetDuration && (
+                              <Badge variant="secondary" className="text-[11px]">
+                                {ex.sets[0].targetDuration}s hold
+                              </Badge>
+                            )}
+                            {ex.sets[0]?.restAfter && (
+                              <Badge variant="secondary" className="text-[11px]">
+                                {ex.sets[0].restAfter}s rest
+                              </Badge>
+                            )}
+                            {ex.exercise.bodyRegion && (
+                              <Badge variant="outline" className="text-[11px]">
+                                {ex.exercise.bodyRegion}
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Video */}
+                          {hasVideo && (
+                            <ExerciseVideoPlayer
+                              videoUrl={ex.exercise.videoUrl ?? undefined}
+                              mediaItems={ex.exercise.media.map((m) => ({
+                                id: m.id,
+                                url: m.url,
+                                mediaType: m.type,
+                              }))}
+                            />
+                          )}
+
+                          {/* Instructions */}
+                          {ex.exercise.instructions && (
+                            <div className="rounded-xl bg-muted/60 px-3 py-2.5">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                                Instructions
+                              </p>
+                              <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                                {ex.exercise.instructions}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Clinician notes */}
+                          {ex.notes && (
+                            <div className="flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5">
+                              <span className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-blue-500 shrink-0">
+                                Note
+                              </span>
+                              <p className="text-sm italic text-blue-700">{ex.notes}</p>
+                            </div>
+                          )}
+
+                          {/* Per-set logging table */}
+                          {!isFullyDone && (
+                            <div className="space-y-2">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Log Your Sets
+                              </p>
+
+                              {setCount === 0 && (
+                                <p className="text-xs text-muted-foreground">No sets prescribed.</p>
+                              )}
+
+                              {Array.from({ length: setCount }, (_, i) => {
+                                const setDef = isCircuit ? ex.sets[0] : ex.sets[i];
+                                const logEntry = exerciseSetLogs[ex.id]?.[i];
+                                const isDone = logEntry?.completed ?? false;
+                                const key = inputKey(ex.id, i);
+                                const pending = pendingInputs[key] ?? {};
+                                const isLogging = loggingKey === key;
+
+                                return (
+                                  <div
+                                    key={i}
+                                    className={cn(
+                                      "rounded-xl border p-3 transition-colors",
+                                      isDone
+                                        ? "border-emerald-200 bg-emerald-50/50"
+                                        : "border-border bg-background"
+                                    )}
+                                  >
+                                    {/* Set header */}
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div
+                                        className={cn(
+                                          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                                          isDone
+                                            ? "bg-emerald-500 text-white"
+                                            : "bg-primary/10 text-primary"
+                                        )}
+                                      >
+                                        {isDone ? <Check className="h-3 w-3" /> : i + 1}
+                                      </div>
+                                      <span className="text-xs text-muted-foreground">
+                                        {isCircuit ? `Round ${i + 1}` : `Set ${i + 1}`}
+                                        {setDef?.targetReps && ` · target ${setDef.targetReps} reps`}
+                                        {setDef?.targetDuration && ` · target ${setDef.targetDuration}s`}
+                                      </span>
+                                      {isDone && logEntry?.actualReps === 0 && !logEntry?.actualDuration && (
+                                        <Badge
+                                          variant="outline"
+                                          className="ml-auto text-[10px] text-amber-600 border-amber-200 bg-amber-50"
+                                        >
+                                          Skipped
+                                        </Badge>
+                                      )}
+                                      {isDone && (logEntry?.actualReps ?? 0) > 0 && (
+                                        <span className="ml-auto text-[11px] text-emerald-600 font-medium">
+                                          {logEntry?.actualReps} reps
+                                          {logEntry?.actualWeight ? ` @ ${logEntry.actualWeight} lbs` : ""}
+                                        </span>
+                                      )}
+                                      {isDone && logEntry?.actualDuration && (
+                                        <span className="ml-auto text-[11px] text-emerald-600 font-medium">
+                                          {logEntry.actualDuration}s
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Inputs — hidden when done */}
+                                    {!isDone && (
+                                      <div className="flex flex-wrap gap-2 items-end">
+                                        {(setDef?.targetReps != null || (!setDef?.targetDuration)) && (
+                                          <div className="space-y-0.5">
+                                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                                              Actual reps
+                                            </Label>
+                                            <Input
+                                              type="number"
+                                              min={0}
+                                              placeholder={setDef?.targetReps?.toString() ?? "0"}
+                                              value={pending.actualReps ?? ""}
+                                              onChange={(e) =>
+                                                handleInputChange(ex.id, i, "actualReps", e.target.value)
+                                              }
+                                              className="h-8 w-24 text-sm"
+                                            />
+                                          </div>
+                                        )}
+                                        {setDef?.targetDuration != null && (
+                                          <div className="space-y-0.5">
+                                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                                              Actual secs
+                                            </Label>
+                                            <Input
+                                              type="number"
+                                              min={0}
+                                              placeholder={setDef.targetDuration.toString()}
+                                              value={pending.actualDuration ?? ""}
+                                              onChange={(e) =>
+                                                handleInputChange(ex.id, i, "actualDuration", e.target.value)
+                                              }
+                                              className="h-8 w-24 text-sm"
+                                            />
+                                          </div>
+                                        )}
+                                        {setDef?.targetWeight != null && (
+                                          <div className="space-y-0.5">
+                                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                                              Weight (lbs)
+                                            </Label>
+                                            <Input
+                                              type="number"
+                                              min={0}
+                                              placeholder={setDef.targetWeight.toString()}
+                                              value={pending.actualWeight ?? ""}
+                                              onChange={(e) =>
+                                                handleInputChange(ex.id, i, "actualWeight", e.target.value)
+                                              }
+                                              className="h-8 w-24 text-sm"
+                                            />
+                                          </div>
+                                        )}
+
+                                        <div className="flex gap-1.5 ml-auto">
+                                          <Button
+                                            size="sm"
+                                            className="h-8 gap-1 bg-emerald-500 hover:bg-emerald-600 text-white border-0 text-xs"
+                                            onClick={() => handleLogSet(block, ex, i)}
+                                            disabled={isLogging}
+                                          >
+                                            {isLogging ? (
+                                              <Loader2 className="h-3 w-3 animate-spin" />
+                                            ) : (
+                                              <Check className="h-3 w-3" />
+                                            )}
+                                            Log Set
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 gap-1 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+                                            onClick={() => handleLogSet(block, ex, i, true)}
+                                            disabled={isLogging}
+                                          >
+                                            <AlertCircle className="h-3 w-3" />
+                                            Can&apos;t do
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {isFullyDone && (
+                            <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                              <Check className="h-3 w-3" /> All sets completed
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </CardContent>
@@ -299,7 +721,8 @@ export function WorkoutChecklistTracker({ session, onSwitchMode, additionalCompl
           <div className="space-y-5 py-2">
             <div>
               <Label className="font-semibold">
-                How hard was this session? <span className="font-normal text-muted-foreground">RPE {rpe}/10</span>
+                How hard was this session?{" "}
+                <span className="font-normal text-muted-foreground">RPE {rpe}/10</span>
               </Label>
               <div className="mt-3 flex items-center gap-3">
                 <span className="text-xs text-muted-foreground">Easy</span>
@@ -318,7 +741,13 @@ export function WorkoutChecklistTracker({ session, onSwitchMode, additionalCompl
                   <div
                     key={i}
                     className={`h-1.5 flex-1 rounded-full transition-colors ${
-                      i < rpe ? (i < 4 ? "bg-emerald-500" : i < 7 ? "bg-amber-500" : "bg-red-500") : "bg-muted"
+                      i < rpe
+                        ? i < 4
+                          ? "bg-emerald-500"
+                          : i < 7
+                          ? "bg-amber-500"
+                          : "bg-red-500"
+                        : "bg-muted"
                     }`}
                   />
                 ))}
@@ -326,7 +755,8 @@ export function WorkoutChecklistTracker({ session, onSwitchMode, additionalCompl
             </div>
             <div className="space-y-1.5">
               <Label className="font-semibold">
-                Session Notes <span className="font-normal text-muted-foreground">(optional)</span>
+                Session Notes{" "}
+                <span className="font-normal text-muted-foreground">(optional)</span>
               </Label>
               <Textarea
                 placeholder="How did it feel?"
@@ -346,7 +776,11 @@ export function WorkoutChecklistTracker({ session, onSwitchMode, additionalCompl
               onClick={handleFinish}
               disabled={isCompleting}
             >
-              {isCompleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              {isCompleting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="mr-2 h-4 w-4" />
+              )}
               Complete Session
             </Button>
           </DialogFooter>

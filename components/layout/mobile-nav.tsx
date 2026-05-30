@@ -32,7 +32,7 @@ const navItems = [
   { label: "Workout Plans", href: ROUTES.WORKOUT_PLANS, icon: ClipboardList, roles: ["clinician", "patient"] },
   { label: "Clients", href: ROUTES.PATIENTS, icon: Users, roles: ["clinician"] },
   { label: "Messages", href: ROUTES.MESSAGES, icon: MessageSquare, roles: ["clinician", "patient"] },
-  { label: "Assessments", href: ROUTES.ASSESSMENTS, icon: BarChart3, roles: ["clinician", "patient"] },
+  // { label: "Assessments", href: ROUTES.ASSESSMENTS, icon: BarChart3, roles: ["clinician", "patient"] },
   { label: "Settings", href: ROUTES.SETTINGS, icon: Settings, roles: ["clinician", "patient"] },
 ];
 

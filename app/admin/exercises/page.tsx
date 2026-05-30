@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Dumbbell, Plus, Search, UploadCloud, Pencil } from "lucide-react";
+import { Dumbbell, Plus, Search, UploadCloud, Pencil, FileSpreadsheet } from "lucide-react";
 import Link from "next/link";
 
 interface PageProps {
@@ -60,6 +60,12 @@ export default async function AdminExercisesPage({ searchParams }: PageProps) {
             <Link href="/exercises/bulk-import">
               <UploadCloud className="mr-2 h-4 w-4" />
               Bulk Import
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/admin/exercises/import">
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Import CSV
             </Link>
           </Button>
           <Button asChild>

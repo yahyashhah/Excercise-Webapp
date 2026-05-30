@@ -118,14 +118,14 @@ export function PatientDashboard({
             bg: "bg-violet-50",
             href: "/messages",
           },
-          {
-            label: "Assessments",
-            value: recentAssessments.length,
-            icon: TrendingUp,
-            color: "text-amber-600",
-            bg: "bg-amber-50",
-            href: "/assessments",
-          },
+          // {
+          //   label: "Assessments",
+          //   value: recentAssessments.length,
+          //   icon: TrendingUp,
+          //   color: "text-amber-600",
+          //   bg: "bg-amber-50",
+          //   href: "/assessments",
+          // },
         ].map((stat) => {
           const Icon = stat.icon;
           const content = (

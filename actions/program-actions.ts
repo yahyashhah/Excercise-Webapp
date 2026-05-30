@@ -1,5 +1,6 @@
 "use server";
 
+import React from "react";
 import { generateProgram, type GeneratedProgram } from "@/lib/services/ai.service";
 import {
   extractProgramBriefText,
@@ -8,6 +9,9 @@ import {
 
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { getResend } from "@/lib/email/resend";
+import { ShareProgramEmail } from "@/lib/email/templates/share-program";
+import { parseShareRecipients } from "./program-share-helpers";
 import { revalidatePath } from "next/cache";
 import * as programService from "@/lib/services/program.service";
 import {
@@ -19,6 +23,7 @@ import type {
   CreateProgramInput,
   UpdateProgramInput,
 } from "@/lib/validators/program";
+import type { WeekPlan } from "@/lib/ai/types/program-generation";
 
 async function getClinicianUser() {
   const { userId } = await auth();
@@ -323,12 +328,24 @@ export async function getProgramAction(programId: string) {
 }
 
 
-export async function generateProgramAction(params: any) {
+export async function generateProgramAction(
+  params: {
+    patientId?: string | null;
+    startDate?: string | null;
+    durationWeeks?: number;          // NEW
+    weekPlan?: WeekPlan[];           // NEW
+    [key: string]: unknown;
+  }
+) {
   const user = await getClinicianUser();
   if (!user) return { success: false as const, error: "Unauthorized" };
 
   try {
-    const aiPlan = await generateProgram(params);
+    const aiPlan = await generateProgram({
+      ...params,
+      weekPlan: params.weekPlan,
+      durationWeeks: params.durationWeeks,
+    } as Parameters<typeof generateProgram>[0]);
     const program = await createProgramFromGeneratedPlan({
       aiPlan,
       clinicianId: user.id,
@@ -432,5 +449,53 @@ export async function saveGeneratedProgramAction(input: {
   } catch (error) {
     console.error("Failed to save generated program:", error);
     return { success: false as const, error: "Failed to save program" };
+  }
+}
+
+export async function shareProgramViaEmailAction(
+  programId: string,
+  toEmail: string,
+  ccRaw: string
+): Promise<{ success: boolean; error?: string }> {
+  const { userId } = await auth();
+  if (!userId) return { success: false, error: "Unauthorized" };
+
+  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!dbUser || dbUser.role !== "CLINICIAN") return { success: false, error: "Forbidden" };
+
+  const program = await prisma.program.findUnique({
+    where: { id: programId, clinicianId: dbUser.id },
+    select: {
+      name: true,
+      patient: { select: { firstName: true, lastName: true } },
+    },
+  });
+  if (!program) return { success: false, error: "Program not found" };
+
+  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://inmotusrx.vercel.app";
+  const pdfLink = `${appBaseUrl}/api/programs/${programId}/pdf`;
+  const senderName = `${dbUser.firstName} ${dbUser.lastName}`;
+  const patientName = program.patient
+    ? `${program.patient.firstName} ${program.patient.lastName}`
+    : null;
+
+  const recipients = parseShareRecipients(toEmail, ccRaw);
+
+  try {
+    await getResend().emails.send({
+      from: process.env.RESEND_FROM_EMAIL ?? "noreply@inmotusrx.com",
+      to: recipients,
+      subject: `Your exercise plan: ${program.name}`,
+      react: React.createElement(ShareProgramEmail, {
+        programName: program.name,
+        patientName,
+        senderName,
+        pdfLink,
+      }),
+    });
+    return { success: true };
+  } catch (err) {
+    console.error("Failed to send share email:", err);
+    return { success: false, error: "Failed to send email" };
   }
 }

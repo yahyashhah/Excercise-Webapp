@@ -5,7 +5,6 @@ import { GripVertical, Dumbbell, Trash2, Loader2, X, Plus, MoreVertical, Calenda
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
@@ -1066,7 +1065,7 @@ export function WorkoutEditorPanel({
           </DialogHeader>
 
           {/* Body */}
-          <ScrollArea className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="px-6 py-5 space-y-4">
               {loading ? (
                 <div className="flex items-center justify-center py-20">        
@@ -1299,7 +1298,7 @@ export function WorkoutEditorPanel({
                 </>
               ) : null}
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Footer */}
           {session && nameChanged && (

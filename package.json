@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "npx tsx lib/db/seed/seed.ts",
@@ -15,6 +17,7 @@
     "db:media:backfill": "npx tsx lib/db/seed/backfill-exercise-media.ts",
     "db:video:resolve": "npx tsx lib/db/seed/resolve-youtube-search-videos.ts",
     "db:migrate-programs": "npx tsx lib/db/seed/migrate-plans-to-programs.ts",
+    "tag-exercises": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' lib/db/seed/tag-exercises-ai.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -42,6 +45,7 @@
     "next": "16.1.6",
     "next-themes": "^0.4.6",
     "openai": "^6.29.0",
+    "papaparse": "^5.5.3",
     "pdf-parse": "^1.1.4",
     "react": "19.2.3",
     "react-big-calendar": "^1.19.4",
@@ -62,13 +66,17 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.2",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "prisma": "^6.19.2",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.7"
   }
 }

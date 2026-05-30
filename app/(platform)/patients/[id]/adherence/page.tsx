@@ -29,7 +29,10 @@ export default async function PatientAdherencePage({ params }: Props) {
   if (!patient) notFound();
 
   const sessions = await prisma.workoutSessionV2.findMany({
-    where: { patientId: id },
+    where: {
+      patientId: id,
+      scheduledDate: { lte: new Date() },
+    },
     include: {
       workout: {
         select: {
@@ -39,7 +42,7 @@ export default async function PatientAdherencePage({ params }: Props) {
       },
     },
     orderBy: { scheduledDate: "desc" },
-    take: 50,
+    take: 100,
   });
 
   const total     = sessions.length;
@@ -68,7 +71,7 @@ export default async function PatientAdherencePage({ params }: Props) {
           </Link>
         </Button>
         <h2 className="text-xl font-bold">
-          Adherence — {patient.firstName} {patient.lastName}
+          Sessions — {patient.firstName} {patient.lastName}
         </h2>
       </div>
 
@@ -116,7 +119,7 @@ export default async function PatientAdherencePage({ params }: Props) {
       {/* Session history */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Session History</CardTitle>
+          <CardTitle className="text-base">Sessions — click any row to review</CardTitle>
         </CardHeader>
         <CardContent>
           {sessions.length === 0 ? (
@@ -124,9 +127,10 @@ export default async function PatientAdherencePage({ params }: Props) {
           ) : (
             <div className="space-y-2">
               {sessions.map((session) => (
-                <div
+                <Link
                   key={session.id}
-                  className="flex items-center justify-between rounded-lg border border-border p-3"
+                  href={`/patients/${id}/sessions/${session.id}`}
+                  className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted/50"
                 >
                   <div className="min-w-0">
                     <p className="font-medium text-sm truncate">
@@ -149,7 +153,7 @@ export default async function PatientAdherencePage({ params }: Props) {
                       {session.status.charAt(0) + session.status.slice(1).toLowerCase()}
                     </Badge>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
