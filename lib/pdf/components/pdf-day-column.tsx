@@ -45,6 +45,7 @@ interface ExerciseData {
   notes?: string | null;
   cuesThumbnail?: string | null;
   imageBuffer?: Buffer | null;
+  videoUrl?: string | null;
 }
 
 interface PdfDayColumnProps {

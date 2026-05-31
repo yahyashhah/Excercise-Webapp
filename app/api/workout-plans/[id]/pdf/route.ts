@@ -184,6 +184,7 @@ export async function GET(
       notes: pe.notes,
       cuesThumbnail: pe.exercise.cuesThumbnail ?? null,
       dayOfWeek: day,
+      videoUrl: pe.exercise.videoUrl ?? null,
     });
   }
 

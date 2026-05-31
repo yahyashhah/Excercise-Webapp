@@ -1,5 +1,5 @@
 import React from 'react'
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, Link, StyleSheet } from '@react-pdf/renderer'
 
 // ─── Data transformer (pure, testable) ──────────────────────────────────────
 
@@ -8,6 +8,7 @@ export interface PdfExercise {
   setsSummary: string
   equipment: string
   notes: string | null
+  videoUrl: string | null
 }
 
 export interface PdfSection {
@@ -43,6 +44,7 @@ export function buildProgramPdfSections(
           setsSummary: formatSets(sets),
           equipment,
           notes: (be.notes as string | null) ?? null,
+          videoUrl: (ex.videoUrl as string | null) ?? null,
         }
       })
     return {
@@ -81,6 +83,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   exerciseName: { fontFamily: 'Helvetica-Bold', flex: 2 },
+  exerciseNameLink: { fontFamily: 'Helvetica-Bold', color: '#2563EB', textDecoration: 'underline' },
   exerciseSets: { flex: 1, color: '#374151' },
   exerciseEquip: { flex: 1.5, color: '#6b7280', fontSize: 10 },
   exerciseNotes: { fontSize: 9, color: '#9ca3af', marginTop: 2 },
@@ -142,7 +145,13 @@ export function ProgramDocument({
             {section.exercises.map((ex, ei) => (
               <View key={ei} style={styles.exerciseRow}>
                 <View style={{ flex: 2 }}>
-                  <Text style={styles.exerciseName}>{ex.name}</Text>
+                  {ex.videoUrl ? (
+                    <Text style={styles.exerciseNameLink}>
+                      <Link src={ex.videoUrl}>{ex.name}</Link>
+                    </Text>
+                  ) : (
+                    <Text style={styles.exerciseName}>{ex.name}</Text>
+                  )}
                   {ex.notes && <Text style={styles.exerciseNotes}>{ex.notes}</Text>}
                 </View>
                 <Text style={styles.exerciseSets}>{ex.setsSummary}</Text>

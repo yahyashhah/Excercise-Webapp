@@ -1,4 +1,4 @@
-import { View, Text, Image, StyleSheet } from "@react-pdf/renderer";
+import { View, Text, Image, Link, StyleSheet } from "@react-pdf/renderer";
 
 const styles = StyleSheet.create({
   card: {
@@ -26,6 +26,14 @@ const styles = StyleSheet.create({
     lineHeight: 1.25,
     marginBottom: 2,
   },
+  nameLink: {
+    fontSize: 9,
+    fontWeight: "bold",
+    color: "#2563EB",
+    lineHeight: 1.25,
+    marginBottom: 2,
+    textDecoration: "underline",
+  },
   prescription: {
     fontSize: 8.5,
     color: "#374151",
@@ -48,6 +56,7 @@ interface PdfExerciseCardProps {
   cuesThumbnail?: string | null;
   imageBuffer?: Buffer | null;
   placeholderBuffer: Buffer;
+  videoUrl?: string | null;
 }
 
 export function PdfExerciseCard({
@@ -59,6 +68,7 @@ export function PdfExerciseCard({
   cuesThumbnail,
   imageBuffer,
   placeholderBuffer,
+  videoUrl,
 }: PdfExerciseCardProps) {
   const prescription = reps
     ? `${sets} sets x ${reps} reps`
@@ -77,7 +87,13 @@ export function PdfExerciseCard({
     <View style={styles.card}>
       <Image style={styles.thumbnail} src={imgSrc} />
       <View style={styles.content}>
-        <Text style={styles.name}>{name}</Text>
+        {videoUrl ? (
+          <Text style={styles.nameLink}>
+            <Link src={videoUrl}>{name}</Link>
+          </Text>
+        ) : (
+          <Text style={styles.name}>{name}</Text>
+        )}
         <Text style={styles.prescription}>{prescription}</Text>
         {safeCues && (
           <Text style={styles.cues}>{safeCues}</Text>

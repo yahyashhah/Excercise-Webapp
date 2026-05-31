@@ -29,7 +29,7 @@ export async function GET(
               exercises: {
                 orderBy: { orderIndex: 'asc' },
                 include: {
-                  exercise: { select: { name: true, equipmentRequired: true, description: true } },
+                  exercise: { select: { name: true, equipmentRequired: true, description: true, videoUrl: true } },
                   sets: { orderBy: { orderIndex: 'asc' } },
                 },
               },
