@@ -168,6 +168,7 @@ export async function GET(
       notes: string | null;
       cuesThumbnail: string | null;
       dayOfWeek: number;
+      videoUrl: string | null;
     }>
   >();
 
@@ -184,6 +185,7 @@ export async function GET(
       notes: pe.notes,
       cuesThumbnail: pe.exercise.cuesThumbnail ?? null,
       dayOfWeek: day,
+      videoUrl: pe.exercise.videoUrl ?? null,
     });
   }
 

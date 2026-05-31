@@ -29,6 +29,7 @@ interface PlanExerciseData {
   notes?: string | null;
   cuesThumbnail?: string | null;
   dayOfWeek: number;
+  videoUrl?: string | null;
 }
 
 interface HEPDocumentProps {
@@ -94,6 +95,7 @@ export function HEPDocument({
                   notes: ex.notes,
                   cuesThumbnail: ex.cuesThumbnail,
                   imageBuffer: imageMap.get(ex.exerciseId) ?? null,
+                  videoUrl: ex.videoUrl ?? null,
                 }))}
                 placeholderBuffer={placeholderBuffer}
               />
