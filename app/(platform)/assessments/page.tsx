@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/current-user";
 import { getAssessments } from "@/lib/services/outcome.service";
+import { getPatientIdsForClinician } from "@/lib/services/patient.service";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,11 +32,7 @@ export default async function AssessmentsPage() {
 
   let assessments;
   if (user.role === "CLINICIAN") {
-    const linkedPatients = await prisma.patientClinicianLink.findMany({
-      where: { clinicianId: user.id, status: "active" },
-      select: { patientId: true },
-    });
-    const patientIds = linkedPatients.map((l) => l.patientId);
+    const patientIds = await getPatientIdsForClinician(user.id);
     assessments = await prisma.assessment.findMany({
       where: { patientId: { in: patientIds } },
       include: {

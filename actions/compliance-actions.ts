@@ -27,9 +27,10 @@ export async function checkComplianceAndNotify(): Promise<{ alerted: number }> {
     if (!userId) return { alerted: 0 };
     const clinician = await prisma.user.findUnique({
       where: { clerkId: userId },
-      select: { id: true, role: true, email: true, firstName: true, lastName: true },
+      select: { id: true, role: true, email: true, firstName: true, lastName: true, clerkOrgId: true },
     });
     if (!clinician || clinician.role !== "CLINICIAN") return { alerted: 0 };
+    if (!clinician.clerkOrgId) return { alerted: 0 };
 
     const lookbackStart = new Date();
     lookbackStart.setDate(lookbackStart.getDate() - LOOKBACK_DAYS);
@@ -37,20 +38,15 @@ export async function checkComplianceAndNotify(): Promise<{ alerted: number }> {
     const dedupCutoff = new Date();
     dedupCutoff.setHours(dedupCutoff.getHours() - DEDUP_HOURS);
 
-    // Fetch all active patient links for this clinician
-    const patientLinks = await prisma.patientClinicianLink.findMany({
-      where: { clinicianId: clinician.id, status: "active" },
-      include: {
-        patient: {
-          select: { id: true, firstName: true, lastName: true },
-        },
-      },
+    // Fetch all patients in this clinician's organization
+    const patients = await prisma.user.findMany({
+      where: { clerkOrgId: clinician.clerkOrgId, role: "PATIENT" },
+      select: { id: true, firstName: true, lastName: true },
     });
 
     let alerted = 0;
 
-    for (const link of patientLinks) {
-      const { patient } = link;
+    for (const patient of patients) {
       const patientName = `${patient.firstName} ${patient.lastName}`;
 
       // Count sessions in the lookback window that were not completed.

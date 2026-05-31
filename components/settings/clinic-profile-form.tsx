@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { saveClinicProfileAction } from "@/actions/clinic-actions";
+import { saveOrganizationProfile, type ClinicMetadata } from "@/actions/organization-actions";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { UploadButton } from "@uploadthing/react";
@@ -15,15 +15,7 @@ import type { OurFileRouter } from "@/lib/uploadthing";
 import Image from "next/image";
 
 interface ClinicProfileFormProps {
-  initialData?: {
-    clinicName: string;
-    tagline: string;
-    logoUrl: string;
-    phone: string;
-    email: string;
-    website: string;
-    address: string;
-  };
+  initialData?: ClinicMetadata;
 }
 
 export function ClinicProfileForm({ initialData }: ClinicProfileFormProps) {
@@ -36,8 +28,7 @@ export function ClinicProfileForm({ initialData }: ClinicProfileFormProps) {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-
-    const result = await saveClinicProfileAction({
+    const result = await saveOrganizationProfile({
       clinicName: formData.get("clinicName") as string,
       tagline: (formData.get("tagline") as string) || undefined,
       logoUrl: logoUrl || undefined,

@@ -34,13 +34,14 @@ export async function createAdHocWorkout(
   const user = await getClinicianUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
-  // Verify clinician has access to this patient
-  const link = await prisma.patientClinicianLink.findUnique({
-    where: {
-      patientId_clinicianId: { patientId, clinicianId: user.id },
-    },
+  // Verify clinician has access to this patient (same org)
+  const patient = await prisma.user.findFirst({
+    where: { id: patientId, role: "PATIENT", clerkOrgId: user.clerkOrgId ?? undefined },
+    select: { id: true },
   });
-  if (!link) return { success: false, error: "You do not have access to this client" };
+  if (!user.clerkOrgId || !patient) {
+    return { success: false, error: "You do not have access to this client" };
+  }
 
   try {
     // Create an ad-hoc program, workout, default block, and session in a transaction

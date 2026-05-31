@@ -1,11 +1,59 @@
 "use server";
 
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 
-export async function completeOnboarding(data: {
-  role: "CLINICIAN" | "PATIENT";
+export async function completeClinicianOnboarding(data: {
+  firstName: string;
+  lastName: string;
+  clinicName: string;
+  phone?: string;
+}) {
+  const { userId } = await auth();
+  if (!userId) return { success: false as const, error: "Unauthorized" };
+
+  const clerkUser = await currentUser();
+  if (!clerkUser) return { success: false as const, error: "User not found" };
+
+  try {
+    const client = await clerkClient();
+    const org = await client.organizations.createOrganization({
+      name: data.clinicName,
+      createdBy: userId,
+    });
+
+    await prisma.user.upsert({
+      where: { clerkId: userId },
+      update: {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: "CLINICIAN",
+        phone: data.phone ?? null,
+        clerkOrgId: org.id,
+        onboarded: true,
+      },
+      create: {
+        clerkId: userId,
+        email: clerkUser.emailAddresses[0].emailAddress,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: "CLINICIAN",
+        phone: data.phone ?? null,
+        imageUrl: clerkUser.imageUrl,
+        clerkOrgId: org.id,
+        onboarded: true,
+      },
+    });
+  } catch (err) {
+    console.error("Failed to complete clinician onboarding:", err);
+    return { success: false as const, error: "Failed to set up clinic. Please try again." };
+  }
+
+  redirect("/dashboard");
+}
+
+export async function completePatientOnboarding(data: {
   firstName: string;
   lastName: string;
   phone?: string;
@@ -15,8 +63,6 @@ export async function completeOnboarding(data: {
   functionalChallenges?: string;
   availableEquipment?: string[];
   fitnessGoals?: string[];
-  preferredDurationMinutes?: number;
-  preferredDaysPerWeek?: number;
   primaryDiagnosis?: string;
   painScore?: number;
   activityLevel?: string;
@@ -24,20 +70,38 @@ export async function completeOnboarding(data: {
   surgeryHistory?: string;
   occupation?: string;
 }) {
-  const { userId } = await auth();
+  const { userId, orgId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
   const clerkUser = await currentUser();
   if (!clerkUser) return { success: false as const, error: "User not found" };
+
+  const profileData = {
+    limitations: data.limitations ?? null,
+    comorbidities: data.comorbidities ?? null,
+    functionalChallenges: data.functionalChallenges ?? null,
+    availableEquipment: data.availableEquipment ?? [],
+    fitnessGoals: data.fitnessGoals ?? [],
+    preferredDurationMinutes: 25,
+    preferredDaysPerWeek: 3,
+    primaryDiagnosis: data.primaryDiagnosis ?? null,
+    secondaryDiagnoses: [] as string[],
+    painScore: data.painScore ?? null,
+    activityLevel: data.activityLevel ?? null,
+    injuryDate: data.injuryDate ? new Date(data.injuryDate) : null,
+    surgeryHistory: data.surgeryHistory ?? null,
+    occupation: data.occupation ?? null,
+    priorInjuries: [] as string[],
+  };
 
   const user = await prisma.user.upsert({
     where: { clerkId: userId },
     update: {
       firstName: data.firstName,
       lastName: data.lastName,
-      role: data.role,
-      phone: data.phone,
-      dateOfBirth: data.dateOfBirth,
+      phone: data.phone ?? null,
+      dateOfBirth: data.dateOfBirth ?? null,
+      clerkOrgId: orgId ?? null,
       onboarded: true,
     },
     create: {
@@ -45,41 +109,20 @@ export async function completeOnboarding(data: {
       email: clerkUser.emailAddresses[0].emailAddress,
       firstName: data.firstName,
       lastName: data.lastName,
-      role: data.role,
-      phone: data.phone,
-      dateOfBirth: data.dateOfBirth,
+      role: "PATIENT",
+      phone: data.phone ?? null,
+      dateOfBirth: data.dateOfBirth ?? null,
       imageUrl: clerkUser.imageUrl,
+      clerkOrgId: orgId ?? null,
       onboarded: true,
     },
   });
 
-  if (data.role === "PATIENT") {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const profileData: any = {
-      limitations: data.limitations,
-      comorbidities: data.comorbidities,
-      functionalChallenges: data.functionalChallenges,
-      availableEquipment: data.availableEquipment || [],
-      fitnessGoals: data.fitnessGoals || [],
-      preferredDurationMinutes: data.preferredDurationMinutes || 25,
-      preferredDaysPerWeek: data.preferredDaysPerWeek || 3,
-      primaryDiagnosis: data.primaryDiagnosis,
-      secondaryDiagnoses: [],
-      painScore: data.painScore,
-      activityLevel: data.activityLevel,
-      injuryDate: data.injuryDate ? new Date(data.injuryDate) : undefined,
-      surgeryHistory: data.surgeryHistory,
-      occupation: data.occupation,
-      priorInjuries: [],
-    };
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (prisma.patientProfile as any).upsert({
-      where: { userId: user.id },
-      update: profileData,
-      create: { userId: user.id, ...profileData },
-    });
-  }
+  await prisma.patientProfile.upsert({
+    where: { userId: user.id },
+    update: profileData,
+    create: { userId: user.id, ...profileData },
+  });
 
   redirect("/dashboard");
 }

@@ -21,7 +21,7 @@ export default async function GenerateProgramPage({
 
   const user = await prisma.user.findUnique({
     where: { clerkId: userId },
-    select: { id: true, role: true },
+    select: { id: true, role: true, clerkOrgId: true },
   });
 
   if (!user || user.role !== "CLINICIAN") {
@@ -30,11 +30,12 @@ export default async function GenerateProgramPage({
 
   const { patientId } = await searchParams;
 
-  // Fetch patients for this clinician with profile fields needed for the inline summary
-  const rawPatients = await prisma.user.findMany({
+  // Fetch patients for this clinician's organization with profile fields needed for the inline summary
+  const rawPatients = user.clerkOrgId
+    ? await prisma.user.findMany({
     where: {
       role: 'PATIENT',
-      patientLinks: { some: { clinicianId: user.id, status: 'active' } },
+      clerkOrgId: user.clerkOrgId,
     },
     select: {
       id: true,
@@ -51,6 +52,7 @@ export default async function GenerateProgramPage({
     },
     orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
   })
+    : []
 
   const patients = rawPatients.map(p => ({
     id: p.id,

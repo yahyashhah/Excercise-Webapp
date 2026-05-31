@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils/formatting";
 import { AssignCheckInDialog } from "@/components/check-ins/assign-checkin-dialog";
-import { prisma } from "@/lib/prisma";
+import { getPatientsForClinician } from "@/lib/services/patient.service";
 
 // ─── Frequency label helper ──────────────────────────────────────────────────
 
@@ -34,15 +34,14 @@ async function ClinicianView({ clinicianId }: { clinicianId: string }) {
   const [templates, responses, patients] = await Promise.all([
     checkinService.getTemplatesForClinician(clinicianId),
     checkinService.getResponsesForClinician(clinicianId),
-    prisma.patientClinicianLink.findMany({
-      where: { clinicianId, status: "active" },
-      include: {
-        patient: { select: { id: true, firstName: true, lastName: true } },
-      },
-    }),
+    getPatientsForClinician(clinicianId),
   ]);
 
-  const patientList = patients.map((l) => l.patient);
+  const patientList = patients.map((p) => ({
+    id: p.id,
+    firstName: p.firstName,
+    lastName: p.lastName,
+  }));
 
   return (
     <div className="space-y-8">

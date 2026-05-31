@@ -114,21 +114,28 @@ export async function getTopClinicians(limit = 5) {
       lastName: true,
       email: true,
       imageUrl: true,
-      clinicianLinks: { where: { status: "active" }, select: { id: true } },
+      clerkOrgId: true,
       programsCreated: { select: { id: true } },
     },
     take: 20,
   });
 
-  return clinicians
-    .map((c) => ({
+  const withCounts = await Promise.all(
+    clinicians.map(async (c) => ({
       id: c.id,
       name: `${c.firstName} ${c.lastName}`,
       email: c.email,
       imageUrl: c.imageUrl,
-      patientCount: c.clinicianLinks.length,
+      patientCount: c.clerkOrgId
+        ? await prisma.user.count({
+            where: { clerkOrgId: c.clerkOrgId, role: "PATIENT" },
+          })
+        : 0,
       programCount: c.programsCreated.length,
     }))
+  );
+
+  return withCounts
     .sort((a, b) => b.patientCount - a.patientCount)
     .slice(0, limit);
 }
@@ -152,7 +159,7 @@ export async function getAllUsers(params: {
     }),
   };
 
-  const [items, total] = await Promise.all([
+  const [rawItems, total] = await Promise.all([
     prisma.user.findMany({
       where,
       select: {
@@ -164,8 +171,7 @@ export async function getAllUsers(params: {
         onboarded: true,
         imageUrl: true,
         createdAt: true,
-        clinicianLinks: { where: { status: "active" }, select: { id: true } },
-        patientLinks: { where: { status: "active" }, select: { id: true } },
+        clerkOrgId: true,
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
@@ -173,6 +179,23 @@ export async function getAllUsers(params: {
     }),
     prisma.user.count({ where }),
   ]);
+
+  // Compute connection counts per user based on their organization.
+  // Clinicians: number of patients in the org. Patients: number of clinicians in the org.
+  const items = await Promise.all(
+    rawItems.map(async (u) => {
+      let connectionCount = 0;
+      if (u.clerkOrgId) {
+        connectionCount = await prisma.user.count({
+          where: {
+            clerkOrgId: u.clerkOrgId,
+            role: u.role === "CLINICIAN" ? "PATIENT" : "CLINICIAN",
+          },
+        });
+      }
+      return { ...u, connectionCount };
+    })
+  );
 
   return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }

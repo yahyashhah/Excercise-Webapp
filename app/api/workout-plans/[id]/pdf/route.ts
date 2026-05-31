@@ -1,6 +1,6 @@
 import React from "react";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { readFile } from "fs/promises";
@@ -63,10 +63,29 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Fetch clinic profile
-  const clinicProfile = await prisma.clinicProfile.findUnique({
-    where: { clinicianId: plan.createdById },
+  // Fetch clinic profile from Clerk org metadata
+  const creator = await prisma.user.findUnique({
+    where: { id: plan.createdById },
+    select: { clerkOrgId: true },
   });
+
+  let clinicProfile: { clinicName?: string; tagline?: string; logoUrl?: string } = {};
+  if (creator?.clerkOrgId) {
+    try {
+      const client = await clerkClient();
+      const org = await client.organizations.getOrganization({
+        organizationId: creator.clerkOrgId,
+      });
+      const meta = (org.publicMetadata ?? {}) as Record<string, string>;
+      clinicProfile = {
+        clinicName: org.name,
+        tagline: meta.tagline || undefined,
+        logoUrl: meta.logoUrl || undefined,
+      };
+    } catch {
+      // Proceed without clinic profile
+    }
+  }
 
   // Load placeholder image
   let placeholderBuffer: Buffer;
