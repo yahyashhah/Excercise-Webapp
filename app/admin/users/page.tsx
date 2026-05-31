@@ -107,8 +107,8 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                   </td>
                   <td className="px-5 py-3 hidden md:table-cell text-muted-foreground text-xs">
                     {u.role === "CLINICIAN"
-                      ? `${u.clinicianLinks.length} patient${u.clinicianLinks.length !== 1 ? "s" : ""}`
-                      : `${u.patientLinks.length} clinician${u.patientLinks.length !== 1 ? "s" : ""}`}
+                      ? `${u.connectionCount} patient${u.connectionCount !== 1 ? "s" : ""}`
+                      : `${u.connectionCount} clinician${u.connectionCount !== 1 ? "s" : ""}`}
                   </td>
                   <td className="px-5 py-3 hidden lg:table-cell">
                     {u.onboarded ? (

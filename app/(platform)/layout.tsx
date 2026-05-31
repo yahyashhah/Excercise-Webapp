@@ -6,12 +6,18 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 
 export default async function PlatformLayout({ children }: { children: React.ReactNode }) {
-  const { userId } = await auth();
+  const { userId, orgId } = await auth();
   if (!userId) redirect("/sign-in");
 
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!user) redirect("/onboarding");
-  if (!user.onboarded) redirect("/onboarding");
+  if (!user) {
+    if (orgId) redirect("/onboarding/patient");
+    redirect("/onboarding");
+  }
+  if (!user.onboarded) {
+    if (user.role === "PATIENT") redirect("/onboarding/patient");
+    redirect("/onboarding");
+  }
 
   const [unreadMessageCount, unreadNotificationCount, initialNotifications, adminAccess] =
     await Promise.all([

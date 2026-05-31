@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import * as programService from "@/lib/services/program.service";
+import { getPatientsForClinician } from "@/lib/services/patient.service";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { ProgramDetailView } from "@/components/programs/program-detail-view";
@@ -31,13 +32,12 @@ export default async function ProgramDetailPage({
   // Load patients for assignment dialog (clinician only)
   let patients: { id: string; firstName: string; lastName: string }[] = [];
   if (user.role === "CLINICIAN") {
-    const links = await prisma.patientClinicianLink.findMany({
-      where: { clinicianId: user.id, status: "active" },
-      include: {
-        patient: { select: { id: true, firstName: true, lastName: true } },
-      },
-    });
-    patients = links.map((l) => l.patient);
+    const linkedPatients = await getPatientsForClinician(user.id);
+    patients = linkedPatients.map((p) => ({
+      id: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+    }));
   }
 
   // Load sessions for workouts in this specific program (template + assigned)

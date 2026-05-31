@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import * as habitService from "@/lib/services/habit.service";
+import { getPatientsForClinician } from "@/lib/services/patient.service";
 import { HabitCard } from "@/components/habits/habit-card";
 import { AddHabitDialog } from "@/components/habits/add-habit-dialog";
 import { Sparkles } from "lucide-react";
@@ -177,15 +178,14 @@ async function PatientHabitsView({ patientId }: { patientId: string }) {
 async function ClinicianHabitsView({ clinicianId }: { clinicianId: string }) {
   const [grouped, linkedPatients] = await Promise.all([
     habitService.getHabitsForClinician(clinicianId),
-    prisma.patientClinicianLink.findMany({
-      where: { clinicianId, status: "active" },
-      include: {
-        patient: { select: { id: true, firstName: true, lastName: true } },
-      },
-    }),
+    getPatientsForClinician(clinicianId),
   ]);
 
-  const patients = linkedPatients.map((l) => l.patient);
+  const patients = linkedPatients.map((p) => ({
+    id: p.id,
+    firstName: p.firstName,
+    lastName: p.lastName,
+  }));
   const totalHabits = grouped.reduce((sum, g) => sum + g.habits.length, 0);
 
   return (

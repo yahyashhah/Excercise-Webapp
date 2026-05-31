@@ -48,7 +48,7 @@ export default async function PatientsPage({ searchParams }: Props) {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Clients</h2>
           <p className="text-muted-foreground">
-            {allPatients.length} client{allPatients.length !== 1 ? "s" : ""} linked to your practice
+            {allPatients.length} client{allPatients.length !== 1 ? "s" : ""} in your clinic
           </p>
         </div>
         <AddPatientDialog />
@@ -71,7 +71,7 @@ export default async function PatientsPage({ searchParams }: Props) {
           <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
             {q
               ? `No results for "${q}". Try a different name or email.`
-              : "Click \"Add Client\" above to link a patient by their email address. They must have already signed up."}
+              : "Click \"Invite Patient\" above to send an invitation. The patient will receive an email to join your clinic."}
           </p>
         </div>
       ) : (

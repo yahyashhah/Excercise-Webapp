@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { linkPatientAction } from "@/actions/patient-actions";
+import { invitePatientAction } from "@/actions/invite-patient-action";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,34 +32,31 @@ export function AddPatientDialog() {
     }
 
     startTransition(async () => {
-      const result = await linkPatientAction(trimmed);
+      const result = await invitePatientAction(trimmed);
 
       if (result.success) {
-        toast.success("Patient linked successfully");
+        toast.success("Invitation sent! The patient will receive an email to join your clinic.");
         setEmail("");
         setOpen(false);
       } else {
-        toast.error(result.error ?? "Failed to link patient");
+        toast.error(result.error ?? "Failed to send invitation");
       }
     });
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-all outline-none select-none hover:bg-primary/90 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 h-8"
-      >
+      <DialogTrigger className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-all outline-none select-none hover:bg-primary/90 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 h-8">
         <UserPlus className="h-4 w-4" />
-        Add Patient
+        Invite Patient
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Add a Patient</DialogTitle>
+            <DialogTitle>Invite a Patient</DialogTitle>
             <DialogDescription>
-              Enter the email address of a patient who has already signed up.
-              This will link them to your account so you can manage their
-              exercise programs.
+              Enter the patient&apos;s email address. They will receive an invitation
+              to create an account and join your clinic.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 space-y-3">
@@ -78,12 +75,9 @@ export function AddPatientDialog() {
             </div>
           </div>
           <DialogFooter className="mt-4">
-            <Button
-              type="submit"
-              disabled={isPending || !email.trim()}
-            >
+            <Button type="submit" disabled={isPending || !email.trim()}>
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Link Patient
+              Send Invitation
             </Button>
           </DialogFooter>
         </form>

@@ -4,15 +4,23 @@ import { redirect } from "next/navigation";
 import type { User } from "@prisma/client";
 
 export async function getCurrentUser(): Promise<User> {
-  const { userId } = await auth();
+  const { userId, orgId } = await auth();
   if (!userId) redirect("/sign-in");
 
   const user = await prisma.user.findUnique({
     where: { clerkId: userId },
   });
 
-  if (!user) redirect("/onboarding");
-  if (!user.onboarded) redirect("/onboarding");
+  if (!user) {
+    // New Clerk user: orgId present = came via org invitation = patient path
+    if (orgId) redirect("/onboarding/patient");
+    redirect("/onboarding");
+  }
+
+  if (!user.onboarded) {
+    if (user.role === "PATIENT") redirect("/onboarding/patient");
+    redirect("/onboarding");
+  }
 
   return user;
 }

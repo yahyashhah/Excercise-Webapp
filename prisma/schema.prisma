@@ -88,13 +88,12 @@ model User {
   phone       String?
   dateOfBirth String?
   imageUrl    String?
+  clerkOrgId  String?
   onboarded   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   patientProfile   PatientProfile?
-  patientLinks     PatientClinicianLink[] @relation("PatientLinks")
-  clinicianLinks   PatientClinicianLink[] @relation("ClinicianLinks")
   plansAsPatient   WorkoutPlan[]          @relation("PatientPlans")
   plansCreated     WorkoutPlan[]          @relation("CreatedPlans")
   feedbackGiven    ExerciseFeedback[]
@@ -104,7 +103,6 @@ model User {
   assessments      Assessment[]           @relation("PatientAssessments")
   assessedBy       Assessment[]           @relation("AssessedBy")
   exercisesCreated Exercise[]
-  clinicProfile    ClinicProfile?
 
   programsCreated    Program[]            @relation("ProgramsCreated")
   programsAssigned   Program[]            @relation("ProgramsAssigned")
@@ -147,17 +145,6 @@ model PatientProfile {
   updatedAt                DateTime  @updatedAt
 }
 
-model PatientClinicianLink {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  patientId   String   @db.ObjectId
-  clinicianId String   @db.ObjectId
-  patient     User     @relation("PatientLinks", fields: [patientId], references: [id], onDelete: Cascade)
-  clinician   User     @relation("ClinicianLinks", fields: [clinicianId], references: [id], onDelete: Cascade)
-  status      String   @default("active")
-  createdAt   DateTime @default(now())
-
-  @@unique([patientId, clinicianId])
-}
 
 model Exercise {
   id                 String          @id @default(auto()) @map("_id") @db.ObjectId
@@ -360,20 +347,6 @@ model Message {
   createdAt      DateTime      @default(now())
 }
 
-model ClinicProfile {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  clinicianId String   @unique @db.ObjectId
-  clinician   User     @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
-  clinicName  String
-  tagline     String?
-  logoUrl     String?
-  phone       String?
-  email       String?
-  website     String?
-  address     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
 
 // --- Phase 1 Models ---
 

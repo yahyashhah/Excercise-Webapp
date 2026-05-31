@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { ClinicianDashboard } from "@/components/dashboard/clinician-dashboard";
 import { PatientDashboard } from "@/components/dashboard/patient-dashboard";
 import * as sessionService from "@/lib/services/session.service";
+import { getPatientIdsForClinician } from "@/lib/services/patient.service";
 import { startOfWeek, endOfWeek, startOfDay } from "date-fns";
 
 export default async function DashboardPage() {
@@ -14,7 +15,7 @@ export default async function DashboardPage() {
 
   if (user.role === "CLINICIAN") {
     const [
-      patientCount,
+      patientIds,
       activePlans,
       pendingFeedback,
       unreadMessages,
@@ -22,9 +23,7 @@ export default async function DashboardPage() {
       activePrograms,
       upcomingSessions,
     ] = await Promise.all([
-      prisma.patientClinicianLink.count({
-        where: { clinicianId: user.id, status: "active" },
-      }),
+      getPatientIdsForClinician(user.id),
       prisma.workoutPlan.count({
         where: { createdById: user.id, status: "ACTIVE" },
       }),
@@ -57,7 +56,7 @@ export default async function DashboardPage() {
 
     return (
       <ClinicianDashboard
-        patientCount={patientCount}
+        patientCount={patientIds.length}
         activePlans={activePlans}
         pendingFeedback={pendingFeedback}
         unreadMessages={unreadMessages}
