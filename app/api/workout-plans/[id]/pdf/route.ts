@@ -168,6 +168,7 @@ export async function GET(
       notes: string | null;
       cuesThumbnail: string | null;
       dayOfWeek: number;
+      videoUrl: string | null;
     }>
   >();
 
