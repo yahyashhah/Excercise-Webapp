@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { updateSetLogV2Action, completeSessionV2Action } from "@/actions/session-v2-actions";
+import { updateSetLogV2Action, completeSessionV2Action, updateExerciseActualSetsAction } from "@/actions/session-v2-actions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { ExerciseVideoPlayer } from "@/components/exercises/exercise-video-player";
 import {
   Check, Trophy, Loader2, ChevronDown, ChevronUp, ChevronRight,
-  AlertCircle,
+  AlertCircle, Plus, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SetLogEntry, SetLogCache } from "./types";
@@ -43,6 +43,7 @@ type SessionExerciseLog = {
   id: string;
   blockExerciseId: string;
   status: string;
+  actualSets?: number | null;
   setLogs: { id: string; setIndex: number; actualReps?: number | null; actualWeight?: number | null; actualDuration?: number | null }[];
 };
 type BlockExercise = {
@@ -79,7 +80,7 @@ function getPrescriptionText(ex: BlockExercise, block: WorkoutBlock): string {
   const set = ex.sets[0];
   if (!set) return "";
   const setsLabel = isCircuit
-    ? rounds > 1 ? `${rounds} rounds` : "1 round"
+    ? `${rounds} ${rounds === 1 ? "set" : "sets"}`
     : `${ex.sets.length} ${ex.sets.length === 1 ? "set" : "sets"}`;
   if (set.targetReps) return `${setsLabel} × ${set.targetReps} reps`;
   if (set.targetDuration) return `${setsLabel} × ${set.targetDuration}s`;
@@ -145,12 +146,38 @@ export function WorkoutChecklistTracker({
     return result;
   });
 
-  // Pending input values (before the user taps "Log Set")
+  // Pending input values (before the user taps "Done")
   const [pendingInputs, setPendingInputs] = useState<
     Record<string, { actualReps?: number; actualWeight?: number; actualDuration?: number }>
   >({});
 
+  // Actual sets logged per exercise (exercise-level, separate from per-set rows)
+  const [actualSetsByExercise, setActualSetsByExercise] = useState<Record<string, number>>(() => {
+    const result: Record<string, number> = {};
+    for (const log of session.exerciseLogs) {
+      if (log.actualSets != null) result[log.blockExerciseId] = log.actualSets;
+    }
+    return result;
+  });
+
   const [loggingKey, setLoggingKey] = useState<string | null>(null);
+
+  // Extra sets the client adds beyond what was prescribed
+  const [extraSetCounts, setExtraSetCounts] = useState<Record<string, number>>({});
+
+  function addExtraSet(exerciseId: string) {
+    setExtraSetCounts((prev) => ({ ...prev, [exerciseId]: (prev[exerciseId] ?? 0) + 1 }));
+  }
+
+  function removeExtraSet(exerciseId: string, setIndex: number) {
+    if (exerciseSetLogs[exerciseId]?.[setIndex]?.completed) return;
+    setExtraSetCounts((prev) => ({ ...prev, [exerciseId]: Math.max(0, (prev[exerciseId] ?? 0) - 1) }));
+    setPendingInputs((prev) => {
+      const next = { ...prev };
+      delete next[inputKey(exerciseId, setIndex)];
+      return next;
+    });
+  }
 
   // ── Accordion state ────────────────────────────────────────────────────────
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(
@@ -366,7 +393,7 @@ export function WorkoutChecklistTracker({
                   <span className="font-semibold text-sm">{blockName}</span>
                   {isCircuit && block.rounds > 1 && (
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                      {block.rounds} rounds
+                      {block.rounds} sets
                     </Badge>
                   )}
                 </div>
@@ -467,7 +494,7 @@ export function WorkoutChecklistTracker({
                           {/* Info chips */}
                           <div className="flex flex-wrap gap-1.5">
                             <Badge variant="secondary" className="text-[11px]">
-                              {isCircuit ? `${block.rounds} rounds` : `${ex.sets.length} sets`}
+                              {`${isCircuit ? block.rounds : ex.sets.length} sets`}
                             </Badge>
                             {ex.sets[0]?.targetReps && (
                               <Badge variant="secondary" className="text-[11px]">
@@ -526,23 +553,64 @@ export function WorkoutChecklistTracker({
                           )}
 
                           {/* Per-set logging table */}
-                          {!isFullyDone && (
-                            <div className="space-y-2">
-                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Log Your Sets
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
+                                Actual Sets
                               </p>
-
-                              {setCount === 0 && (
-                                <p className="text-xs text-muted-foreground">No sets prescribed.</p>
+                              {setCount > 1 && (
+                                <div className="flex items-center gap-1.5">
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    placeholder="—"
+                                    value={actualSetsByExercise[ex.id] ?? ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value === "" ? undefined : Number(e.target.value);
+                                      setActualSetsByExercise((prev) => {
+                                        const next = { ...prev };
+                                        if (val === undefined) delete next[ex.id];
+                                        else next[ex.id] = val;
+                                        return next;
+                                      });
+                                      updateExerciseActualSetsAction(
+                                        session.id,
+                                        ex.id,
+                                        e.target.value === "" ? null : Number(e.target.value)
+                                      );
+                                    }}
+                                    className="h-8 w-20 text-sm text-center"
+                                  />
+                                  <span className="text-xs text-muted-foreground whitespace-nowrap">sets done</span>
+                                </div>
                               )}
+                              {isFullyDone && (
+                                <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-0.5 ml-auto">
+                                  <Check className="h-3 w-3" /> All done
+                                </span>
+                              )}
+                            </div>
 
-                              {Array.from({ length: setCount }, (_, i) => {
-                                const setDef = isCircuit ? ex.sets[0] : ex.sets[i];
+                            {setCount === 0 && (
+                              <p className="text-xs text-muted-foreground">No sets prescribed.</p>
+                            )}
+
+                            {Array.from(
+                              { length: setCount + (extraSetCounts[ex.id] ?? 0) },
+                              (_, i) => {
+                                const isExtra = i >= setCount;
+                                const setDef = isExtra
+                                  ? null
+                                  : isCircuit
+                                  ? ex.sets[0]
+                                  : ex.sets[i];
                                 const logEntry = exerciseSetLogs[ex.id]?.[i];
                                 const isDone = logEntry?.completed ?? false;
                                 const key = inputKey(ex.id, i);
                                 const pending = pendingInputs[key] ?? {};
                                 const isLogging = loggingKey === key;
+                                const isLastExtra =
+                                  isExtra && i === setCount + (extraSetCounts[ex.id] ?? 0) - 1;
 
                                 return (
                                   <div
@@ -551,6 +619,8 @@ export function WorkoutChecklistTracker({
                                       "rounded-xl border p-3 transition-colors",
                                       isDone
                                         ? "border-emerald-200 bg-emerald-50/50"
+                                        : isExtra
+                                        ? "border-dashed border-muted-foreground/30 bg-background"
                                         : "border-border bg-background"
                                     )}
                                   >
@@ -567,10 +637,23 @@ export function WorkoutChecklistTracker({
                                         {isDone ? <Check className="h-3 w-3" /> : i + 1}
                                       </div>
                                       <span className="text-xs text-muted-foreground">
-                                        {isCircuit ? `Round ${i + 1}` : `Set ${i + 1}`}
+                                        {`Set ${i + 1}`}
+                                        {isExtra && (
+                                          <span className="ml-1 text-[10px] text-muted-foreground/60">(extra)</span>
+                                        )}
                                         {setDef?.targetReps && ` · target ${setDef.targetReps} reps`}
                                         {setDef?.targetDuration && ` · target ${setDef.targetDuration}s`}
                                       </span>
+                                      {/* Remove button for last unlogged extra set */}
+                                      {isLastExtra && !isDone && (
+                                        <button
+                                          type="button"
+                                          className="ml-auto text-muted-foreground hover:text-destructive"
+                                          onClick={() => removeExtraSet(ex.id, i)}
+                                        >
+                                          <X className="h-3.5 w-3.5" />
+                                        </button>
+                                      )}
                                       {isDone && logEntry?.actualReps === 0 && !logEntry?.actualDuration && (
                                         <Badge
                                           variant="outline"
@@ -580,13 +663,13 @@ export function WorkoutChecklistTracker({
                                         </Badge>
                                       )}
                                       {isDone && (logEntry?.actualReps ?? 0) > 0 && (
-                                        <span className="ml-auto text-[11px] text-emerald-600 font-medium">
+                                        <span className={cn("text-[11px] text-emerald-600 font-medium", !isLastExtra && "ml-auto")}>
                                           {logEntry?.actualReps} reps
                                           {logEntry?.actualWeight ? ` @ ${logEntry.actualWeight} lbs` : ""}
                                         </span>
                                       )}
                                       {isDone && logEntry?.actualDuration && (
-                                        <span className="ml-auto text-[11px] text-emerald-600 font-medium">
+                                        <span className={cn("text-[11px] text-emerald-600 font-medium", !isLastExtra && "ml-auto")}>
                                           {logEntry.actualDuration}s
                                         </span>
                                       )}
@@ -595,7 +678,8 @@ export function WorkoutChecklistTracker({
                                     {/* Inputs — hidden when done */}
                                     {!isDone && (
                                       <div className="flex flex-wrap gap-2 items-end">
-                                        {(setDef?.targetReps != null || (!setDef?.targetDuration)) && (
+                                        {/* Reps: always show for extra sets; for prescribed show when target reps or no duration */}
+                                        {(isExtra || setDef?.targetReps != null || !setDef?.targetDuration) && (
                                           <div className="space-y-0.5">
                                             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
                                               Actual reps
@@ -612,7 +696,7 @@ export function WorkoutChecklistTracker({
                                             />
                                           </div>
                                         )}
-                                        {setDef?.targetDuration != null && (
+                                        {(isExtra || setDef?.targetDuration != null) && (
                                           <div className="space-y-0.5">
                                             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
                                               Actual secs
@@ -620,7 +704,7 @@ export function WorkoutChecklistTracker({
                                             <Input
                                               type="number"
                                               min={0}
-                                              placeholder={setDef.targetDuration.toString()}
+                                              placeholder={setDef?.targetDuration?.toString() ?? "0"}
                                               value={pending.actualDuration ?? ""}
                                               onChange={(e) =>
                                                 handleInputChange(ex.id, i, "actualDuration", e.target.value)
@@ -629,7 +713,7 @@ export function WorkoutChecklistTracker({
                                             />
                                           </div>
                                         )}
-                                        {setDef?.targetWeight != null && (
+                                        {(isExtra || setDef?.targetWeight != null) && (
                                           <div className="space-y-0.5">
                                             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
                                               Weight (lbs)
@@ -637,7 +721,7 @@ export function WorkoutChecklistTracker({
                                             <Input
                                               type="number"
                                               min={0}
-                                              placeholder={setDef.targetWeight.toString()}
+                                              placeholder={setDef?.targetWeight?.toString() ?? "0"}
                                               value={pending.actualWeight ?? ""}
                                               onChange={(e) =>
                                                 handleInputChange(ex.id, i, "actualWeight", e.target.value)
@@ -659,32 +743,40 @@ export function WorkoutChecklistTracker({
                                             ) : (
                                               <Check className="h-3 w-3" />
                                             )}
-                                            Log Set
+                                            Done
                                           </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-8 gap-1 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
-                                            onClick={() => handleLogSet(block, ex, i, true)}
-                                            disabled={isLogging}
-                                          >
-                                            <AlertCircle className="h-3 w-3" />
-                                            Can&apos;t do
-                                          </Button>
+                                          {!isExtra && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="h-8 gap-1 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+                                              onClick={() => handleLogSet(block, ex, i, true)}
+                                              disabled={isLogging}
+                                            >
+                                              <AlertCircle className="h-3 w-3" />
+                                              Can&apos;t do
+                                            </Button>
+                                          )}
                                         </div>
                                       </div>
                                     )}
                                   </div>
                                 );
-                              })}
-                            </div>
-                          )}
+                              }
+                            )}
 
-                          {isFullyDone && (
-                            <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                              <Check className="h-3 w-3" /> All sets completed
-                            </p>
-                          )}
+                            {/* Add extra set */}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="w-full h-8 text-xs border-dashed gap-1"
+                              onClick={() => addExtraSet(ex.id)}
+                            >
+                              <Plus className="h-3 w-3" />
+                              Add Set
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>

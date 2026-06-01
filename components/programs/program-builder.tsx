@@ -17,10 +17,13 @@ import {
   SortableContext,
   verticalListSortingStrategy,
   arrayMove,
+  useSortable,
 } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -47,7 +50,52 @@ interface Props {
     defaultReps?: number | null;
     musclesTargeted?: string[];
     imageUrl?: string | null;
+    equipmentRequired?: string[];
   }[];
+}
+
+// Sortable wrapper for a block — must be a component so useSortable can be called as a hook.
+function SortableBlock({
+  id,
+  children,
+}: {
+  id: string;
+  children: (dragHandleProps: React.HTMLAttributes<HTMLElement>) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ ...attributes, ...listeners })}
+    </div>
+  );
+}
+
+// Sortable wrapper for an exercise row.
+function SortableExercise({
+  id,
+  children,
+}: {
+  id: string;
+  children: (dragHandleProps: React.HTMLAttributes<HTMLElement>) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ ...attributes, ...listeners })}
+    </div>
+  );
 }
 
 export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
@@ -172,7 +220,6 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
             restAfter: null,
           },
         ],
-        // UI-only display fields
         _exerciseName: exercise.name,
         _exerciseBodyRegion: exercise.bodyRegion,
       } as WorkoutInput["blocks"][number]["exercises"][number] & {
@@ -206,6 +253,20 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
   ) {
     const next = [...workouts];
     next[workoutIdx].blocks[blockIdx].exercises[exIdx].sets = sets;
+    onChange(next);
+  }
+
+  function updateExerciseNotes(
+    workoutIdx: number,
+    blockIdx: number,
+    exIdx: number,
+    notes: string
+  ) {
+    const next = [...workouts];
+    next[workoutIdx].blocks[blockIdx].exercises[exIdx] = {
+      ...next[workoutIdx].blocks[blockIdx].exercises[exIdx],
+      notes: notes || null,
+    };
     onChange(next);
   }
 
@@ -271,7 +332,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Workouts</h2>
           <p className="text-sm text-muted-foreground">
-            Build your program&apos;s workout structure. Drag to reorder.
+            Build your program&apos;s workout structure. Drag blocks or exercises to reorder.
           </p>
         </div>
       </div>
@@ -323,144 +384,180 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
                 strategy={verticalListSortingStrategy}
               >
                 {workout.blocks.map((block, bi) => (
-                  <div
-                    key={bi}
-                    className="border rounded-lg p-4 bg-muted/30"
-                  >
-                    {/* Block header */}
-                    <div className="flex items-center gap-3 mb-3">
-                      <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                      <Input
-                        value={block.name || ""}
-                        onChange={(e) =>
-                          updateBlockField(wi, bi, "name", e.target.value)
-                        }
-                        placeholder="Block name"
-                        className="max-w-[200px]"
-                      />
-                      <Select
-                        value={block.type}
-                        onValueChange={(v) =>
-                          updateBlockField(wi, bi, "type", v)
-                        }
-                      >
-                        <SelectTrigger className="w-[130px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="NORMAL">Normal</SelectItem>                            <SelectItem value="WARMUP">Warmup</SelectItem>
-                            <SelectItem value="COOLDOWN">Cooldown</SelectItem>                          <SelectItem value="SUPERSET">Superset</SelectItem>
-                          <SelectItem value="CIRCUIT">Circuit</SelectItem>
-                          <SelectItem value="AMRAP">AMRAP</SelectItem>
-                          <SelectItem value="EMOM">EMOM</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {(block.type === "CIRCUIT" ||
-                        block.type === "AMRAP") && (
-                        <Input
-                          type="number"
-                          value={block.rounds}
-                          onChange={(e) =>
-                            updateBlockField(
-                              wi,
-                              bi,
-                              "rounds",
-                              parseInt(e.target.value) || 1
-                            )
-                          }
-                          className="w-20"
-                          min={1}
-                          placeholder="Rounds"
-                        />
-                      )}
-                      {block.type === "AMRAP" && (
-                        <Input
-                          type="number"
-                          value={block.timeCap ?? ""}
-                          onChange={(e) =>
-                            updateBlockField(
-                              wi,
-                              bi,
-                              "timeCap",
-                              e.target.value
-                                ? parseInt(e.target.value)
-                                : null
-                            )
-                          }
-                          className="w-24"
-                          placeholder="Time cap (s)"
-                        />
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeBlock(wi, bi)}
-                        className="ml-auto text-destructive h-8 w-8"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-
-                    {/* Exercises in this block */}
-                    <DndContext
-                      sensors={sensors}
-                      collisionDetection={closestCenter}
-                      onDragEnd={(e) => handleExerciseDragEnd(wi, bi, e)}
-                    >
-                      <SortableContext
-                        items={block.exercises.map(
-                          (e) => `ex-${wi}-${bi}-${e.orderIndex}`
-                        )}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        <div className="space-y-2">
-                          {block.exercises.map((ex, ei) => (
-                            <div
-                              key={ei}
-                              className="border rounded-md p-3 bg-background"
-                            >
-                              <div className="flex items-center gap-2 mb-2">
-                                <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                                <span className="font-medium flex-1">
-                                  {getExerciseName(
-                                    ex.exerciseId,
-                                    (
-                                      ex as typeof ex & {
-                                        _exerciseName?: string;
-                                      }
-                                    )._exerciseName
-                                  )}
-                                </span>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => removeExercise(wi, bi, ei)}
-                                  className="text-destructive h-7 w-7"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                              <SetEditor
-                                sets={ex.sets}
-                                onChange={(sets) =>
-                                  updateExerciseSets(wi, bi, ei, sets)
-                                }
-                              />
-                            </div>
-                          ))}
+                  <SortableBlock key={bi} id={`block-${wi}-${block.orderIndex}`}>
+                    {(dragHandleProps) => (
+                      <div className="border rounded-lg p-4 bg-muted/30">
+                        {/* Block header */}
+                        <div className="flex items-center gap-3 mb-3">
+                          <button
+                            type="button"
+                            className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+                            {...dragHandleProps}
+                          >
+                            <GripVertical className="h-4 w-4" />
+                          </button>
+                          <Input
+                            value={block.name || ""}
+                            onChange={(e) =>
+                              updateBlockField(wi, bi, "name", e.target.value)
+                            }
+                            placeholder="Block name"
+                            className="max-w-[200px]"
+                          />
+                          <Select
+                            value={block.type}
+                            onValueChange={(v) =>
+                              updateBlockField(wi, bi, "type", v)
+                            }
+                          >
+                            <SelectTrigger className="w-[130px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="NORMAL">Normal</SelectItem>
+                              <SelectItem value="WARMUP">Warmup</SelectItem>
+                              <SelectItem value="COOLDOWN">Cooldown</SelectItem>
+                              <SelectItem value="SUPERSET">Superset</SelectItem>
+                              <SelectItem value="CIRCUIT">Circuit</SelectItem>
+                              <SelectItem value="AMRAP">AMRAP</SelectItem>
+                              <SelectItem value="EMOM">EMOM</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {(block.type === "CIRCUIT" ||
+                            block.type === "AMRAP") && (
+                            <Input
+                              type="number"
+                              value={block.rounds}
+                              onChange={(e) =>
+                                updateBlockField(
+                                  wi,
+                                  bi,
+                                  "rounds",
+                                  parseInt(e.target.value) || 1
+                                )
+                              }
+                              className="w-20"
+                              min={1}
+                              placeholder="Rounds"
+                            />
+                          )}
+                          {block.type === "AMRAP" && (
+                            <Input
+                              type="number"
+                              value={block.timeCap ?? ""}
+                              onChange={(e) =>
+                                updateBlockField(
+                                  wi,
+                                  bi,
+                                  "timeCap",
+                                  e.target.value
+                                    ? parseInt(e.target.value)
+                                    : null
+                                )
+                              }
+                              className="w-24"
+                              placeholder="Time cap (s)"
+                            />
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeBlock(wi, bi)}
+                            className="ml-auto text-destructive h-8 w-8"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
-                      </SortableContext>
-                    </DndContext>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3"
-                      onClick={() => openExercisePicker(wi, bi)}
-                    >
-                      <Plus className="mr-1 h-3.5 w-3.5" /> Add Exercise
-                    </Button>
-                  </div>
+                        {/* Exercises in this block */}
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={(e) => handleExerciseDragEnd(wi, bi, e)}
+                        >
+                          <SortableContext
+                            items={block.exercises.map(
+                              (e) => `ex-${wi}-${bi}-${e.orderIndex}`
+                            )}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            <div className="space-y-2">
+                              {block.exercises.map((ex, ei) => (
+                                <SortableExercise
+                                  key={ei}
+                                  id={`ex-${wi}-${bi}-${ex.orderIndex}`}
+                                >
+                                  {(exDragHandleProps) => (
+                                    <div className="border rounded-md p-3 bg-background">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <button
+                                          type="button"
+                                          className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+                                          {...exDragHandleProps}
+                                        >
+                                          <GripVertical className="h-4 w-4" />
+                                        </button>
+                                        <span className="font-medium flex-1">
+                                          {getExerciseName(
+                                            ex.exerciseId,
+                                            (
+                                              ex as typeof ex & {
+                                                _exerciseName?: string;
+                                              }
+                                            )._exerciseName
+                                          )}
+                                        </span>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() =>
+                                            removeExercise(wi, bi, ei)
+                                          }
+                                          className="text-destructive h-7 w-7"
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                      {/* Clinician notes for this exercise */}
+                                      <Textarea
+                                        value={ex.notes ?? ""}
+                                        onChange={(e) =>
+                                          updateExerciseNotes(
+                                            wi,
+                                            bi,
+                                            ei,
+                                            e.target.value
+                                          )
+                                        }
+                                        placeholder="Instructions for client (e.g. use one hand only, keep back straight)…"
+                                        className="text-sm mb-2 min-h-[36px] resize-none"
+                                        rows={1}
+                                      />
+                                      <SetEditor
+                                        sets={ex.sets}
+                                        onChange={(sets) =>
+                                          updateExerciseSets(wi, bi, ei, sets)
+                                        }
+                                      />
+                                    </div>
+                                  )}
+                                </SortableExercise>
+                              ))}
+                            </div>
+                          </SortableContext>
+                        </DndContext>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-3"
+                          onClick={() => openExercisePicker(wi, bi)}
+                        >
+                          <Plus className="mr-1 h-3.5 w-3.5" /> Add Exercise
+                        </Button>
+                      </div>
+                    )}
+                  </SortableBlock>
                 ))}
               </SortableContext>
             </DndContext>

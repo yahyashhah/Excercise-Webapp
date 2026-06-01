@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import {
   Form,
   FormControl,
@@ -25,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Dumbbell, Sparkles, X } from "lucide-react";
 import {
   createProgramSchema,
   type CreateProgramInput,
@@ -46,6 +48,7 @@ interface Props {
     defaultReps?: number | null;
     musclesTargeted?: string[];
     imageUrl?: string | null;
+    equipmentRequired?: string[];
   }[];
 }
 
@@ -63,7 +66,7 @@ function mapWorkoutToInput(w: Record<string, unknown>): WorkoutInput {
       (b: Record<string, unknown>, bi: number) => ({
         id: b.id as string,
         name: b.name as string | null | undefined,
-          type: (["WARMUP", "COOLDOWN", "SUPERSET", "CIRCUIT", "AMRAP", "EMOM"].includes((b.type as string)?.toUpperCase()) ? (b.type as string).toUpperCase() : "NORMAL") as "NORMAL" | "WARMUP" | "COOLDOWN" | "SUPERSET" | "CIRCUIT" | "AMRAP" | "EMOM",
+        type: (["WARMUP", "COOLDOWN", "SUPERSET", "CIRCUIT", "AMRAP", "EMOM"].includes((b.type as string)?.toUpperCase()) ? (b.type as string).toUpperCase() : "NORMAL") as "NORMAL" | "WARMUP" | "COOLDOWN" | "SUPERSET" | "CIRCUIT" | "AMRAP" | "EMOM",
         orderIndex: bi,
         rounds: (b.rounds as number) || 1,
         restBetweenRounds: b.restBetweenRounds as number | null | undefined,
@@ -113,6 +116,13 @@ export function ProgramEditor({ program, exercises }: Props) {
       : []
   );
 
+  // Equipment state — pre-populated from saved program or empty
+  const [equipment, setEquipment] = useState<string[]>(
+    (program?.equipmentRequired as string[]) || []
+  );
+  const [equipmentInput, setEquipmentInput] = useState("");
+  const equipmentInputRef = useRef<HTMLInputElement>(null);
+
   const form = useForm<CreateProgramInput>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(createProgramSchema) as any,
@@ -123,9 +133,47 @@ export function ProgramEditor({ program, exercises }: Props) {
       durationWeeks: (program?.durationWeeks as number) || undefined,
       daysPerWeek: (program?.daysPerWeek as number) || undefined,
       tags: (program?.tags as string[]) || [],
+      equipmentRequired: [],
       workouts: [],
     },
   });
+
+  // Auto-detect equipment from exercises currently added to the builder
+  function autoDetectEquipment() {
+    const exerciseIds = workouts
+      .flatMap((w) => w.blocks)
+      .flatMap((b) => b.exercises)
+      .map((e) => e.exerciseId);
+
+    const detected = exerciseIds
+      .flatMap((id) => {
+        const ex = exercises.find((e) => e.id === id);
+        return ex?.equipmentRequired ?? [];
+      })
+      .filter((eq) => eq && eq.toLowerCase() !== "none");
+
+    const merged = [...new Set([...equipment, ...detected])].sort();
+    setEquipment(merged);
+    toast.success(`Equipment updated — ${merged.length} item${merged.length !== 1 ? "s" : ""} listed`);
+  }
+
+  function addEquipmentItem(item: string) {
+    const trimmed = item.trim();
+    if (!trimmed || equipment.includes(trimmed)) return;
+    setEquipment((prev) => [...prev, trimmed].sort());
+  }
+
+  function removeEquipmentItem(item: string) {
+    setEquipment((prev) => prev.filter((e) => e !== item));
+  }
+
+  function handleEquipmentKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addEquipmentItem(equipmentInput);
+      setEquipmentInput("");
+    }
+  }
 
   async function onSubmit(data: CreateProgramInput) {
     setSaving(true);
@@ -148,6 +196,7 @@ export function ProgramEditor({ program, exercises }: Props) {
         })),
       }));
       data.workouts = cleanWorkouts;
+      data.equipmentRequired = equipment;
 
       if (program) {
         const result = await updateProgramAction(
@@ -278,10 +327,78 @@ export function ProgramEditor({ program, exercises }: Props) {
                       onCheckedChange={field.onChange}
                     />
                   </FormControl>
-                  <FormLabel className="!mt-0">Save as template</FormLabel>
+                  <FormLabel className="mt-0!">Save as template</FormLabel>
                 </FormItem>
               )}
             />
+          </CardContent>
+        </Card>
+
+        {/* Equipment Card */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <div className="flex items-center gap-2">
+              <Dumbbell className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">Equipment Needed</CardTitle>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={autoDetectEquipment}
+              className="gap-1.5 text-xs"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Auto-detect from exercises
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Current equipment tags */}
+            <div className="flex flex-wrap gap-2 min-h-7">
+              {equipment.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No equipment added yet. Type below or use auto-detect.
+                </p>
+              )}
+              {equipment.map((item) => (
+                <Badge
+                  key={item}
+                  variant="secondary"
+                  className="gap-1 pr-1 text-sm"
+                >
+                  {item}
+                  <button
+                    type="button"
+                    onClick={() => removeEquipmentItem(item)}
+                    className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+            {/* Manual entry */}
+            <div className="flex gap-2">
+              <Input
+                ref={equipmentInputRef}
+                value={equipmentInput}
+                onChange={(e) => setEquipmentInput(e.target.value)}
+                onKeyDown={handleEquipmentKeyDown}
+                placeholder="Add item (e.g. Resistance Band) and press Enter"
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  addEquipmentItem(equipmentInput);
+                  setEquipmentInput("");
+                  equipmentInputRef.current?.focus();
+                }}
+              >
+                Add
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

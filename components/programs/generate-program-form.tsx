@@ -90,9 +90,11 @@ export function GenerateProgramForm({ patients, initialPatientId }: GenerateProg
   }
 
   function toggleWeekday(day: string) {
-    setSelectedWeekdays((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
-    );
+    setSelectedWeekdays((prev) => {
+      const next = prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day];
+      setDaysPerWeek(next.length || 1);
+      return next;
+    });
   }
 
   function addCircuit() {
@@ -140,10 +142,7 @@ export function GenerateProgramForm({ patients, initialPatientId }: GenerateProg
       toast.error('Please select at least one training day');
       return;
     }
-    if (selectedWeekdays.length !== daysPerWeek) {
-      toast.error('Days per week must match your selected weekdays');
-      return;
-    }
+
     if (circuits.some(c => c.exerciseCount < 1)) {
       toast.error('Each circuit must have at least 1 exercise');
       return;
@@ -278,10 +277,38 @@ export function GenerateProgramForm({ patients, initialPatientId }: GenerateProg
                 )
               })()}
 
+              {/* Session Duration + Days Per Week */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Session Duration (minutes)</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={duration}
+                    onChange={(e) => setDuration(Number(e.target.value))}
+                  >
+                    {[15, 20, 25, 30, 45, 60].map((m) => (
+                      <option key={m} value={m}>{m} minutes</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Days Per Week</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={daysPerWeek}
+                    onChange={(e) => setDaysPerWeek(Number(e.target.value))}
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                      <option key={d} value={d}>{d} {d === 1 ? "day" : "days"}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               {/* Program Duration */}
               <div className="space-y-2">
                 <Label>Program Duration</Label>
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
                   {[2, 4, 6, 8, 12].map(w => (
                     <Button
                       key={w}
@@ -290,9 +317,23 @@ export function GenerateProgramForm({ patients, initialPatientId }: GenerateProg
                       size="sm"
                       onClick={() => setDurationWeeks(w)}
                     >
-                      {w} weeks
+                      {w} wks
                     </Button>
                   ))}
+                  <div className="flex items-center gap-1.5 ml-1">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={52}
+                      value={durationWeeks}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value);
+                        if (!isNaN(v) && v >= 1) setDurationWeeks(v);
+                      }}
+                      className="h-8 w-16 text-sm text-center"
+                    />
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">weeks</span>
+                  </div>
                 </div>
               </div>
 
@@ -329,34 +370,6 @@ export function GenerateProgramForm({ patients, initialPatientId }: GenerateProg
                       {d.label}
                     </Button>
                   ))}
-                </div>
-              </div>
-
-              {/* Session Duration + Days Per Week */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Session Duration (minutes)</Label>
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={duration}
-                    onChange={(e) => setDuration(Number(e.target.value))}
-                  >
-                    {[15, 20, 25, 30, 45, 60].map((m) => (
-                      <option key={m} value={m}>{m} minutes</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Days Per Week</Label>
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={daysPerWeek}
-                    onChange={(e) => setDaysPerWeek(Number(e.target.value))}
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7].map((d) => (
-                      <option key={d} value={d}>{d} {d === 1 ? "day" : "days"}</option>
-                    ))}
-                  </select>
                 </div>
               </div>
 

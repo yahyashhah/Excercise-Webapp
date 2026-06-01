@@ -161,6 +161,41 @@ export async function updateSetLogV2Action(
   }
 }
 
+export async function updateExerciseActualSetsAction(
+  sessionId: string,
+  blockExerciseId: string,
+  actualSets: number | null
+) {
+  const { userId } = await auth();
+  if (!userId) return { success: false, error: "Unauthorized" };
+
+  try {
+    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!dbUser) return { success: false, error: "User not found" };
+
+    const exerciseLog = await prisma.sessionExerciseLog.findFirst({
+      where: { sessionId, blockExerciseId },
+    });
+
+    if (exerciseLog) {
+      await prisma.sessionExerciseLog.update({
+        where: { id: exerciseLog.id },
+        data: { actualSets },
+      });
+    } else {
+      const blockEx = await prisma.blockExerciseV2.findUnique({ where: { id: blockExerciseId } });
+      await prisma.sessionExerciseLog.create({
+        data: { sessionId, blockExerciseId, orderIndex: blockEx?.orderIndex ?? 0, status: "IN_PROGRESS", actualSets },
+      });
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error(error);
+    return { success: false, error: "Failed to update actual sets" };
+  }
+}
+
 export async function completeSessionV2Action(
   sessionId: string,
   overallRPE?: number,

@@ -58,6 +58,7 @@ export const createProgramSchema = z.object({
   durationWeeks: z.number().int().positive().optional().nullable(),
   daysPerWeek: z.number().int().min(1).max(7).optional().nullable(),
   tags: z.array(z.string()).default([]),
+  equipmentRequired: z.array(z.string()).default([]),
   startDate: z.string().datetime().optional().nullable(),
   workouts: z.array(workoutSchema).default([]),
 });
