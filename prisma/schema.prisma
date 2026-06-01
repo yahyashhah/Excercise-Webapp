@@ -364,6 +364,7 @@ model Program {
   durationWeeks    Int?
   daysPerWeek      Int?
   tags             String[]
+  equipmentRequired String[] @default([])
   aiGenerationParams Json?
   startDate        DateTime?
   createdAt        DateTime   @default(now())
@@ -465,6 +466,7 @@ model SessionExerciseLog {
   blockExerciseId String           @db.ObjectId
   orderIndex      Int
   status          String           @default("PENDING")
+  actualSets      Int?
   completedAt     DateTime?
   setLogs         SetLog[]
 }

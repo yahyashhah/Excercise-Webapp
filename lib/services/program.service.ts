@@ -266,6 +266,7 @@ export async function duplicateProgram(
     durationWeeks: source.durationWeeks,
     daysPerWeek: source.daysPerWeek,
     tags: source.tags,
+    equipmentRequired: source.equipmentRequired ?? [],
     workouts,
   });
 }
