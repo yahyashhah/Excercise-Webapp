@@ -1,7 +1,7 @@
 import {  getPatientExerciseHistory } from "@/actions/exercise-history-actions";
 import { History } from "lucide-react";
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { GripVertical, Dumbbell, Trash2, Loader2, X, Plus, MoreVertical, Calendar as CalendarIcon, ChevronDown, ChevronRight, Settings, CheckCircle, Info, Sparkles } from "lucide-react";
+import { GripVertical, Dumbbell, Trash2, Loader2, X, Plus, MoreVertical, Calendar as CalendarIcon, ChevronDown, ChevronRight, Settings, CheckCircle, Info, Sparkles, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +39,9 @@ import {
   deleteBlockExercise,
   deleteBlock,
   deleteSession,
+  duplicateBlockAction,
+  duplicateBlockExerciseAction,
+  duplicateWorkoutToDateAction,
 } from "@/actions/calendar-workout-actions";
 
 import {
@@ -58,6 +61,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // ---------------------------------------------------------------------------  // Types
 // ---------------------------------------------------------------------------  
@@ -76,6 +80,9 @@ type ExerciseSummary = {
   videoUrl?: string | null;
   videoProvider?: string | null;
   exercisePhase?: string | null;
+  source?: string | null;
+  organizationId?: string | null;
+  isPublic?: boolean;
 };
 
 type PanelState =
@@ -87,6 +94,7 @@ interface WorkoutEditorPanelProps {
   panelState: PanelState;
   onClose: () => void;
   exerciseLibrary: ExerciseSummary[];
+  clinicOrganizationId?: string;
   patientId: string;
   onWorkoutCreated: () => void;
   onWorkoutDeleted: () => void;
@@ -258,6 +266,7 @@ function SortableExercise({
   onSetChange,
   onDeleteSet,
   onDeleteExercise,
+  onDuplicateExercise,
   onAddSet,
   onUpdateNotes,
   patientId,
@@ -359,14 +368,25 @@ function SortableExercise({
           <History className="h-3.5 w-3.5" />
         </Button>
 {(!sessionStatus || sessionStatus !== "COMPLETED") && (
-<Button
-            variant="ghost"
-            size="icon-xs"
-            className="text-muted-foreground hover:text-destructive h-6 w-6 lg:opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={() => onDeleteExercise(blockIndex, exerciseIndex)}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+  <DropdownMenu>
+    <DropdownMenuTrigger className="text-muted-foreground hover:text-foreground h-6 w-6 lg:opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center rounded-md hover:bg-muted">
+      <MoreVertical className="h-3.5 w-3.5" />
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end">
+      <DropdownMenuItem onClick={() => onDuplicateExercise(blockIndex, exerciseIndex)}>
+        <Copy className="h-3.5 w-3.5 mr-1.5" />
+        Duplicate
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        variant="destructive"
+        onClick={() => onDeleteExercise(blockIndex, exerciseIndex)}
+      >
+        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+        Delete
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
 )}
         </div>
       </div>
@@ -538,6 +558,7 @@ export function WorkoutEditorPanel({
   panelState,
   onClose,
   exerciseLibrary,
+  clinicOrganizationId,
   patientId,
   onWorkoutCreated,
   onWorkoutDeleted,
@@ -555,6 +576,9 @@ export function WorkoutEditorPanel({
   const [pickerBlockId, setPickerBlockId] = useState<string | null>(null);      
   const [addingBlockType, setAddingBlockType] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [duplicateDate, setDuplicateDate] = useState("");
+  const [duplicating, setDuplicating] = useState(false);
+  const [duplicatePopoverOpen, setDuplicatePopoverOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),        
@@ -849,6 +873,28 @@ export function WorkoutEditorPanel({
     }
   }
 
+  // Duplicate exercise
+  async function handleDuplicateExercise(blockIndex: number, exerciseIndex: number) {
+    if (!session) return;
+    const beId = session.workout.blocks[blockIndex].exercises[exerciseIndex].id;
+    const result = await duplicateBlockExerciseAction(beId);
+    if (result.success) {
+      setSession((prev) => {
+        if (!prev) return prev;
+        const blocks = [...prev.workout.blocks];
+        const block = { ...blocks[blockIndex] };
+        const exercises = [...block.exercises];
+        exercises.splice(exerciseIndex + 1, 0, result.data);
+        block.exercises = exercises;
+        blocks[blockIndex] = block;
+        return { ...prev, workout: { ...prev.workout, blocks } };
+      });
+      onWorkoutUpdated();
+    } else {
+      toast.error(result.error);
+    }
+  }
+
   // Delete block
   async function handleDeleteBlock(blockIndex: number) {
     if (!session) return;
@@ -864,6 +910,24 @@ export function WorkoutEditorPanel({
             blocks: prev.workout.blocks.filter((_, i) => i !== blockIndex),     
           },
         };
+      });
+      onWorkoutUpdated();
+    } else {
+      toast.error(result.error);
+    }
+  }
+
+  // Duplicate block
+  async function handleDuplicateBlock(blockIndex: number) {
+    if (!session) return;
+    const blockId = session.workout.blocks[blockIndex].id;
+    const result = await duplicateBlockAction(blockId);
+    if (result.success) {
+      setSession((prev) => {
+        if (!prev) return prev;
+        const blocks = [...prev.workout.blocks];
+        blocks.splice(blockIndex + 1, 0, result.data);
+        return { ...prev, workout: { ...prev.workout, blocks } };
       });
       onWorkoutUpdated();
     } else {
@@ -974,6 +1038,24 @@ export function WorkoutEditorPanel({
     }
   }
 
+  async function handleDuplicateWorkout() {
+    if (!session || !duplicateDate) return;
+    setDuplicating(true);
+    try {
+      const result = await duplicateWorkoutToDateAction(session.id, duplicateDate);
+      if (result.success) {
+        toast.success("Workout duplicated");
+        setDuplicatePopoverOpen(false);
+        setDuplicateDate("");
+        onWorkoutUpdated();
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setDuplicating(false);
+    }
+  }
+
   function handleOpenChange(open: boolean) {
     if (!open) onClose();
   }
@@ -1042,6 +1124,34 @@ export function WorkoutEditorPanel({
                 </div>
               </div>
               <div className="flex items-center gap-1 ml-2">
+                {session && (
+                  <Popover open={duplicatePopoverOpen} onOpenChange={setDuplicatePopoverOpen}>
+                    <PopoverTrigger
+                      title="Duplicate workout to another date"
+                      className="inline-flex items-center justify-center rounded-md h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-72 p-4 space-y-3">
+                      <p className="text-sm font-medium">Duplicate workout to</p>
+                      <input
+                        type="date"
+                        value={duplicateDate}
+                        onChange={(e) => setDuplicateDate(e.target.value)}
+                        className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        disabled={!duplicateDate || duplicating}
+                        onClick={handleDuplicateWorkout}
+                      >
+                        {duplicating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        {duplicating ? "Duplicating..." : "Duplicate"}
+                      </Button>
+                    </PopoverContent>
+                  </Popover>
+                )}
                 {session && (
                   <Button
                     variant="ghost"
@@ -1207,11 +1317,16 @@ export function WorkoutEditorPanel({
                                   </DropdownMenuItem>
                                 ))}
                                 <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleDuplicateBlock(blockIndex)}>
+                                  <Copy className="h-3.5 w-3.5 mr-1.5" />
+                                  Duplicate Block
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   variant="destructive"
-                                  onClick={() => handleDeleteBlock(blockIndex)}   
+                                  onClick={() => handleDeleteBlock(blockIndex)}
                                 >
-                                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />       
+                                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
                                   Delete Block
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
@@ -1245,7 +1360,8 @@ export function WorkoutEditorPanel({
                                   exerciseLog={session.exerciseLogs?.find((l: any) => l.blockExerciseId === exercise.id)}
                                   onSetChange={handleSetChange}
                                   onDeleteSet={handleDeleteSet}
-                                  onDeleteExercise={handleDeleteExercise}       
+                                  onDeleteExercise={handleDeleteExercise}
+                                  onDuplicateExercise={handleDuplicateExercise}
                                   onAddSet={handleAddSet}
                                   onUpdateNotes={handleUpdateExerciseNotes}     
                                 />
@@ -1325,6 +1441,7 @@ export function WorkoutEditorPanel({
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         exercises={exerciseLibrary}
+        clinicOrganizationId={clinicOrganizationId}
         onSelect={handleExerciseSelected}
       />
     </>

@@ -792,9 +792,423 @@ export async function getCalendarSessions(patientId: string) {
 // Types
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Duplicate block (inserts copy immediately after the original)
+// ---------------------------------------------------------------------------
+
+export async function duplicateBlockAction(blockId: string): Promise<ActionResult<{
+  id: string;
+  name: string | null;
+  type: string;
+  orderIndex: number;
+  rounds: number;
+  timeCap: number | null;
+  restBetweenRounds: number | null;
+  notes: string | null;
+  exercises: Array<{
+    id: string;
+    orderIndex: number;
+    restSeconds: number | null;
+    notes: string | null;
+    supersetGroup: string | null;
+    exercise: { id: string; name: string; imageUrl: string | null; videoUrl: string | null };
+    sets: Array<{
+      id: string;
+      orderIndex: number;
+      setType: string;
+      targetReps: number | null;
+      targetWeight: number | null;
+      targetDuration: number | null;
+      targetDistance: number | null;
+      targetRPE: number | null;
+      targetPercentage1RM: number | null;
+      restAfter: number | null;
+      tempo: string | null;
+    }>;
+  }>;
+}>> {
+  const user = await getClinicianUser();
+  if (!user) return { success: false, error: "Unauthorized" };
+
+  try {
+    const block = await prisma.workoutBlockV2.findUnique({
+      where: { id: blockId },
+      include: {
+        workout: { include: { program: { select: { clinicianId: true, patientId: true } } } },
+        exercises: {
+          orderBy: { orderIndex: "asc" },
+          include: {
+            exercise: { select: { id: true, name: true, imageUrl: true, videoUrl: true } },
+            sets: { orderBy: { orderIndex: "asc" } },
+          },
+        },
+      },
+    });
+
+    if (!block || block.workout.program.clinicianId !== user.id) {
+      return { success: false, error: "Forbidden" };
+    }
+
+    // Shift all subsequent blocks up by 1 using individual updates (MongoDB does not
+    // support atomic increment in updateMany via Prisma)
+    const subsequentBlocks = await prisma.workoutBlockV2.findMany({
+      where: { workoutId: block.workoutId, orderIndex: { gt: block.orderIndex } },
+      select: { id: true, orderIndex: true },
+      orderBy: { orderIndex: "desc" },
+    });
+
+    await prisma.$transaction(
+      subsequentBlocks.map((b) =>
+        prisma.workoutBlockV2.update({
+          where: { id: b.id },
+          data: { orderIndex: b.orderIndex + 1 },
+        })
+      )
+    );
+
+    // Create the duplicate block
+    const newBlock = await prisma.workoutBlockV2.create({
+      data: {
+        workoutId: block.workoutId,
+        name: block.name,
+        type: block.type,
+        orderIndex: block.orderIndex + 1,
+        rounds: block.rounds,
+        timeCap: block.timeCap,
+        restBetweenRounds: block.restBetweenRounds,
+        notes: block.notes,
+      },
+    });
+
+    // Duplicate each exercise and its sets
+    const newExercises = [];
+    for (const ex of block.exercises) {
+      const newEx = await prisma.blockExerciseV2.create({
+        data: {
+          blockId: newBlock.id,
+          exerciseId: ex.exerciseId,
+          orderIndex: ex.orderIndex,
+          restSeconds: ex.restSeconds,
+          notes: ex.notes,
+          supersetGroup: ex.supersetGroup ?? null,
+          sets: {
+            create: ex.sets.map((s) => ({
+              orderIndex: s.orderIndex,
+              setType: s.setType,
+              targetReps: s.targetReps,
+              targetWeight: s.targetWeight,
+              targetDuration: s.targetDuration,
+              targetDistance: s.targetDistance ?? null,
+              targetRPE: s.targetRPE,
+              targetPercentage1RM: s.targetPercentage1RM ?? null,
+              restAfter: s.restAfter,
+              tempo: s.tempo ?? null,
+            })),
+          },
+        },
+        include: {
+          exercise: { select: { id: true, name: true, imageUrl: true, videoUrl: true } },
+          sets: { orderBy: { orderIndex: "asc" } },
+        },
+      });
+      newExercises.push({
+        id: newEx.id,
+        orderIndex: newEx.orderIndex,
+        restSeconds: newEx.restSeconds,
+        notes: newEx.notes,
+        supersetGroup: newEx.supersetGroup ?? null,
+        exercise: newEx.exercise,
+        sets: newEx.sets.map((s) => ({
+          id: s.id,
+          orderIndex: s.orderIndex,
+          setType: s.setType,
+          targetReps: s.targetReps,
+          targetWeight: s.targetWeight,
+          targetDuration: s.targetDuration,
+          targetDistance: s.targetDistance ?? null,
+          targetRPE: s.targetRPE,
+          targetPercentage1RM: s.targetPercentage1RM ?? null,
+          restAfter: s.restAfter,
+          tempo: s.tempo ?? null,
+        })),
+      });
+    }
+
+    if (block.workout.program.patientId) revalidatePatient(block.workout.program.patientId);
+    return {
+      success: true,
+      data: {
+        id: newBlock.id,
+        name: newBlock.name,
+        type: newBlock.type,
+        orderIndex: newBlock.orderIndex,
+        rounds: newBlock.rounds,
+        timeCap: newBlock.timeCap,
+        restBetweenRounds: newBlock.restBetweenRounds,
+        notes: newBlock.notes,
+        exercises: newExercises,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to duplicate block:", error);
+    return { success: false, error: "Failed to duplicate block" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Duplicate block exercise (inserts copy immediately after the original)
+// ---------------------------------------------------------------------------
+
+export async function duplicateBlockExerciseAction(blockExerciseId: string): Promise<ActionResult<{
+  id: string;
+  orderIndex: number;
+  restSeconds: number | null;
+  notes: string | null;
+  supersetGroup: string | null;
+  exercise: { id: string; name: string; imageUrl: string | null; videoUrl: string | null };
+  sets: Array<{
+    id: string;
+    orderIndex: number;
+    setType: string;
+    targetReps: number | null;
+    targetWeight: number | null;
+    targetDuration: number | null;
+    targetDistance: number | null;
+    targetRPE: number | null;
+    targetPercentage1RM: number | null;
+    restAfter: number | null;
+    tempo: string | null;
+  }>;
+}>> {
+  const user = await getClinicianUser();
+  if (!user) return { success: false, error: "Unauthorized" };
+
+  try {
+    const blockExercise = await prisma.blockExerciseV2.findUnique({
+      where: { id: blockExerciseId },
+      include: {
+        exercise: { select: { id: true, name: true, imageUrl: true, videoUrl: true } },
+        sets: { orderBy: { orderIndex: "asc" } },
+        block: {
+          include: {
+            workout: { include: { program: { select: { clinicianId: true, patientId: true } } } },
+          },
+        },
+      },
+    });
+
+    if (!blockExercise || blockExercise.block.workout.program.clinicianId !== user.id) {
+      return { success: false, error: "Forbidden" };
+    }
+
+    // Shift all subsequent exercises up by 1 using individual updates (MongoDB does not
+    // support atomic increment in updateMany via Prisma)
+    const subsequentExercises = await prisma.blockExerciseV2.findMany({
+      where: { blockId: blockExercise.blockId, orderIndex: { gt: blockExercise.orderIndex } },
+      select: { id: true, orderIndex: true },
+      orderBy: { orderIndex: "desc" },
+    });
+
+    await prisma.$transaction(
+      subsequentExercises.map((e) =>
+        prisma.blockExerciseV2.update({
+          where: { id: e.id },
+          data: { orderIndex: e.orderIndex + 1 },
+        })
+      )
+    );
+
+    const newEx = await prisma.blockExerciseV2.create({
+      data: {
+        blockId: blockExercise.blockId,
+        exerciseId: blockExercise.exerciseId,
+        orderIndex: blockExercise.orderIndex + 1,
+        restSeconds: blockExercise.restSeconds,
+        notes: blockExercise.notes,
+        supersetGroup: blockExercise.supersetGroup ?? null,
+        sets: {
+          create: blockExercise.sets.map((s) => ({
+            orderIndex: s.orderIndex,
+            setType: s.setType,
+            targetReps: s.targetReps,
+            targetWeight: s.targetWeight,
+            targetDuration: s.targetDuration,
+            targetDistance: s.targetDistance ?? null,
+            targetRPE: s.targetRPE,
+            targetPercentage1RM: s.targetPercentage1RM ?? null,
+            restAfter: s.restAfter,
+            tempo: s.tempo ?? null,
+          })),
+        },
+      },
+      include: {
+        exercise: { select: { id: true, name: true, imageUrl: true, videoUrl: true } },
+        sets: { orderBy: { orderIndex: "asc" } },
+      },
+    });
+
+    if (blockExercise.block.workout.program.patientId) {
+      revalidatePatient(blockExercise.block.workout.program.patientId);
+    }
+    return {
+      success: true,
+      data: {
+        id: newEx.id,
+        orderIndex: newEx.orderIndex,
+        restSeconds: newEx.restSeconds,
+        notes: newEx.notes,
+        supersetGroup: newEx.supersetGroup ?? null,
+        exercise: newEx.exercise,
+        sets: newEx.sets.map((s) => ({
+          id: s.id,
+          orderIndex: s.orderIndex,
+          setType: s.setType,
+          targetReps: s.targetReps,
+          targetWeight: s.targetWeight,
+          targetDuration: s.targetDuration,
+          targetDistance: s.targetDistance ?? null,
+          targetRPE: s.targetRPE,
+          targetPercentage1RM: s.targetPercentage1RM ?? null,
+          restAfter: s.restAfter,
+          tempo: s.tempo ?? null,
+        })),
+      },
+    };
+  } catch (error) {
+    console.error("Failed to duplicate exercise:", error);
+    return { success: false, error: "Failed to duplicate exercise" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Duplicate entire workout to a new date
+// ---------------------------------------------------------------------------
+
+export async function duplicateWorkoutToDateAction(
+  sessionId: string,
+  targetDate: string // ISO date string e.g. "2026-06-10"
+): Promise<ActionResult<{ sessionId: string }>> {
+  const user = await getClinicianUser();
+  if (!user) return { success: false, error: "Unauthorized" };
+
+  try {
+    const session = await prisma.workoutSessionV2.findUnique({
+      where: { id: sessionId },
+      include: {
+        workout: {
+          include: {
+            program: { select: { clinicianId: true, patientId: true } },
+            blocks: {
+              orderBy: { orderIndex: "asc" },
+              include: {
+                exercises: {
+                  orderBy: { orderIndex: "asc" },
+                  include: { sets: { orderBy: { orderIndex: "asc" } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!session || session.workout.program.clinicianId !== user.id) {
+      return { success: false, error: "Forbidden" };
+    }
+
+    const { workout } = session;
+    const patientId = workout.program.patientId;
+    if (!patientId) return { success: false, error: "No patient associated" };
+
+    const newSession = await prisma.$transaction(async (tx) => {
+      const program = await tx.program.create({
+        data: {
+          name: workout.name,
+          clinicianId: user.id,
+          patientId,
+          isTemplate: false,
+          status: "ACTIVE",
+          tags: ["ad-hoc"],
+        },
+      });
+
+      const newWorkout = await tx.workout.create({
+        data: {
+          programId: program.id,
+          name: workout.name,
+          dayIndex: 0,
+          weekIndex: 0,
+          orderIndex: 0,
+        },
+      });
+
+      for (const block of workout.blocks) {
+        const newBlock = await tx.workoutBlockV2.create({
+          data: {
+            workoutId: newWorkout.id,
+            name: block.name,
+            type: block.type,
+            orderIndex: block.orderIndex,
+            rounds: block.rounds,
+            timeCap: block.timeCap,
+            restBetweenRounds: block.restBetweenRounds,
+            notes: block.notes,
+          },
+        });
+
+        for (const ex of block.exercises) {
+          await tx.blockExerciseV2.create({
+            data: {
+              blockId: newBlock.id,
+              exerciseId: ex.exerciseId,
+              orderIndex: ex.orderIndex,
+              restSeconds: ex.restSeconds,
+              notes: ex.notes,
+              supersetGroup: ex.supersetGroup ?? null,
+              sets: {
+                create: ex.sets.map((s) => ({
+                  orderIndex: s.orderIndex,
+                  setType: s.setType,
+                  targetReps: s.targetReps,
+                  targetWeight: s.targetWeight,
+                  targetDuration: s.targetDuration,
+                  targetDistance: s.targetDistance ?? null,
+                  targetRPE: s.targetRPE,
+                  targetPercentage1RM: s.targetPercentage1RM ?? null,
+                  restAfter: s.restAfter,
+                  tempo: s.tempo ?? null,
+                })),
+              },
+            },
+          });
+        }
+      }
+
+      return tx.workoutSessionV2.create({
+        data: {
+          workoutId: newWorkout.id,
+          patientId,
+          scheduledDate: new Date(targetDate),
+          status: "SCHEDULED",
+        },
+      });
+    }, { timeout: 30000 });
+
+    revalidatePatient(patientId);
+    return { success: true, data: { sessionId: newSession.id } };
+  } catch (error) {
+    console.error("Failed to duplicate workout:", error);
+    return { success: false, error: "Failed to duplicate workout" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
 export type SessionWithFullWorkout = {
-  exerciseLogs?: { 
-    id: string; 
+  exerciseLogs?: {
+    id: string;
     blockExerciseId: string; 
     status: string; 
     setLogs: { 

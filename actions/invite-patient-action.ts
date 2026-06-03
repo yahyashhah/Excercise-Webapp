@@ -29,6 +29,13 @@ export async function invitePatientAction(patientEmail: string) {
     revalidatePath("/patients");
     return { success: true as const };
   } catch (err: unknown) {
+    // Clerk errors have an `errors` array with the real messages
+    if (err && typeof err === "object" && "errors" in err) {
+      const clerkErrors = (err as { errors: Array<{ message: string; longMessage?: string }> }).errors;
+      const detail = clerkErrors.map((e) => e.longMessage ?? e.message).join("; ");
+      console.error("Clerk invitation error:", detail, clerkErrors);
+      return { success: false as const, error: detail || "Failed to send invitation" };
+    }
     const message = err instanceof Error ? err.message : "Failed to send invitation";
     console.error("Failed to invite patient:", err);
     return { success: false as const, error: message };

@@ -11,6 +11,7 @@ export const createExerciseSchema = z.object({
   videoUrl: z.string().url().optional().or(z.literal("")),
   videoProvider: z.string().optional().or(z.literal("")),
   imageUrl: z.string().url().optional().or(z.literal("")),
+  isPublic: z.boolean().optional().default(true),
 });
 
 export const updateExerciseSchema = createExerciseSchema.partial().extend({

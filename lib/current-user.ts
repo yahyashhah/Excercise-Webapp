@@ -7,7 +7,7 @@ export async function getCurrentUser(): Promise<User> {
   const { userId, orgId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const user = await prisma.user.findUnique({
+  let user = await prisma.user.findUnique({
     where: { clerkId: userId },
   });
 
@@ -15,6 +15,16 @@ export async function getCurrentUser(): Promise<User> {
     // New Clerk user: orgId present = came via org invitation = patient path
     if (orgId) redirect("/onboarding/patient");
     redirect("/onboarding");
+  }
+
+  // Auto-sync clerkOrgId from the live Clerk session into the DB.
+  // This handles accounts created before Clerk Organizations were configured —
+  // the DB field stays null until the user logs in again, at which point it's fixed.
+  if (orgId && !user.clerkOrgId) {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: { clerkOrgId: orgId },
+    });
   }
 
   if (!user.onboarded) {

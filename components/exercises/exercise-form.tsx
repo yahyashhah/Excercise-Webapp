@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,21 +10,63 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT } from "@/lib/utils/constants";
 import { createExerciseAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
-import { CheckCircle2, Loader2, Upload, X } from "lucide-react";
-import { UploadButton } from "@uploadthing/react";
-import type { OurFileRouter } from "@/lib/uploadthing";
+import { Loader2, Plus, X, CheckCircle2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export function ExerciseForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+
+  // Multi-select body regions — first selected becomes primary bodyRegion
+  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+
+  const [selectedDifficulty, setSelectedDifficulty] = useState("");
+
+  // Equipment: preset chips + custom typed entries
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
+  const [customEquipmentInput, setCustomEquipmentInput] = useState("");
+  const equipmentInputRef = useRef<HTMLInputElement>(null);
+
   const [videoUrl, setVideoUrl] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [videoUploading, setVideoUploading] = useState(false);
-  const [imageUploading, setImageUploading] = useState(false);
+
+  function toggleRegion(value: string) {
+    setSelectedRegions((prev) =>
+      prev.includes(value) ? prev.filter((r) => r !== value) : [...prev, value]
+    );
+  }
+
+  function toggleEquipment(item: string) {
+    setSelectedEquipment((prev) =>
+      prev.includes(item) ? prev.filter((e) => e !== item) : [...prev, item]
+    );
+  }
+
+  function addCustomEquipment() {
+    const val = customEquipmentInput.trim();
+    if (!val) return;
+    if (!selectedEquipment.includes(val)) {
+      setSelectedEquipment((prev) => [...prev, val]);
+    }
+    setCustomEquipmentInput("");
+    equipmentInputRef.current?.focus();
+  }
+
+  function removeEquipment(item: string) {
+    setSelectedEquipment((prev) => prev.filter((e) => e !== item));
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    if (selectedRegions.length === 0) {
+      toast.error("Please select at least one body region");
+      return;
+    }
+    if (!selectedDifficulty) {
+      toast.error("Please select a difficulty level");
+      return;
+    }
+
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
@@ -32,8 +74,8 @@ export function ExerciseForm() {
     const result = await createExerciseAction({
       name: formData.get("name") as string,
       description: (formData.get("description") as string) || undefined,
-      bodyRegion: formData.get("bodyRegion") as string,
-      difficultyLevel: formData.get("difficultyLevel") as string,
+      bodyRegion: selectedRegions[0],
+      difficultyLevel: selectedDifficulty,
       equipmentRequired: selectedEquipment,
       contraindications:
         (formData.get("contraindications") as string)
@@ -42,23 +84,17 @@ export function ExerciseForm() {
           .filter(Boolean) || [],
       instructions: (formData.get("instructions") as string) || undefined,
       videoUrl: videoUrl || undefined,
-      imageUrl: imageUrl || undefined,
     });
 
     setLoading(false);
 
     if (result.success) {
       toast.success("Exercise created successfully");
-      router.push("/exercises");
+      const tab = result.data.source === "CLINIC" ? "CLINIC" : "UNIVERSAL";
+      router.push(`/exercises?source=${tab}`);
     } else {
       toast.error(result.error);
     }
-  }
-
-  function toggleEquipment(item: string) {
-    setSelectedEquipment((prev) =>
-      prev.includes(item) ? prev.filter((e) => e !== item) : [...prev, item]
-    );
   }
 
   return (
@@ -68,27 +104,14 @@ export function ExerciseForm() {
           <CardTitle>Create New Exercise</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Exercise Name *</Label>
-              <Input id="name" name="name" required placeholder="e.g., Wall Squat" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bodyRegion">Body Region *</Label>
-              <select
-                id="bodyRegion"
-                name="bodyRegion"
-                required
-                className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm"
-              >
-                <option value="">Select region</option>
-                {BODY_REGIONS.map((r) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
-              </select>
-            </div>
+
+          {/* Name */}
+          <div className="space-y-2">
+            <Label htmlFor="name">Exercise Name *</Label>
+            <Input id="name" name="name" required placeholder="e.g., Wall Squat" />
           </div>
 
+          {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
@@ -99,38 +122,138 @@ export function ExerciseForm() {
             />
           </div>
 
+          {/* Body Regions — multi-select chips */}
           <div className="space-y-2">
-            <Label htmlFor="difficultyLevel">Difficulty *</Label>
-            <select
-              id="difficultyLevel"
-              name="difficultyLevel"
-              required
-              className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm"
-            >
-              <option value="">Select difficulty</option>
-              {DIFFICULTY_LEVELS.map((d) => (
-                <option key={d.value} value={d.value}>{d.label}</option>
-              ))}
-            </select>
+            <Label>
+              Body Region *
+              {selectedRegions.length > 0 && (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {selectedRegions.length} selected
+                </span>
+              )}
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {BODY_REGIONS.map((r) => {
+                const selected = selectedRegions.includes(r.value);
+                return (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => toggleRegion(r.value)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium transition-colors",
+                      selected
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+                    )}
+                  >
+                    {selected && <CheckCircle2 className="h-3.5 w-3.5" />}
+                    {r.label}
+                  </button>
+                );
+              })}
+            </div>
+            {selectedRegions.length > 1 && (
+              <p className="text-xs text-muted-foreground">
+                Primary region: <span className="font-medium">{BODY_REGIONS.find(r => r.value === selectedRegions[0])?.label}</span> (first selected)
+              </p>
+            )}
           </div>
 
+          {/* Difficulty — chip buttons */}
           <div className="space-y-2">
-            <Label>Equipment Required</Label>
-            <div className="flex flex-wrap gap-2">
-              {COMMON_EQUIPMENT.map((eq) => (
-                <Button
-                  key={eq}
+            <Label>Difficulty *</Label>
+            <div className="flex gap-2">
+              {DIFFICULTY_LEVELS.map((d) => (
+                <button
+                  key={d.value}
                   type="button"
-                  variant={selectedEquipment.includes(eq) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => toggleEquipment(eq)}
+                  onClick={() => setSelectedDifficulty(d.value)}
+                  className={cn(
+                    "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                    selectedDifficulty === d.value
+                      ? d.value === "BEGINNER"
+                        ? "bg-emerald-600 text-white border-emerald-600"
+                        : d.value === "INTERMEDIATE"
+                        ? "bg-amber-500 text-white border-amber-500"
+                        : "bg-red-600 text-white border-red-600"
+                      : "bg-background text-muted-foreground border-border hover:border-muted-foreground"
+                  )}
                 >
-                  {eq}
-                </Button>
+                  {d.label}
+                </button>
               ))}
             </div>
           </div>
 
+          {/* Equipment — preset chips + custom input */}
+          <div className="space-y-3">
+            <Label>Equipment Required</Label>
+
+            {/* Preset options */}
+            <div className="flex flex-wrap gap-2">
+              {COMMON_EQUIPMENT.map((eq) => (
+                <button
+                  key={eq}
+                  type="button"
+                  onClick={() => toggleEquipment(eq)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
+                    selectedEquipment.includes(eq)
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+                  )}
+                >
+                  {eq}
+                </button>
+              ))}
+            </div>
+
+            {/* Custom equipment input */}
+            <div className="flex gap-2">
+              <Input
+                ref={equipmentInputRef}
+                value={customEquipmentInput}
+                onChange={(e) => setCustomEquipmentInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); addCustomEquipment(); }
+                }}
+                placeholder="Add custom equipment..."
+                className="h-8 text-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addCustomEquipment}
+                className="h-8 gap-1 shrink-0"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add
+              </Button>
+            </div>
+
+            {/* Show custom-added equipment as removable chips */}
+            {selectedEquipment.filter(eq => !COMMON_EQUIPMENT.includes(eq as typeof COMMON_EQUIPMENT[number])).length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {selectedEquipment
+                  .filter(eq => !COMMON_EQUIPMENT.includes(eq as typeof COMMON_EQUIPMENT[number]))
+                  .map((eq) => (
+                    <span
+                      key={eq}
+                      className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 text-sm font-medium"
+                    >
+                      {eq}
+                      <button type="button" onClick={() => removeEquipment(eq)} className="hover:text-primary/70">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+              </div>
+            )}
+          </div>
+
+          {/* Instructions */}
           <div className="space-y-2">
             <Label htmlFor="instructions">Instructions</Label>
             <Textarea
@@ -141,159 +264,51 @@ export function ExerciseForm() {
             />
           </div>
 
+          {/* Contraindications */}
           <div className="space-y-2">
-            <Label htmlFor="contraindications">Contraindications (comma separated)</Label>
+            <Label htmlFor="contraindications">Contraindications</Label>
             <Input
               id="contraindications"
               name="contraindications"
-              placeholder="e.g., Knee replacement, Acute back pain"
+              placeholder="e.g., Knee replacement, Acute back pain (comma separated)"
             />
           </div>
 
-          {/* ── Video ── */}
-          <div className="space-y-3 rounded-lg border border-slate-200 p-4">
-            <h3 className="font-semibold text-slate-900">Video Demo</h3>
-
-            <div className="space-y-2">
-              <Label htmlFor="videoUrl">YouTube / Video URL</Label>
+          {/* YouTube URL only */}
+          <div className="space-y-2">
+            <Label htmlFor="videoUrl">Video Demo (YouTube URL)</Label>
+            <div className="relative">
               <Input
                 id="videoUrl"
                 type="url"
                 value={videoUrl}
                 onChange={(e) => setVideoUrl(e.target.value)}
                 placeholder="https://www.youtube.com/watch?v=..."
+                className={videoUrl ? "pr-8" : ""}
               />
-              <p className="text-xs text-slate-500">
-                Paste a YouTube URL to embed a video demo for your clients
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-slate-200" />
-              <span className="text-xs text-slate-400">or upload directly</span>
-              <div className="h-px flex-1 bg-slate-200" />
-            </div>
-
-            <div className="space-y-2">
-              {videoUrl && videoUrl.startsWith("blob") === false && (
-                <div className="flex items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
-                  <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate">{videoUrl}</span>
-                  <button
-                    type="button"
-                    onClick={() => setVideoUrl("")}
-                    className="ml-auto flex-shrink-0"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-              <UploadButton<OurFileRouter, "exerciseVideo">
-                endpoint="exerciseVideo"
-                onUploadBegin={() => setVideoUploading(true)}
-                onClientUploadComplete={(res) => {
-                  setVideoUploading(false);
-                  const url = res?.[0]?.ufsUrl;
-                  if (url) {
-                    setVideoUrl(url);
-                    toast.success("Video uploaded — URL saved");
-                  }
-                }}
-                onUploadError={(error: Error) => {
-                  setVideoUploading(false);
-                  toast.error(`Upload failed: ${error.message}`);
-                }}
-                appearance={{
-                  button: "ut-ready:bg-slate-900 ut-uploading:bg-slate-400",
-                }}
-              />
-              {videoUploading && (
-                <p className="text-xs text-slate-500 flex items-center gap-1">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Uploading video…
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* ── Image ── */}
-          <div className="space-y-3 rounded-lg border border-slate-200 p-4">
-            <h3 className="font-semibold text-slate-900">Exercise Image</h3>
-
-            <div className="space-y-2">
-              <Label htmlFor="imageUrl">Image URL</Label>
-              <Input
-                id="imageUrl"
-                type="url"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://example.com/exercise-photo.jpg"
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-slate-200" />
-              <span className="text-xs text-slate-400">or upload directly</span>
-              <div className="h-px flex-1 bg-slate-200" />
-            </div>
-
-            {imageUrl && (
-              <div className="relative">
-                <div className="relative h-32 w-full overflow-hidden rounded-lg bg-slate-100">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={imageUrl}
-                    alt="Exercise preview"
-                    className="h-full w-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  />
-                </div>
+              {videoUrl && (
                 <button
                   type="button"
-                  onClick={() => setImageUrl("")}
-                  className="absolute right-2 top-2 rounded-full bg-white p-1 shadow"
+                  onClick={() => setVideoUrl("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-4 w-4" />
                 </button>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <UploadButton<OurFileRouter, "exerciseImage">
-                endpoint="exerciseImage"
-                onUploadBegin={() => setImageUploading(true)}
-                onClientUploadComplete={(res) => {
-                  setImageUploading(false);
-                  const url = res?.[0]?.ufsUrl;
-                  if (url) {
-                    setImageUrl(url);
-                    toast.success("Image uploaded — preview shown above");
-                  }
-                }}
-                onUploadError={(error: Error) => {
-                  setImageUploading(false);
-                  toast.error(`Upload failed: ${error.message}`);
-                }}
-                appearance={{
-                  button: "ut-ready:bg-slate-900 ut-uploading:bg-slate-400",
-                }}
-              />
-              {imageUploading && (
-                <p className="text-xs text-slate-500 flex items-center gap-1">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Uploading image…
-                </p>
               )}
-              <p className="text-xs text-slate-500">
-                <Upload className="inline h-3 w-3 mr-1" />
-                Upload a photo of the exercise (max 4MB)
-              </p>
             </div>
+            {videoUrl && (
+              <p className="flex items-center gap-1.5 text-xs text-green-600">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                YouTube URL added
+              </p>
+            )}
           </div>
 
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={() => router.back()}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || videoUploading || imageUploading}>
+            <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Exercise
             </Button>

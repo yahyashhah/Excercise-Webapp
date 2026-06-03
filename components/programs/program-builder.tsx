@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { GripVertical, Plus, Trash2 } from "lucide-react";
+import { Copy, GripVertical, Plus, Trash2 } from "lucide-react";
 import { ExercisePickerDialog } from "./exercise-picker-dialog";
 import { SetEditor } from "./set-editor";
 import type {
@@ -172,6 +172,61 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
     next[workoutIdx].blocks = next[workoutIdx].blocks
       .filter((_, i) => i !== blockIdx)
       .map((b, i) => ({ ...b, orderIndex: i }));
+    onChange(next);
+  }
+
+  function duplicateBlock(workoutIdx: number, blockIdx: number) {
+    const next = [...workouts];
+    const source = next[workoutIdx].blocks[blockIdx];
+
+    // Deep-clone stripping all id fields so they're treated as new on save
+    const clone = JSON.parse(JSON.stringify(source));
+    delete clone.id;
+    clone.exercises = clone.exercises.map((ex: typeof clone.exercises[number]) => {
+      const { id: _eid, ...exRest } = ex as any;
+      return {
+        ...exRest,
+        sets: exRest.sets.map((s: any) => {
+          const { id: _sid, ...sRest } = s;
+          return sRest;
+        }),
+      };
+    });
+
+    // Insert clone directly after source
+    next[workoutIdx].blocks.splice(blockIdx + 1, 0, clone);
+
+    // Reassign orderIndex for all blocks in this workout
+    next[workoutIdx].blocks = next[workoutIdx].blocks.map((b, i) => ({
+      ...b,
+      orderIndex: i,
+    }));
+
+    onChange(next);
+  }
+
+  function duplicateExercise(workoutIdx: number, blockIdx: number, exerciseIdx: number) {
+    const next = [...workouts];
+    const source = next[workoutIdx].blocks[blockIdx].exercises[exerciseIdx];
+
+    const clone = JSON.parse(JSON.stringify(source));
+    const { id: _eid, ...exRest } = clone as any;
+    const cloneClean = {
+      ...exRest,
+      sets: exRest.sets.map((s: any) => {
+        const { id: _sid, ...sRest } = s;
+        return sRest;
+      }),
+    };
+
+    // Insert clone directly after source
+    next[workoutIdx].blocks[blockIdx].exercises.splice(exerciseIdx + 1, 0, cloneClean);
+
+    // Reassign orderIndex
+    next[workoutIdx].blocks[blockIdx].exercises = next[workoutIdx].blocks[
+      blockIdx
+    ].exercises.map((ex, i) => ({ ...ex, orderIndex: i }));
+
     onChange(next);
   }
 
@@ -459,14 +514,26 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
                               placeholder="Time cap (s)"
                             />
                           )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeBlock(wi, bi)}
-                            className="ml-auto text-destructive h-8 w-8"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          <div className="ml-auto flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => duplicateBlock(wi, bi)}
+                              className="text-muted-foreground hover:text-foreground h-8 w-8"
+                              title="Duplicate block"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeBlock(wi, bi)}
+                              className="text-destructive h-8 w-8"
+                              title="Remove block"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </div>
 
                         {/* Exercises in this block */}
@@ -507,16 +574,28 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
                                             )._exerciseName
                                           )}
                                         </span>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          onClick={() =>
-                                            removeExercise(wi, bi, ei)
-                                          }
-                                          className="text-destructive h-7 w-7"
-                                        >
-                                          <Trash2 className="h-3 w-3" />
-                                        </Button>
+                                        <div className="flex items-center gap-0.5">
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => duplicateExercise(wi, bi, ei)}
+                                            className="text-muted-foreground hover:text-foreground h-7 w-7"
+                                            title="Duplicate exercise"
+                                          >
+                                            <Copy className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() =>
+                                              removeExercise(wi, bi, ei)
+                                            }
+                                            className="text-destructive h-7 w-7"
+                                            title="Remove exercise"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
                                       </div>
                                       {/* Clinician notes for this exercise */}
                                       <Textarea
