@@ -78,6 +78,11 @@ enum ProgressionDirection {
   REGRESSION
 }
 
+enum ExerciseSource {
+  UNIVERSAL
+  CLINIC
+}
+
 model User {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   clerkId     String   @unique
@@ -168,6 +173,9 @@ model Exercise {
   indicationTags     String[]
   rehabStage         String?
   isActive           Boolean         @default(true)
+  source             ExerciseSource  @default(UNIVERSAL)
+  organizationId     String?
+  isPublic           Boolean         @default(true)
   createdById        String?         @db.ObjectId
   createdBy          User?           @relation(fields: [createdById], references: [id])
   createdAt          DateTime        @default(now())

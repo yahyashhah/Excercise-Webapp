@@ -51,6 +51,9 @@ type ExerciseSummary = {
   defaultReps?: number | null;
   musclesTargeted?: string[];
   imageUrl?: string | null;
+  source?: string | null;
+  organizationId?: string | null;
+  isPublic?: boolean;
 };
 
 type SessionSummary = {
@@ -86,6 +89,7 @@ interface ClientCalendarProps {
   clinicianId: string;
   initialSessions: SessionSummary[];
   exerciseLibrary: ExerciseSummary[];
+  clinicOrganizationId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -236,6 +240,7 @@ export function ClientCalendar({
   clinicianId,
   initialSessions,
   exerciseLibrary,
+  clinicOrganizationId,
 }: ClientCalendarProps) {
   const router = useRouter();
   const [view, setView] = useState<View>(Views.MONTH);
@@ -379,6 +384,7 @@ export function ClientCalendar({
         panelState={panelState}
         onClose={handlePanelClose}
         exerciseLibrary={exerciseLibrary}
+        clinicOrganizationId={clinicOrganizationId}
         patientId={patientId}
         onWorkoutCreated={handleRefresh}
         onWorkoutDeleted={handleRefresh}

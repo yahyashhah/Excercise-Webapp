@@ -62,6 +62,7 @@ export async function GET(
       patientName,
       clinicName: 'INMOTUS RX',
       sections,
+      equipmentRequired: program.equipmentRequired ?? [],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any
   )

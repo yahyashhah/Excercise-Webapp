@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 import { requireRole } from "@/lib/current-user";
 import { getPatientDetail } from "@/lib/services/patient.service";
 import * as sessionService from "@/lib/services/session.service";
@@ -20,7 +21,11 @@ interface Props {
 
 export default async function PatientDetailPage({ params }: Props) {
   const { id } = await params;
-  const user = await requireRole("CLINICIAN");
+  const [user, { orgId: sessionOrgId }] = await Promise.all([
+    requireRole("CLINICIAN"),
+    auth(),
+  ]);
+  const clinicOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
   const patient = await getPatientDetail(id);
 
   if (!patient) notFound();
@@ -29,7 +34,7 @@ export default async function PatientDetailPage({ params }: Props) {
   const [v2Sessions, assignedPrograms, exerciseLibrary] = await Promise.all([
     sessionService.getSessionsForPatient(patient.id),
     programService.getProgramsForPatient(patient.id),
-    getExercisesForPicker(),
+    getExercisesForPicker(clinicOrgId),
   ]);
 
   // Transform sessions to the shape the calendar expects
@@ -231,6 +236,7 @@ export default async function PatientDetailPage({ params }: Props) {
             clinicianId={user.id}
             initialSessions={calendarSessions}
             exerciseLibrary={exerciseLibrary}
+            clinicOrganizationId={clinicOrgId}
           />
         </TabsContent>
 
