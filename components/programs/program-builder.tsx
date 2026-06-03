@@ -31,9 +31,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Copy, GripVertical, Plus, Trash2 } from "lucide-react";
+import { Copy, GripVertical, Plus, Trash2, Play, X } from "lucide-react";
 import { ExercisePickerDialog } from "./exercise-picker-dialog";
 import { SetEditor } from "./set-editor";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
 import type {
   WorkoutInput,
   ExerciseSetInput,
@@ -51,6 +53,8 @@ interface Props {
     musclesTargeted?: string[];
     imageUrl?: string | null;
     equipmentRequired?: string[];
+    videoUrl?: string | null;
+    videoProvider?: string | null;
   }[];
 }
 
@@ -100,6 +104,7 @@ function SortableExercise({
 
 export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [videoPreview, setVideoPreview] = useState<{ url: string; provider?: string | null; name: string } | null>(null);
   const [pickerTarget, setPickerTarget] = useState<{
     workoutIdx: number;
     blockIdx: number;
@@ -564,16 +569,40 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
                                         >
                                           <GripVertical className="h-4 w-4" />
                                         </button>
-                                        <span className="font-medium flex-1">
-                                          {getExerciseName(
-                                            ex.exerciseId,
-                                            (
-                                              ex as typeof ex & {
-                                                _exerciseName?: string;
-                                              }
-                                            )._exerciseName
-                                          )}
-                                        </span>
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                          <span className="font-medium truncate">
+                                            {getExerciseName(
+                                              ex.exerciseId,
+                                              (
+                                                ex as typeof ex & {
+                                                  _exerciseName?: string;
+                                                }
+                                              )._exerciseName
+                                            )}
+                                          </span>
+                                          {(() => {
+                                            const lib = exerciseLibrary.find(
+                                              (e) => e.id === ex.exerciseId
+                                            );
+                                            return lib?.videoUrl ? (
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setVideoPreview({
+                                                    url: lib.videoUrl!,
+                                                    provider: lib.videoProvider,
+                                                    name: lib.name,
+                                                  });
+                                                }}
+                                                className="inline-flex items-center gap-0.5 text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-sm font-medium shrink-0 hover:bg-blue-100"
+                                              >
+                                                <Play className="h-2.5 w-2.5" />
+                                                Video
+                                              </button>
+                                            ) : null;
+                                          })()}
+                                        </div>
                                         <div className="flex items-center gap-0.5">
                                           <Button
                                             variant="ghost"
@@ -667,6 +696,31 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
         exercises={exerciseLibrary}
         onSelect={addExerciseToBlock}
       />
+
+      {/* Video preview modal */}
+      <Dialog open={!!videoPreview} onOpenChange={(o) => { if (!o) setVideoPreview(null); }}>
+        <DialogContent className="sm:max-w-2xl gap-0 p-0 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <p className="font-semibold text-sm truncate pr-4">{videoPreview?.name}</p>
+            <button
+              type="button"
+              onClick={() => setVideoPreview(null)}
+              className="shrink-0 rounded-md p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="w-full bg-black">
+            {videoPreview?.url && (
+              <UniversalVideoPlayer
+                url={videoPreview.url}
+                provider={videoPreview.provider}
+                autoPlay
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

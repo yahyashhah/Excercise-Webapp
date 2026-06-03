@@ -11,9 +11,17 @@ export interface PdfExercise {
   videoUrl: string | null
 }
 
+export interface PdfBlock {
+  blockName: string | null
+  blockType: string
+  exercises: PdfExercise[]
+}
+
 export interface PdfSection {
   workoutName: string
   estimatedMinutes: number | null
+  blocks: PdfBlock[]
+  /** @deprecated kept for backwards compat — use blocks */
   exercises: PdfExercise[]
 }
 
@@ -31,10 +39,10 @@ export function buildProgramPdfSections(
   workouts: Record<string, unknown>[]
 ): PdfSection[] {
   return workouts.map((w) => {
-    const blocks = (w.blocks as Record<string, unknown>[]) ?? []
-    const exercises: PdfExercise[] = blocks
-      .flatMap((b) => (b.exercises as Record<string, unknown>[]) ?? [])
-      .map((be) => {
+    const rawBlocks = (w.blocks as Record<string, unknown>[]) ?? []
+    const pdfBlocks: PdfBlock[] = rawBlocks.map((b) => {
+      const blockExercises = (b.exercises as Record<string, unknown>[]) ?? []
+      const exercises: PdfExercise[] = blockExercises.map((be) => {
         const ex = be.exercise as Record<string, unknown>
         const sets = (be.sets as Record<string, unknown>[]) ?? []
         const eq = (ex.equipmentRequired as string[]) ?? []
@@ -47,10 +55,17 @@ export function buildProgramPdfSections(
           videoUrl: (ex.videoUrl as string | null) ?? null,
         }
       })
+      return {
+        blockName: (b.name as string | null) ?? null,
+        blockType: (b.type as string) ?? 'NORMAL',
+        exercises,
+      }
+    })
     return {
       workoutName: w.name as string,
       estimatedMinutes: (w.estimatedMinutes as number | null) ?? null,
-      exercises,
+      blocks: pdfBlocks,
+      exercises: pdfBlocks.flatMap((b) => b.exercises), // backwards compat
     }
   })
 }
@@ -112,6 +127,7 @@ interface ProgramDocumentProps {
   patientName: string | null
   clinicName: string
   sections: PdfSection[]
+  equipmentRequired?: string[]
 }
 
 export function ProgramDocument({
@@ -119,7 +135,9 @@ export function ProgramDocument({
   patientName,
   clinicName,
   sections,
+  equipmentRequired = [],
 }: ProgramDocumentProps) {
+  const equipment = equipmentRequired.filter((e) => e.toLowerCase() !== 'none')
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -129,33 +147,57 @@ export function ProgramDocument({
           <Text style={styles.subtitle}>{clinicName}</Text>
         </View>
 
+        {equipment.length > 0 && (
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 11, fontFamily: 'Helvetica-Bold', color: '#374151', marginBottom: 4 }}>
+              Equipment Needed
+            </Text>
+            <Text style={{ fontSize: 10, color: '#6b7280' }}>
+              {equipment.join(' · ')}
+            </Text>
+          </View>
+        )}
+
         {sections.map((section, si) => (
-          <View key={si} style={styles.workoutSection} wrap={false}>
+          <View key={si} style={styles.workoutSection}>
             <View style={styles.workoutHeader}>
               <Text style={styles.workoutName}>{section.workoutName}</Text>
               {section.estimatedMinutes && (
                 <Text style={styles.workoutMeta}>~{section.estimatedMinutes} min</Text>
               )}
             </View>
-            <View style={styles.columnHeader}>
-              <Text style={[styles.columnHeaderText, { flex: 2 }]}>EXERCISE</Text>
-              <Text style={[styles.columnHeaderText, { flex: 1 }]}>SETS</Text>
-              <Text style={[styles.columnHeaderText, { flex: 1.5 }]}>EQUIPMENT</Text>
-            </View>
-            {section.exercises.map((ex, ei) => (
-              <View key={ei} style={styles.exerciseRow}>
-                <View style={{ flex: 2 }}>
-                  {ex.videoUrl ? (
-                    <Text style={styles.exerciseNameLink}>
-                      <Link src={ex.videoUrl}>{ex.name}</Link>
+            {section.blocks.map((block, bi) => (
+              <View key={bi} wrap={false}>
+                {/* Block name separator */}
+                {block.blockName && (
+                  <View style={{ backgroundColor: '#f9fafb', paddingVertical: 3, paddingHorizontal: 8, marginBottom: 2 }}>
+                    <Text style={{ fontSize: 10, fontFamily: 'Helvetica-Bold', color: '#374151' }}>
+                      {block.blockName}
+                      {block.blockType !== 'NORMAL' ? `  (${block.blockType})` : ''}
                     </Text>
-                  ) : (
-                    <Text style={styles.exerciseName}>{ex.name}</Text>
-                  )}
-                  {ex.notes && <Text style={styles.exerciseNotes}>{ex.notes}</Text>}
+                  </View>
+                )}
+                <View style={styles.columnHeader}>
+                  <Text style={[styles.columnHeaderText, { flex: 2 }]}>EXERCISE</Text>
+                  <Text style={[styles.columnHeaderText, { flex: 1 }]}>SETS</Text>
+                  <Text style={[styles.columnHeaderText, { flex: 1.5 }]}>EQUIPMENT</Text>
                 </View>
-                <Text style={styles.exerciseSets}>{ex.setsSummary}</Text>
-                <Text style={styles.exerciseEquip}>{ex.equipment}</Text>
+                {block.exercises.map((ex, ei) => (
+                  <View key={ei} style={styles.exerciseRow}>
+                    <View style={{ flex: 2 }}>
+                      {ex.videoUrl ? (
+                        <Text style={styles.exerciseNameLink}>
+                          <Link src={ex.videoUrl}>{ex.name}</Link>
+                        </Text>
+                      ) : (
+                        <Text style={styles.exerciseName}>{ex.name}</Text>
+                      )}
+                      {ex.notes && <Text style={styles.exerciseNotes}>{ex.notes}</Text>}
+                    </View>
+                    <Text style={styles.exerciseSets}>{ex.setsSummary}</Text>
+                    <Text style={styles.exerciseEquip}>{ex.equipment}</Text>
+                  </View>
+                ))}
               </View>
             ))}
           </View>

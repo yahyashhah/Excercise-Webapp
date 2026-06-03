@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Dumbbell, Plus, Search, UploadCloud, Pencil, FileSpreadsheet } from "lucide-react";
+import { DeleteExerciseButton } from "@/components/admin/delete-exercise-button";
 import Link from "next/link";
 
 interface PageProps {
@@ -157,13 +158,16 @@ export default async function AdminExercisesPage({ searchParams }: PageProps) {
                     <span className="text-xs text-muted-foreground">{format(new Date(ex.createdAt), "MMM d, yyyy")}</span>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <Link
-                      href={`/admin/exercises/${ex.id}/edit`}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors"
-                    >
-                      <Pencil className="h-3 w-3" />
-                      Edit
-                    </Link>
+                    <div className="flex items-center justify-end gap-2">
+                      <Link
+                        href={`/admin/exercises/${ex.id}/edit`}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Edit
+                      </Link>
+                      <DeleteExerciseButton exerciseId={ex.id} exerciseName={ex.name} />
+                    </div>
                   </td>
                 </tr>
               ))}

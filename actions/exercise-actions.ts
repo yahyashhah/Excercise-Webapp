@@ -3,6 +3,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { isSuperAdmin } from "@/lib/current-user";
 import { createExerciseSchema, updateExerciseSchema } from "@/lib/validators/exercise";
 import * as exerciseService from "@/lib/services/exercise.service";
 import type { BodyRegion, DifficultyLevel, ExercisePhase } from "@prisma/client";
@@ -135,16 +136,33 @@ export async function deleteExerciseMediaAction(
 }
 
 export async function deleteExerciseAction(exerciseId: string) {
-  const { userId } = await auth();
+  const { userId, orgId: sessionOrgId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+
+  const exercise = await prisma.exercise.findUnique({ where: { id: exerciseId } });
+  if (!exercise) return { success: false as const, error: "Exercise not found" };
+
+  const superAdmin = await isSuperAdmin();
+
+  if (!superAdmin) {
+    // Clinicians can only delete their own clinic's exercises
+    if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+    const clinicOrgId = sessionOrgId ?? dbUser.clerkOrgId ?? null;
+    if (exercise.source === "UNIVERSAL") {
+      return { success: false as const, error: "Universal exercises can only be deleted by admins" };
+    }
+    if (exercise.source === "CLINIC" && exercise.organizationId !== clinicOrgId) {
+      return { success: false as const, error: "You can only delete your clinic's exercises" };
+    }
+  }
 
   try {
     await exerciseService.deleteExercise(exerciseId);
     revalidatePath("/exercises");
+    revalidatePath("/admin/exercises");
     return { success: true as const };
   } catch (error) {
     console.error("Failed to delete exercise:", error);

@@ -110,7 +110,12 @@ export function ProgramDetailView({
 
   const patient = program.patient as Record<string, string> | null;
   const patientId = program.patientId as string | null;
-  const equipmentNeeded = aggregateProgramEquipment(workouts);
+  // Use the clinician-curated program equipment list when available;
+  // fall back to auto-detecting from exercises if the list is empty.
+  const savedEquipment = (program.equipmentRequired as string[] | undefined) ?? [];
+  const equipmentNeeded = savedEquipment.length > 0
+    ? savedEquipment
+    : aggregateProgramEquipment(workouts);
 
   const [shareOpen, setShareOpen] = useState(false);
 
