@@ -4,6 +4,8 @@ import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { YoutubeTranscript } from "youtube-transcript";
+import { extractYouTubeId } from "@/lib/utils/video";
 
 const metadataFields = {
   description: z.string().describe("2-3 sentence clinical description of the exercise and its purpose in a rehabilitation or senior fitness context"),
@@ -48,15 +50,57 @@ export async function POST(req: Request) {
     if (body.youtubeUrl) {
       const { youtubeUrl } = body;
 
-      // Fetch video title + thumbnail via YouTube oEmbed (no API key required)
-      const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(youtubeUrl)}&format=json`;
-      const oembedRes = await fetch(oembedUrl);
-      if (!oembedRes.ok) {
+      const videoId = extractYouTubeId(youtubeUrl);
+      if (!videoId) {
+        return NextResponse.json({ error: "Could not parse YouTube video ID from URL." }, { status: 400 });
+      }
+
+      // Fetch video metadata from YouTube Data API v3 and transcript in parallel
+      const apiKey = process.env.YOUTUBE_API_KEY;
+      if (!apiKey) {
+        return NextResponse.json({ error: "YouTube API key not configured." }, { status: 500 });
+      }
+
+      const dataApiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`;
+
+      const [dataRes, transcriptResult] = await Promise.allSettled([
+        fetch(dataApiUrl).then((r) => r.json()),
+        YoutubeTranscript.fetchTranscript(videoId),
+      ]);
+
+      if (dataRes.status === "rejected" || !dataRes.value?.items?.length) {
         return NextResponse.json({ error: "Could not fetch YouTube video info. Check the URL and try again." }, { status: 400 });
       }
-      const oembed = await oembedRes.json();
-      const videoTitle: string = oembed.title ?? "";
-      const thumbnailUrl: string = oembed.thumbnail_url ?? "";
+
+      const snippet = dataRes.value.items[0].snippet;
+      const videoTitle: string = snippet.title ?? "";
+      const videoDescription: string = snippet.description ?? "";
+      const videoTags: string[] = snippet.tags ?? [];
+      const thumbnailUrl: string =
+        snippet.thumbnails?.standard?.url ??
+        snippet.thumbnails?.high?.url ??
+        snippet.thumbnails?.medium?.url ??
+        snippet.thumbnails?.default?.url ??
+        "";
+
+      // Condense transcript — join text, cap at 3000 chars to stay within token budget
+      let transcriptText = "";
+      if (transcriptResult.status === "fulfilled" && transcriptResult.value?.length) {
+        const raw = transcriptResult.value.map((t) => t.text).join(" ");
+        transcriptText = raw.length > 3000 ? raw.slice(0, 3000) + "…" : raw;
+      }
+
+      const contextParts: string[] = [`Video title: "${videoTitle}"`];
+      if (videoDescription.trim()) {
+        const desc = videoDescription.length > 800 ? videoDescription.slice(0, 800) + "…" : videoDescription;
+        contextParts.push(`Video description: "${desc}"`);
+      }
+      if (videoTags.length) {
+        contextParts.push(`Tags: ${videoTags.slice(0, 20).join(", ")}`);
+      }
+      if (transcriptText) {
+        contextParts.push(`Spoken transcript (auto-generated):\n${transcriptText}`);
+      }
 
       const { object } = await generateObject({
         model: openai("gpt-4o"),
@@ -64,9 +108,9 @@ export async function POST(req: Request) {
         system: SYSTEM_PROMPT,
         prompt: `Generate comprehensive exercise metadata for a physical therapy video.
 
-YouTube video title: "${videoTitle}"
+${contextParts.join("\n\n")}
 
-Based on this title, create a clean exercise name and full clinical metadata appropriate for senior rehabilitation patients.`,
+Based on all available information above, create a clean exercise name and full clinical metadata appropriate for senior rehabilitation patients. Prioritise the transcript and description for accurate instructions and clinical details — use the title primarily for the exercise name.`,
       });
 
       return NextResponse.json({
