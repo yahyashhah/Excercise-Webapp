@@ -92,7 +92,7 @@ export function BulkImportForm() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [mode, setMode] = useState<ImportMode>("upload");
+  const [mode, setMode] = useState<ImportMode>("youtube");
   const [dragOver, setDragOver] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -300,7 +300,7 @@ export function BulkImportForm() {
     <div className="space-y-8">
 
       {/* ── Mode tabs ── */}
-      <div className="flex gap-1 rounded-xl border bg-muted/40 p-1">
+      {false && <div className="flex gap-1 rounded-xl border bg-muted/40 p-1">
         <button
           type="button"
           onClick={() => setMode("upload")}
@@ -327,7 +327,7 @@ export function BulkImportForm() {
           <Youtube className="h-4 w-4" />
           Import from YouTube
         </button>
-      </div>
+      </div>}
 
       {/* ── Upload panel ── */}
       {mode === "upload" && (
