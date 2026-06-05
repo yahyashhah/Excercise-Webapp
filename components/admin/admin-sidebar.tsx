@@ -11,16 +11,18 @@ import {
   Library,
   Shield,
   ExternalLink,
+  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const adminLinks = [
-  { href: "/admin",           label: "Overview",    icon: LayoutDashboard, exact: true },
-  { href: "/admin/users",     label: "Users",       icon: Users },
-  { href: "/admin/analytics", label: "Analytics",   icon: BarChart3 },
-  { href: "/admin/exercises", label: "Exercises",   icon: Dumbbell },
-  { href: "/admin/programs",  label: "Programs",    icon: Library },
+  { href: "/admin",                  label: "Overview",        icon: LayoutDashboard, exact: true },
+  { href: "/admin/users",            label: "Users",           icon: Users },
+  { href: "/admin/analytics",        label: "Analytics",       icon: BarChart3 },
+  { href: "/admin/exercises",        label: "Exercises",       icon: Dumbbell },
+  { href: "/admin/programs",         label: "All Programs",    icon: Library },
+  { href: "/admin/global-programs",  label: "Global Programs", icon: Globe },
 ];
 
 interface AdminSidebarProps {

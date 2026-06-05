@@ -16,18 +16,34 @@ export default async function ProgramsPage({ searchParams }: Props) {
   const params = await searchParams;
 
   const tab =
-    params.tab === "templates" || params.template === "true"
+    params.tab === "templates"
       ? "templates"
+      : params.tab === "library"
+      ? "library"
       : "programs";
 
-  const programs =
+  const [programs, globalPrograms] = await Promise.all([
     user.role === "CLINICIAN"
-      ? await programService.getPrograms(user.id, {
+      ? programService.getPrograms(user.id, {
           search: params.search,
           status: params.status as any,
           isTemplate: tab === "templates",
         })
-      : await programService.getProgramsForPatient(user.id);
+      : programService.getProgramsForPatient(user.id),
+    user.role === "CLINICIAN" ? programService.getGlobalPrograms() : Promise.resolve([]),
+  ]);
+
+  // For each clinic program that came from a global master, check if master has been updated
+  const updatableIds = new Set<string>(
+    programs
+      .filter((p) => {
+        if (!p.sourceTemplateId) return false;
+        const master = globalPrograms.find((g) => g.id === p.sourceTemplateId);
+        if (!master?.globalUpdatedAt) return false;
+        return new Date(master.globalUpdatedAt) > new Date(p.createdAt);
+      })
+      .map((p) => p.id)
+  );
 
   return (
     <div className="space-y-6">
@@ -43,7 +59,12 @@ export default async function ProgramsPage({ searchParams }: Props) {
           </p>
         </div>
       </div>
-      <ProgramListClient programs={programs} role={user.role} />
+      <ProgramListClient
+        programs={programs}
+        globalPrograms={globalPrograms}
+        updatableIds={[...updatableIds]}
+        role={user.role}
+      />
     </div>
   );
 }

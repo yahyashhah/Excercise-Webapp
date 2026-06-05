@@ -115,6 +115,7 @@ export async function getPrograms(
 ) {
   const where: Prisma.ProgramWhereInput = {
     clinicianId,
+    isGlobal: false,
     ...(filters.status && { status: filters.status as PlanStatus }),
     ...(filters.isTemplate !== undefined && { isTemplate: filters.isTemplate }),
     ...(filters.patientId && { patientId: filters.patientId }),
@@ -313,4 +314,172 @@ export async function getTemplates(clinicianId: string) {
     include: programListInclude,
     orderBy: { updatedAt: "desc" },
   });
+}
+
+// --- Global Programs (super admin) ---
+
+export async function getGlobalPrograms() {
+  return prisma.program.findMany({
+    where: { isGlobal: true, status: { not: "ARCHIVED" } },
+    include: programListInclude,
+    orderBy: { updatedAt: "desc" },
+  });
+}
+
+export async function createGlobalProgram(data: CreateProgramInput) {
+  const { workouts, startDate, ...rest } = data;
+
+  return prisma.program.create({
+    data: {
+      ...rest,
+      isGlobal: true,
+      clinicianId: null,
+      startDate: startDate ? new Date(startDate) : undefined,
+      workouts: {
+        create: workouts.map((w) => ({
+          name: w.name,
+          description: w.description,
+          dayIndex: w.dayIndex,
+          weekIndex: w.weekIndex,
+          orderIndex: w.orderIndex,
+          estimatedMinutes: w.estimatedMinutes,
+          blocks: {
+            create: w.blocks.map((b) => ({
+              name: b.name,
+              type: b.type,
+              orderIndex: b.orderIndex,
+              rounds: b.rounds,
+              restBetweenRounds: b.restBetweenRounds,
+              timeCap: b.timeCap,
+              notes: b.notes,
+              exercises: {
+                create: b.exercises.map((e) => ({
+                  exerciseId: e.exerciseId,
+                  orderIndex: e.orderIndex,
+                  restSeconds: e.restSeconds,
+                  notes: e.notes,
+                  supersetGroup: e.supersetGroup,
+                  sets: {
+                    create: e.sets.map((s) => ({
+                      orderIndex: s.orderIndex,
+                      setType: s.setType,
+                      targetReps: s.targetReps,
+                      targetWeight: s.targetWeight,
+                      targetDuration: s.targetDuration,
+                      targetDistance: s.targetDistance,
+                      targetRPE: s.targetRPE,
+                      restAfter: s.restAfter,
+                    })),
+                  },
+                })),
+              },
+            })),
+          },
+        })),
+      },
+    },
+    include: programDetailInclude,
+  });
+}
+
+export async function updateGlobalProgram(
+  id: string,
+  data: Partial<CreateProgramInput> & { status?: string }
+) {
+  const { workouts, startDate, ...rest } = data;
+
+  if (workouts) {
+    // Assert target is actually a global program before destructively deleting workouts
+    const target = await prisma.program.findFirst({ where: { id, isGlobal: true }, select: { id: true } });
+    if (!target) throw new Error("Global program not found");
+
+    await prisma.workout.deleteMany({ where: { programId: id } });
+
+    return prisma.program.update({
+      where: { id, isGlobal: true },
+      data: {
+        ...rest,
+        status: rest.status as PlanStatus | undefined,
+        startDate: startDate ? new Date(startDate) : undefined,
+        workouts: {
+          create: workouts.map((w) => ({
+            name: w.name,
+            description: w.description,
+            dayIndex: w.dayIndex,
+            weekIndex: w.weekIndex,
+            orderIndex: w.orderIndex,
+            estimatedMinutes: w.estimatedMinutes,
+            blocks: {
+              create: w.blocks.map((b) => ({
+                name: b.name,
+                type: b.type,
+                orderIndex: b.orderIndex,
+                rounds: b.rounds,
+                restBetweenRounds: b.restBetweenRounds,
+                timeCap: b.timeCap,
+                notes: b.notes,
+                exercises: {
+                  create: b.exercises.map((e) => ({
+                    exerciseId: e.exerciseId,
+                    orderIndex: e.orderIndex,
+                    restSeconds: e.restSeconds,
+                    notes: e.notes,
+                    supersetGroup: e.supersetGroup,
+                    sets: {
+                      create: e.sets.map((s) => ({
+                        orderIndex: s.orderIndex,
+                        setType: s.setType,
+                        targetReps: s.targetReps,
+                        targetWeight: s.targetWeight,
+                        targetDuration: s.targetDuration,
+                        targetDistance: s.targetDistance,
+                        targetRPE: s.targetRPE,
+                        restAfter: s.restAfter,
+                      })),
+                    },
+                  })),
+                },
+              })),
+            },
+          })),
+        },
+      },
+      include: programDetailInclude,
+    });
+  }
+
+  return prisma.program.update({
+    where: { id, isGlobal: true },
+    data: {
+      ...rest,
+      status: rest.status as PlanStatus | undefined,
+      startDate: startDate ? new Date(startDate) : undefined,
+    },
+    include: programDetailInclude,
+  });
+}
+
+export async function pushGlobalProgramUpdate(id: string) {
+  return prisma.program.update({
+    where: { id, isGlobal: true },
+    data: { globalUpdatedAt: new Date() },
+    select: { id: true, globalUpdatedAt: true },
+  });
+}
+
+export async function deleteGlobalProgram(id: string) {
+  return prisma.program.update({
+    where: { id, isGlobal: true },
+    data: { status: "ARCHIVED" },
+  });
+}
+
+export async function copyGlobalProgramToClinic(
+  globalProgramId: string,
+  clinicianId: string
+) {
+  const source = await getProgramById(globalProgramId);
+  if (!source) throw new Error("Program not found");
+  if (!source.isGlobal) throw new Error("Program is not a global program");
+  return duplicateProgram(globalProgramId, clinicianId, false);
 }

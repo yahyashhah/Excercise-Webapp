@@ -45,14 +45,28 @@ interface PatientSummary {
   availableEquipment?: string[];
 }
 
+export type GenerateExercisesHandler = (params: {
+  patientId: string | null;
+  focusAreas: string[];
+  durationMinutes: number;
+  daysPerWeek: number;
+  durationWeeks: number;
+  circuits: { name: string; focusType: string; exerciseCount: number; rounds: number; restBetweenRounds: number | null }[];
+  preferredWeekdays: string[];
+  difficultyLevel: string;
+  weekPlan: unknown[];
+}) => Promise<{ success: boolean; error?: string; data?: string }>;
+
 interface GenerateProgramFormProps {
   patients: PatientSummary[];
   initialPatientId?: string;
+  onGenerateExercises?: GenerateExercisesHandler;
+  redirectTo?: string;
 }
 
 type GenerateState = 'CONFIGURE' | 'PLANNING' | 'REVIEWING' | 'GENERATING';
 
-export function GenerateProgramForm({ patients, initialPatientId }: GenerateProgramFormProps) {
+export function GenerateProgramForm({ patients, initialPatientId, onGenerateExercises, redirectTo }: GenerateProgramFormProps) {
   const weekDays = [
     "Monday",
     "Tuesday",
@@ -184,7 +198,7 @@ export function GenerateProgramForm({ patients, initialPatientId }: GenerateProg
   async function handleGenerateExercises(approvedPlan: ClinicalPlan) {
     setGenerateState('GENERATING');
 
-    const result = await generateProgramAction({
+    const genParams = {
       patientId: selectedPatient || null,
       focusAreas: selectedAreas,
       durationMinutes: duration,
@@ -195,6 +209,23 @@ export function GenerateProgramForm({ patients, initialPatientId }: GenerateProg
       })),
       preferredWeekdays: selectedWeekdays,
       difficultyLevel: difficulty,
+      weekPlan: approvedPlan.weeklyPlan,
+    };
+
+    if (onGenerateExercises) {
+      const result = await onGenerateExercises(genParams);
+      if (result.success) {
+        toast.success('Program generated successfully!');
+        router.push(redirectTo ?? (result.data ? `/programs/${result.data}` : '/programs'));
+      } else {
+        toast.error(result.error);
+        setGenerateState('CONFIGURE');
+      }
+      return;
+    }
+
+    const result = await generateProgramAction({
+      ...genParams,
       weekPlan: approvedPlan.weeklyPlan,
     });
 

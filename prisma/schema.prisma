@@ -363,9 +363,11 @@ model Program {
   name             String
   description      String?
   isTemplate       Boolean    @default(false)
+  isGlobal         Boolean    @default(false)
+  globalUpdatedAt  DateTime?
   sourceTemplateId String?    @db.ObjectId
-  clinicianId      String     @db.ObjectId
-  clinician        User       @relation("ProgramsCreated", fields: [clinicianId], references: [id])
+  clinicianId      String?    @db.ObjectId
+  clinician        User?      @relation("ProgramsCreated", fields: [clinicianId], references: [id])
   patientId        String?    @db.ObjectId
   patient          User?      @relation("ProgramsAssigned", fields: [patientId], references: [id])
   status           PlanStatus @default(DRAFT)
@@ -381,6 +383,7 @@ model Program {
 
   @@index([clinicianId])
   @@index([patientId])
+  @@index([isGlobal])
 }
 
 model Workout {

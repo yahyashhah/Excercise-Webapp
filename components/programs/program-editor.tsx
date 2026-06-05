@@ -50,6 +50,11 @@ interface Props {
     imageUrl?: string | null;
     equipmentRequired?: string[];
   }[];
+  onSave?: (
+    data: CreateProgramInput,
+    programId?: string
+  ) => Promise<{ success: boolean; error?: string; data?: { id: string } }>;
+  redirectTo?: string;
 }
 
 // Helper to map DB workout to input type
@@ -105,7 +110,7 @@ function mapWorkoutToInput(w: Record<string, unknown>): WorkoutInput {
   };
 }
 
-export function ProgramEditor({ program, exercises }: Props) {
+export function ProgramEditor({ program, exercises, onSave, redirectTo }: Props) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [workouts, setWorkouts] = useState<WorkoutInput[]>(
@@ -178,7 +183,6 @@ export function ProgramEditor({ program, exercises }: Props) {
   async function onSubmit(data: CreateProgramInput) {
     setSaving(true);
     try {
-      // Strip UI-only fields from workouts before sending
       const cleanWorkouts = workouts.map((w) => ({
         ...w,
         blocks: w.blocks.map((b) => ({
@@ -198,11 +202,19 @@ export function ProgramEditor({ program, exercises }: Props) {
       data.workouts = cleanWorkouts;
       data.equipmentRequired = equipment;
 
+      if (onSave) {
+        const result = await onSave(data, program?.id as string | undefined);
+        if (result.success) {
+          toast.success(program ? "Program updated" : "Program created");
+          router.push(redirectTo ?? (result.data?.id ? `/programs/${result.data.id}` : "/programs"));
+        } else {
+          toast.error(result.error);
+        }
+        return;
+      }
+
       if (program) {
-        const result = await updateProgramAction(
-          program.id as string,
-          data
-        );
+        const result = await updateProgramAction(program.id as string, data);
         if (result.success) {
           toast.success("Program updated");
           router.push(`/programs/${program.id}`);
