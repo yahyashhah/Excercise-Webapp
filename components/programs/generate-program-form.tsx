@@ -271,42 +271,46 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Patient selector */}
-              <div className="space-y-2">
-                <Label>Client <span className="text-muted-foreground font-normal">(optional)</span></Label>
-                <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  value={selectedPatient}
-                  onChange={(e) => setSelectedPatient(e.target.value)}
-                >
-                  <option value="">No client — general program template</option>
-                  {patients.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.firstName} {p.lastName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Patient profile inline summary */}
-              {selectedPatient && (() => {
-                const p = patients.find(pt => pt.id === selectedPatient)
-                if (!p) return null
-                return (
-                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm space-y-0.5">
-                    <p className="font-medium">{p.firstName} {p.lastName}</p>
-                    {p.primaryDiagnosis && (
-                      <p className="text-muted-foreground">Dx: {p.primaryDiagnosis}</p>
-                    )}
-                    {p.painScore != null && (
-                      <p className="text-muted-foreground">Pain: {p.painScore}/10</p>
-                    )}
-                    {p.limitations && (
-                      <p className="text-muted-foreground">Limitations: {p.limitations}</p>
-                    )}
+              {/* Patient selector — hidden when no patients available (e.g. admin context) */}
+              {patients.length > 0 && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Client <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    <select
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={selectedPatient}
+                      onChange={(e) => setSelectedPatient(e.target.value)}
+                    >
+                      <option value="">No client — general program template</option>
+                      {patients.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.firstName} {p.lastName}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                )
-              })()}
+
+                  {/* Patient profile inline summary */}
+                  {selectedPatient && (() => {
+                    const p = patients.find(pt => pt.id === selectedPatient)
+                    if (!p) return null
+                    return (
+                      <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm space-y-0.5">
+                        <p className="font-medium">{p.firstName} {p.lastName}</p>
+                        {p.primaryDiagnosis && (
+                          <p className="text-muted-foreground">Dx: {p.primaryDiagnosis}</p>
+                        )}
+                        {p.painScore != null && (
+                          <p className="text-muted-foreground">Pain: {p.painScore}/10</p>
+                        )}
+                        {p.limitations && (
+                          <p className="text-muted-foreground">Limitations: {p.limitations}</p>
+                        )}
+                      </div>
+                    )
+                  })()}
+                </>
+              )}
 
               {/* Session Duration + Days Per Week */}
               <div className="grid gap-4 sm:grid-cols-2">
