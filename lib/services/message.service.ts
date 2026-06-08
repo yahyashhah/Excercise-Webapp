@@ -44,16 +44,25 @@ export async function getUnreadCount(userId: string) {
 }
 
 export async function getInboxThreads(userId: string) {
-  // Get all messages involving the user
-  const messages = await prisma.message.findMany({
-    where: {
-      OR: [{ senderId: userId }, { recipientId: userId }],
-    },
-    include: { sender: true, recipient: true },
-    orderBy: { createdAt: "desc" },
-  });
+  // Fetch all messages and unread counts in parallel — 2 queries total, not N+1
+  const [messages, unreadGroups] = await Promise.all([
+    prisma.message.findMany({
+      where: { OR: [{ senderId: userId }, { recipientId: userId }] },
+      include: { sender: true, recipient: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.message.groupBy({
+      by: ["senderId"],
+      where: { recipientId: userId, isRead: false },
+      _count: { id: true },
+    }),
+  ]);
 
-  // Group by conversation partner
+  // Build a quick lookup: senderId → unread count
+  const unreadBySender = new Map(
+    unreadGroups.map((g) => [g.senderId, g._count.id])
+  );
+
   const threadMap = new Map<
     string,
     {
@@ -68,14 +77,6 @@ export async function getInboxThreads(userId: string) {
     const otherUser = msg.senderId === userId ? msg.recipient : msg.sender;
 
     if (!threadMap.has(otherUserId)) {
-      const unreadCount = await prisma.message.count({
-        where: {
-          senderId: otherUserId,
-          recipientId: userId,
-          isRead: false,
-        },
-      });
-
       threadMap.set(otherUserId, {
         otherUser: {
           id: otherUser.id,
@@ -85,7 +86,7 @@ export async function getInboxThreads(userId: string) {
           role: otherUser.role,
         },
         lastMessage: msg,
-        unreadCount,
+        unreadCount: unreadBySender.get(otherUserId) ?? 0,
       });
     }
   }

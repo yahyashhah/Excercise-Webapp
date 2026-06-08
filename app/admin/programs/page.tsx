@@ -96,8 +96,14 @@ export default async function AdminProgramsPage({ searchParams }: PageProps) {
                     </Badge>
                   </td>
                   <td className="px-5 py-3 hidden md:table-cell">
-                    <p className="text-xs font-medium text-foreground">{prog.clinician.firstName} {prog.clinician.lastName}</p>
-                    <p className="text-[10px] text-muted-foreground">{prog.clinician.email}</p>
+                    {prog.clinician ? (
+                      <>
+                        <p className="text-xs font-medium text-foreground">{prog.clinician.firstName} {prog.clinician.lastName}</p>
+                        <p className="text-[10px] text-muted-foreground">{prog.clinician.email}</p>
+                      </>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Global</span>
+                    )}
                   </td>
                   <td className="px-5 py-3 hidden lg:table-cell">
                     {prog.patient ? (

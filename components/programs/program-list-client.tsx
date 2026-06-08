@@ -35,11 +35,13 @@ import {
   Users,
   Dumbbell,
   Upload,
+  Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   duplicateProgramAction,
   deleteProgramAction,
+  copyGlobalProgramAction,
 } from "@/actions/program-actions";
 import { formatDistanceToNow } from "date-fns";
 
@@ -48,11 +50,23 @@ interface ProgramListItem {
   name: string;
   status: string;
   isTemplate: boolean;
+  isGlobal: boolean;
+  sourceTemplateId?: string | null;
   tags: string[];
   updatedAt: Date;
+  createdAt: Date;
   patientId?: string | null;
-  clinician: { id: string; firstName: string; lastName: string };
+  clinician: { id: string; firstName: string; lastName: string } | null;
   patient: { id: string; firstName: string; lastName: string } | null;
+  _count: { workouts: number };
+}
+
+interface GlobalProgramItem {
+  id: string;
+  name: string;
+  description?: string | null;
+  tags: string[];
+  globalUpdatedAt?: Date | null;
   _count: { workouts: number };
 }
 
@@ -81,9 +95,13 @@ function getProgramGradient(name: string) {
 
 export function ProgramListClient({
   programs,
+  globalPrograms = [],
+  updatableIds = [],
   role,
 }: {
   programs: ProgramListItem[];
+  globalPrograms?: GlobalProgramItem[];
+  updatableIds?: string[];
   role?: string;
 }) {
   const router = useRouter();
@@ -91,16 +109,24 @@ export function ProgramListClient({
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const updatableSet = new Set(updatableIds);
+  const [copying, setCopying] = useState<string | null>(null);
 
   const activeTab =
-    searchParams.get("tab") === "templates" ? "templates" : "programs";
+    role === "CLINICIAN"
+      ? searchParams.get("tab") === "templates"
+        ? "templates"
+        : searchParams.get("tab") === "library"
+        ? "library"
+        : "programs"
+      : "programs";
 
   function handleTabChange(nextTab: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (nextTab === "programs") {
       params.delete("tab");
     } else {
-      params.set("tab", "templates");
+      params.set("tab", nextTab);
     }
     const nextQuery = params.toString();
     router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname);
@@ -132,68 +158,93 @@ export function ProgramListClient({
     }
   }
 
+  async function handleCopyGlobal(globalProgramId: string, name: string) {
+    setCopying(globalProgramId);
+    try {
+      const result = await copyGlobalProgramAction(globalProgramId);
+      if (result.success) {
+        toast.success(`"${name}" copied to your library`);
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setCopying(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {role === "CLINICIAN" && (
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full max-w-sm grid-cols-2">
+          <TabsList className="grid w-full max-w-md grid-cols-3">
             <TabsTrigger value="programs">Programs</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
+            <TabsTrigger value="library">
+              Template Library
+              {globalPrograms.length > 0 && (
+                <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                  {globalPrograms.length}
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       )}
       {/* Toolbar */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-48 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={activeTab === "templates" ? "Search templates..." : "Search programs..."}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
+      {activeTab !== "library" && (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-1 flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-48 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={activeTab === "templates" ? "Search templates..." : "Search programs..."}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
+              <SelectTrigger className="w-36">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="DRAFT">Draft</SelectItem>
+                <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="PAUSED">Paused</SelectItem>
+                <SelectItem value="COMPLETED">Completed</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="DRAFT">Draft</SelectItem>
-              <SelectItem value="ACTIVE">Active</SelectItem>
-              <SelectItem value="PAUSED">Paused</SelectItem>
-              <SelectItem value="COMPLETED">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
 
-        {role === "CLINICIAN" && (
-          <div className="flex shrink-0 items-center gap-2">
-            <Button variant="outline" className="gap-2" asChild>
-              <Link href="/programs/upload">
-                <Upload className="h-4 w-4 text-emerald-600" />
-                Upload Brief
-              </Link>
-            </Button>
-            <Button variant="outline" className="gap-2" asChild>
-              <Link href="/programs/generate">
-                <Sparkles className="h-4 w-4 text-blue-600" />
-                AI Generate
-              </Link>
-            </Button>
-            <Button className="gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600" asChild>
-              <Link href="/programs/new">
-                <Plus className="h-4 w-4" />
-                New Program
-              </Link>
-            </Button>
-          </div>
-        )}
-      </div>
+          {role === "CLINICIAN" && (
+            <div className="flex shrink-0 items-center gap-2">
+              <Button variant="outline" className="gap-2" asChild>
+                <Link href="/programs/upload">
+                  <Upload className="h-4 w-4 text-emerald-600" />
+                  Upload Brief
+                </Link>
+              </Button>
+              <Button variant="outline" className="gap-2" asChild>
+                <Link href="/programs/generate">
+                  <Sparkles className="h-4 w-4 text-blue-600" />
+                  AI Generate
+                </Link>
+              </Button>
+              <Button className="gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600" asChild>
+                <Link href="/programs/new">
+                  <Plus className="h-4 w-4" />
+                  New Program
+                </Link>
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Grid */}
-      {filtered.length === 0 ? (
+      {activeTab !== "library" && (filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-12 text-center">
           <Library className="mx-auto h-12 w-12 text-muted-foreground/40" />
           <h3 className="mt-4 font-semibold">
@@ -282,6 +333,11 @@ export function ProgramListClient({
                         Template
                       </Badge>
                     )}
+                    {updatableSet.has(program.id) && (
+                      <Badge className="border border-amber-200 bg-amber-100 text-[11px] font-medium text-amber-700">
+                        Update available
+                      </Badge>
+                    )}
                   </div>
 
                   {/* Meta */}
@@ -321,6 +377,59 @@ export function ProgramListClient({
               </Card>
             );
           })}
+        </div>
+      ))}
+
+      {/* Template Library tab */}
+      {activeTab === "library" && (
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {globalPrograms.length === 0 && (
+            <div className="col-span-full rounded-xl border border-dashed border-border p-12 text-center">
+              <Globe className="mx-auto h-12 w-12 text-muted-foreground/40" />
+              <h3 className="mt-4 font-semibold">No global programs yet</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Your administrator hasn&apos;t added any default programs yet.
+              </p>
+            </div>
+          )}
+          {globalPrograms.map((prog) => (
+            <Card
+              key={prog.id}
+              className="group flex flex-col border-0 shadow-sm ring-1 ring-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:ring-border"
+            >
+              <CardContent className="flex flex-1 flex-col p-5">
+                <div className="flex items-start gap-2">
+                  <Globe className="mt-0.5 h-4 w-4 shrink-0 text-primary/60" />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-base font-semibold leading-tight">{prog.name}</h3>
+                    {prog.description && (
+                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{prog.description}</p>
+                    )}
+                  </div>
+                </div>
+                {prog.tags.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {prog.tags.slice(0, 4).map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-[10px]">{tag}</Badge>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {prog._count.workouts} workout{prog._count.workouts !== 1 ? "s" : ""}
+                </p>
+                <div className="mt-4 border-t border-border/60 pt-3">
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    disabled={copying === prog.id}
+                    onClick={() => handleCopyGlobal(prog.id, prog.name)}
+                  >
+                    {copying === prog.id ? "Copying…" : "Copy to My Library"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </div>

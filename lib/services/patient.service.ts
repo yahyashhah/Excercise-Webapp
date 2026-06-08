@@ -48,8 +48,7 @@ export async function getCliniciansForPatient(patientId: string) {
   });
   if (!patient?.clerkOrgId) return [];
 
-  const clinician = await prisma.user.findFirst({
+  return prisma.user.findMany({
     where: { clerkOrgId: patient.clerkOrgId, role: "CLINICIAN" },
   });
-  return clinician ? [clinician] : [];
 }

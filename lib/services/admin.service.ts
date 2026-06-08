@@ -270,3 +270,34 @@ export async function getAllPrograms(params: {
 
   return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
+
+export async function getAdminGlobalPrograms(params: {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+}) {
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? 25;
+  const search = params.search ?? "";
+
+  const where = {
+    isGlobal: true,
+    status: { not: "ARCHIVED" as const },
+    ...(search && { name: { contains: search, mode: "insensitive" as const } }),
+  };
+
+  const [items, total] = await Promise.all([
+    prisma.program.findMany({
+      where,
+      include: {
+        _count: { select: { workouts: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.program.count({ where }),
+  ]);
+
+  return { items, total, totalPages: Math.ceil(total / pageSize) };
+}
