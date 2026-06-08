@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { sendMessageSchema } from "@/lib/validators/message";
 import * as messageService from "@/lib/services/message.service";
+import { pusherServer } from "@/lib/pusher";
+import { threadChannel, inboxChannel } from "@/lib/pusher-channels";
 
 export async function sendMessageAction(input: {
   recipientId: string;
@@ -29,6 +31,25 @@ export async function sendMessageAction(input: {
       ...parsed.data,
     });
 
+    const channel = threadChannel(dbUser.id, parsed.data.recipientId);
+    const payload = {
+      id: message.id,
+      senderId: message.senderId,
+      recipientId: message.recipientId,
+      content: message.content,
+      createdAt: message.createdAt.toISOString(),
+      sender: {
+        firstName: message.sender.firstName,
+        lastName: message.sender.lastName,
+        imageUrl: message.sender.imageUrl,
+      },
+    };
+
+    Promise.all([
+      pusherServer.trigger(channel, "new-message", payload),
+      pusherServer.trigger(inboxChannel(parsed.data.recipientId), "new-message", payload),
+    ]).catch((err) => console.error("[pusher] trigger failed:", err));
+
     revalidatePath("/messages");
     return { success: true as const, data: message };
   } catch (error) {
@@ -46,6 +67,11 @@ export async function markMessagesReadAction(senderId: string) {
 
   try {
     await messageService.markRead(senderId, dbUser.id);
+
+    pusherServer
+      .trigger(threadChannel(senderId, dbUser.id), "messages-read", { readByUserId: dbUser.id })
+      .catch((err) => console.error("[pusher] trigger failed:", err));
+
     revalidatePath("/messages");
     return { success: true as const };
   } catch (error) {
