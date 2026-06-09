@@ -3,6 +3,7 @@ import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ToastProvider } from "@/components/providers/toast-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ClipboardProvider } from "@/lib/clipboard-context";
 import "./globals.css";
 
 const inter = Inter({
@@ -32,8 +33,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           className={`${inter.variable} ${plusJakartaSans.variable} font-sans antialiased`}
         >
           <TooltipProvider>
-            {children}
-            <ToastProvider />
+            <ClipboardProvider>
+              {children}
+              <ToastProvider />
+            </ClipboardProvider>
           </TooltipProvider>
         </body>
       </html>

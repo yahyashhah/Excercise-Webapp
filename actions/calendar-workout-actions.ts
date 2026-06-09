@@ -1209,15 +1209,15 @@ export async function duplicateWorkoutToDateAction(
 export type SessionWithFullWorkout = {
   exerciseLogs?: {
     id: string;
-    blockExerciseId: string; 
-    status: string; 
-    setLogs: { 
-      setIndex: number; 
-      actualReps?: number | null; 
-      actualWeight?: number | null; 
-      actualDuration?: number | null; 
-      actualRPE?: number | null; 
-    }[] 
+    blockExerciseId: string;
+    status: string;
+    setLogs: {
+      setIndex: number;
+      actualReps?: number | null;
+      actualWeight?: number | null;
+      actualDuration?: number | null;
+      actualRPE?: number | null;
+    }[]
   }[];
   overallRPE?: number | null;
   overallNotes?: string | null;
@@ -1262,4 +1262,162 @@ export type SessionWithFullWorkout = {
     }[];
   };
 };
+
+// ---------------------------------------------------------------------------
+// Paste exercises from clipboard into a block
+// ---------------------------------------------------------------------------
+
+type PasteExerciseInput = {
+  exerciseId: string;
+  restSeconds: number | null;
+  notes: string | null;
+  supersetGroup: string | null;
+  sets: {
+    orderIndex: number;
+    setType: string;
+    targetReps: number | null;
+    targetWeight: number | null;
+    targetDuration: number | null;
+    targetRPE: number | null;
+    restAfter: number | null;
+  }[];
+};
+
+export async function pasteExercisesToBlockAction(
+  blockId: string,
+  exercises: PasteExerciseInput[]
+): Promise<ActionResult<void>> {
+  const user = await getClinicianUser();
+  if (!user) return { success: false, error: "Unauthorized" };
+
+  try {
+    const block = await prisma.workoutBlockV2.findUnique({
+      where: { id: blockId },
+      include: {
+        workout: {
+          include: { program: { select: { clinicianId: true, patientId: true } } },
+        },
+        exercises: {
+          select: { orderIndex: true },
+          orderBy: { orderIndex: "desc" },
+          take: 1,
+        },
+      },
+    });
+    if (!block || block.workout.program.clinicianId !== user.id) {
+      return { success: false, error: "Forbidden" };
+    }
+
+    let nextOrder = (block.exercises[0]?.orderIndex ?? -1) + 1;
+    for (const ex of exercises) {
+      await prisma.blockExerciseV2.create({
+        data: {
+          blockId,
+          exerciseId: ex.exerciseId,
+          orderIndex: nextOrder++,
+          restSeconds: ex.restSeconds,
+          notes: ex.notes,
+          supersetGroup: ex.supersetGroup,
+          sets: {
+            create: ex.sets.map((s) => ({
+              orderIndex: s.orderIndex,
+              setType: s.setType,
+              targetReps: s.targetReps,
+              targetWeight: s.targetWeight,
+              targetDuration: s.targetDuration,
+              targetRPE: s.targetRPE,
+              restAfter: s.restAfter,
+            })),
+          },
+        },
+      });
+    }
+
+    if (block.workout.program.patientId) revalidatePatient(block.workout.program.patientId);
+    return { success: true, data: undefined };
+  } catch (error) {
+    console.error("Failed to paste exercises:", error);
+    return { success: false, error: "Failed to paste exercises" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Paste a block from clipboard into a workout
+// ---------------------------------------------------------------------------
+
+type PasteBlockInput = {
+  name: string | null;
+  type: string;
+  rounds: number;
+  timeCap: number | null;
+  restBetweenRounds: number | null;
+  notes: string | null;
+  exercises: PasteExerciseInput[];
+};
+
+export async function pasteBlockToWorkoutAction(
+  workoutId: string,
+  block: PasteBlockInput
+): Promise<ActionResult<void>> {
+  const user = await getClinicianUser();
+  if (!user) return { success: false, error: "Unauthorized" };
+
+  try {
+    const workout = await prisma.workout.findUnique({
+      where: { id: workoutId },
+      include: {
+        program: { select: { clinicianId: true, patientId: true } },
+        blocks: {
+          select: { orderIndex: true },
+          orderBy: { orderIndex: "desc" },
+          take: 1,
+        },
+      },
+    });
+    if (!workout || workout.program.clinicianId !== user.id) {
+      return { success: false, error: "Forbidden" };
+    }
+
+    const nextBlockOrder = (workout.blocks[0]?.orderIndex ?? -1) + 1;
+
+    await prisma.workoutBlockV2.create({
+      data: {
+        workoutId,
+        name: block.name,
+        type: block.type,
+        orderIndex: nextBlockOrder,
+        rounds: block.rounds,
+        timeCap: block.timeCap,
+        restBetweenRounds: block.restBetweenRounds,
+        notes: block.notes,
+        exercises: {
+          create: block.exercises.map((ex, exIdx) => ({
+            exerciseId: ex.exerciseId,
+            orderIndex: exIdx,
+            restSeconds: ex.restSeconds,
+            notes: ex.notes,
+            supersetGroup: ex.supersetGroup,
+            sets: {
+              create: ex.sets.map((s) => ({
+                orderIndex: s.orderIndex,
+                setType: s.setType,
+                targetReps: s.targetReps,
+                targetWeight: s.targetWeight,
+                targetDuration: s.targetDuration,
+                targetRPE: s.targetRPE,
+                restAfter: s.restAfter,
+              })),
+            },
+          })),
+        },
+      },
+    });
+
+    if (workout.program.patientId) revalidatePatient(workout.program.patientId);
+    return { success: true, data: undefined };
+  } catch (error) {
+    console.error("Failed to paste block:", error);
+    return { success: false, error: "Failed to paste block" };
+  }
+}
 

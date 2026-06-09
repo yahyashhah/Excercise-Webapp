@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Copy, GripVertical, Plus, Trash2, Play, X } from "lucide-react";
+import { GripVertical, Plus, Trash2, Play, X } from "lucide-react";
 import { ExercisePickerDialog } from "./exercise-picker-dialog";
 import { SetEditor } from "./set-editor";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -40,6 +40,10 @@ import type {
   WorkoutInput,
   ExerciseSetInput,
 } from "@/lib/validators/program";
+import { cn } from "@/lib/utils";
+import { useClipboard, stripIds } from "@/lib/clipboard-context";
+import { useBuilderKeyboard } from "@/hooks/use-builder-keyboard";
+import { toast } from "sonner";
 
 interface Props {
   workouts: WorkoutInput[];
@@ -57,6 +61,20 @@ interface Props {
     videoProvider?: string | null;
   }[];
 }
+
+interface SelectionState {
+  level: "workout" | "block" | "exercises" | null;
+  workoutIdx: number | null;
+  blockIdx: number | null;
+  exerciseIdxs: Set<number>;
+}
+
+const DEFAULT_SELECTION: SelectionState = {
+  level: null,
+  workoutIdx: null,
+  blockIdx: null,
+  exerciseIdxs: new Set(),
+};
 
 // Sortable wrapper for a block — must be a component so useSortable can be called as a hook.
 function SortableBlock({
@@ -109,6 +127,10 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
     workoutIdx: number;
     blockIdx: number;
   } | null>(null);
+
+  const [selection, setSelection] = useState<SelectionState>(DEFAULT_SELECTION);
+  const [hoveredPasteTarget, setHoveredPasteTarget] = useState<string | null>(null);
+  const { clipboard, copy } = useClipboard();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -177,61 +199,6 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
     next[workoutIdx].blocks = next[workoutIdx].blocks
       .filter((_, i) => i !== blockIdx)
       .map((b, i) => ({ ...b, orderIndex: i }));
-    onChange(next);
-  }
-
-  function duplicateBlock(workoutIdx: number, blockIdx: number) {
-    const next = [...workouts];
-    const source = next[workoutIdx].blocks[blockIdx];
-
-    // Deep-clone stripping all id fields so they're treated as new on save
-    const clone = JSON.parse(JSON.stringify(source));
-    delete clone.id;
-    clone.exercises = clone.exercises.map((ex: typeof clone.exercises[number]) => {
-      const { id: _eid, ...exRest } = ex as any;
-      return {
-        ...exRest,
-        sets: exRest.sets.map((s: any) => {
-          const { id: _sid, ...sRest } = s;
-          return sRest;
-        }),
-      };
-    });
-
-    // Insert clone directly after source
-    next[workoutIdx].blocks.splice(blockIdx + 1, 0, clone);
-
-    // Reassign orderIndex for all blocks in this workout
-    next[workoutIdx].blocks = next[workoutIdx].blocks.map((b, i) => ({
-      ...b,
-      orderIndex: i,
-    }));
-
-    onChange(next);
-  }
-
-  function duplicateExercise(workoutIdx: number, blockIdx: number, exerciseIdx: number) {
-    const next = [...workouts];
-    const source = next[workoutIdx].blocks[blockIdx].exercises[exerciseIdx];
-
-    const clone = JSON.parse(JSON.stringify(source));
-    const { id: _eid, ...exRest } = clone as any;
-    const cloneClean = {
-      ...exRest,
-      sets: exRest.sets.map((s: any) => {
-        const { id: _sid, ...sRest } = s;
-        return sRest;
-      }),
-    };
-
-    // Insert clone directly after source
-    next[workoutIdx].blocks[blockIdx].exercises.splice(exerciseIdx + 1, 0, cloneClean);
-
-    // Reassign orderIndex
-    next[workoutIdx].blocks[blockIdx].exercises = next[workoutIdx].blocks[
-      blockIdx
-    ].exercises.map((ex, i) => ({ ...ex, orderIndex: i }));
-
     onChange(next);
   }
 
@@ -330,6 +297,114 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
     onChange(next);
   }
 
+  function handleExerciseCheck(wi: number, bi: number, ei: number, checked: boolean) {
+    setSelection((prev) => {
+      const sameBlock =
+        prev.level === "exercises" &&
+        prev.workoutIdx === wi &&
+        prev.blockIdx === bi;
+      const newIdxs = sameBlock ? new Set(prev.exerciseIdxs) : new Set<number>();
+      if (checked) {
+        newIdxs.add(ei);
+        return { level: "exercises", workoutIdx: wi, blockIdx: bi, exerciseIdxs: newIdxs };
+      }
+      newIdxs.delete(ei);
+      return newIdxs.size > 0
+        ? { level: "exercises", workoutIdx: wi, blockIdx: bi, exerciseIdxs: newIdxs }
+        : DEFAULT_SELECTION;
+    });
+  }
+
+  function handleCopy() {
+    const { level, workoutIdx, blockIdx, exerciseIdxs } = selection;
+    if (level === "workout" && workoutIdx !== null) {
+      const data = stripIds(workouts[workoutIdx]);
+      copy({ type: "workout", data, label: `"${workouts[workoutIdx].name}"` });
+    } else if (level === "block" && workoutIdx !== null && blockIdx !== null) {
+      const block = workouts[workoutIdx].blocks[blockIdx];
+      copy({ type: "block", data: stripIds(block), label: `"${block.name || "Block"}"` });
+    } else if (
+      level === "exercises" &&
+      workoutIdx !== null &&
+      blockIdx !== null &&
+      exerciseIdxs.size > 0
+    ) {
+      const sorted = Array.from(exerciseIdxs).sort((a, b) => a - b);
+      const exs = sorted.map((i) =>
+        stripIds(workouts[workoutIdx!].blocks[blockIdx!].exercises[i])
+      );
+      const firstName = getExerciseName(
+        exs[0].exerciseId,
+        (exs[0] as any)._exerciseName
+      );
+      const label = exs.length === 1 ? `"${firstName}"` : `${exs.length} exercises`;
+      copy({ type: "exercises", data: exs, label });
+    }
+  }
+
+  function handlePaste() {
+    if (!clipboard) return;
+
+    if (clipboard.type === "workout") {
+      const idx = workouts.length;
+      const clone = {
+        ...clipboard.data,
+        dayIndex: idx,
+        orderIndex: idx,
+        name: `${clipboard.data.name} (copy)`,
+      };
+      onChange([...workouts, clone]);
+      toast.success("Workout day pasted");
+      return;
+    }
+
+    if (clipboard.type === "block") {
+      if (selection.workoutIdx === null) {
+        toast.info("Click a workout day header first, then paste");
+        return;
+      }
+      const next = [...workouts];
+      const target = next[selection.workoutIdx];
+      const clone = { ...clipboard.data, orderIndex: target.blocks.length };
+      next[selection.workoutIdx] = {
+        ...target,
+        blocks: [...target.blocks, clone],
+      };
+      onChange(next);
+      toast.success(`Block "${clipboard.data.name || "Block"}" pasted`);
+      return;
+    }
+
+    if (clipboard.type === "exercises") {
+      const { workoutIdx: wi, blockIdx: bi } = selection;
+      if (wi === null || bi === null) {
+        toast.info("Click a block first, then paste");
+        return;
+      }
+      const next = [...workouts];
+      const block = { ...next[wi].blocks[bi] };
+      const startOrder = block.exercises.length;
+      const clones = clipboard.data.map((ex, i) => ({
+        ...ex,
+        orderIndex: startOrder + i,
+      }));
+      block.exercises = [...block.exercises, ...clones];
+      next[wi] = {
+        ...next[wi],
+        blocks: next[wi].blocks.map((b, i) => (i === bi ? block : b)),
+      };
+      onChange(next);
+      const n = clipboard.data.length;
+      toast.success(`${n} exercise${n > 1 ? "s" : ""} pasted`);
+    }
+  }
+
+  useBuilderKeyboard({
+    onCopy: handleCopy,
+    onPaste: handlePaste,
+    onEscape: () => setSelection(DEFAULT_SELECTION),
+  });
+
   // --- DnD for blocks within a workout ---
   function handleBlockDragEnd(workoutIdx: number, event: DragEndEvent) {
     const { active, over } = event;
@@ -398,7 +473,25 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
       </div>
 
       {workouts.map((workout, wi) => (
-        <Card key={wi} className="border-2">
+        <Card
+          key={wi}
+          className={cn(
+            "border-2 transition-shadow",
+            selection.level === "workout" && selection.workoutIdx === wi
+              ? "ring-2 ring-blue-500"
+              : ""
+          )}
+          onClick={(e) => {
+            const target = e.target as HTMLElement;
+            if (target.closest("input, button, select, textarea")) return;
+            setSelection({
+              level: "workout",
+              workoutIdx: wi,
+              blockIdx: null,
+              exerciseIdxs: new Set(),
+            });
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <div className="flex items-center gap-3 flex-1">
               <Input
@@ -446,9 +539,39 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
                 {workout.blocks.map((block, bi) => (
                   <SortableBlock key={bi} id={`block-${wi}-${block.orderIndex}`}>
                     {(dragHandleProps) => (
-                      <div className="border rounded-lg p-4 bg-muted/30">
+                      <div
+                        className={cn(
+                          "border rounded-lg p-4 bg-muted/30 transition-shadow",
+                          selection.level === "block" &&
+                          selection.workoutIdx === wi &&
+                          selection.blockIdx === bi
+                            ? "ring-2 ring-blue-400"
+                            : "",
+                          clipboard?.type === "exercises" &&
+                          hoveredPasteTarget === `block-${wi}-${bi}`
+                            ? "border-dashed border-blue-400"
+                            : ""
+                        )}
+                        onMouseEnter={() => {
+                          if (clipboard?.type === "exercises") setHoveredPasteTarget(`block-${wi}-${bi}`);
+                        }}
+                        onMouseLeave={() => setHoveredPasteTarget(null)}
+                      >
                         {/* Block header */}
-                        <div className="flex items-center gap-3 mb-3">
+                        <div
+                          className="flex items-center gap-3 mb-3 cursor-pointer"
+                          onClick={(e) => {
+                            const target = e.target as HTMLElement;
+                            if (target.closest("input, button, select")) return;
+                            e.stopPropagation();
+                            setSelection({
+                              level: "block",
+                              workoutIdx: wi,
+                              blockIdx: bi,
+                              exerciseIdxs: new Set(),
+                            });
+                          }}
+                        >
                           <button
                             type="button"
                             className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
@@ -523,15 +646,6 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => duplicateBlock(wi, bi)}
-                              className="text-muted-foreground hover:text-foreground h-8 w-8"
-                              title="Duplicate block"
-                            >
-                              <Copy className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
                               onClick={() => removeBlock(wi, bi)}
                               className="text-destructive h-8 w-8"
                               title="Remove block"
@@ -560,8 +674,42 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
                                   id={`ex-${wi}-${bi}-${ex.orderIndex}`}
                                 >
                                   {(exDragHandleProps) => (
-                                    <div className="border rounded-md p-3 bg-background">
+                                    <div
+                                      className={cn(
+                                        "border rounded-md p-3 group",
+                                        selection.level === "exercises" &&
+                                        selection.workoutIdx === wi &&
+                                        selection.blockIdx === bi &&
+                                        selection.exerciseIdxs.has(ei)
+                                          ? "bg-blue-50"
+                                          : "bg-background"
+                                      )}
+                                    >
                                       <div className="flex items-center gap-2 mb-2">
+                                        <input
+                                          type="checkbox"
+                                          className={cn(
+                                            "h-4 w-4 shrink-0 rounded border-gray-300 cursor-pointer transition-opacity",
+                                            selection.level === "exercises" &&
+                                            selection.workoutIdx === wi &&
+                                            selection.blockIdx === bi &&
+                                            selection.exerciseIdxs.has(ei)
+                                              ? "opacity-100"
+                                              : "opacity-0 group-hover:opacity-100"
+                                          )}
+                                          checked={
+                                            selection.level === "exercises" &&
+                                            selection.workoutIdx === wi &&
+                                            selection.blockIdx === bi &&
+                                            selection.exerciseIdxs.has(ei)
+                                          }
+                                          onChange={(e) => {
+                                            e.stopPropagation();
+                                            handleExerciseCheck(wi, bi, ei, e.target.checked);
+                                          }}
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
+                                        {/* rest of the existing row content follows unchanged */}
                                         <button
                                           type="button"
                                           className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
@@ -604,15 +752,6 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
                                           })()}
                                         </div>
                                         <div className="flex items-center gap-0.5">
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => duplicateExercise(wi, bi, ei)}
-                                            className="text-muted-foreground hover:text-foreground h-7 w-7"
-                                            title="Duplicate exercise"
-                                          >
-                                            <Copy className="h-3 w-3" />
-                                          </Button>
                                           <Button
                                             variant="ghost"
                                             size="icon"
