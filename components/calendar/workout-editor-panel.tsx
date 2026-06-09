@@ -1,4 +1,11 @@
 import {  getPatientExerciseHistory } from "@/actions/exercise-history-actions";
+import { cn } from "@/lib/utils";
+import { useClipboard, stripIds } from "@/lib/clipboard-context";
+import { useBuilderKeyboard } from "@/hooks/use-builder-keyboard";
+import {
+  pasteExercisesToBlockAction,
+  pasteBlockToWorkoutAction,
+} from "@/actions/calendar-workout-actions";
 import { History } from "lucide-react";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { GripVertical, Dumbbell, Trash2, Loader2, X, Plus, MoreVertical, Calendar as CalendarIcon, ChevronDown, ChevronRight, Settings, CheckCircle, Info, Sparkles, Copy } from "lucide-react";
@@ -89,6 +96,20 @@ type PanelState =
   | { mode: "closed" }
   | { mode: "creating"; date: Date }
   | { mode: "editing"; sessionId: string };
+
+interface SelectionState {
+  level: "block" | "exercises" | null;
+  blockIndex: number | null;
+  blockId: string | null;
+  exerciseIdxs: Set<number>;
+}
+
+const DEFAULT_SELECTION: SelectionState = {
+  level: null,
+  blockIndex: null,
+  blockId: null,
+  exerciseIdxs: new Set(),
+};
 
 interface WorkoutEditorPanelProps {
   panelState: PanelState;
@@ -255,7 +276,6 @@ function CircuitControls({ blockIndex, blockId, rounds, restBetweenRounds, onSav
 // ---------------------------------------------------------------------------  // Sortable Exercise Item
 // ---------------------------------------------------------------------------
 function SortableExercise({
-  
   id,
   exercise,
   savingSetIds,
@@ -266,12 +286,13 @@ function SortableExercise({
   onSetChange,
   onDeleteSet,
   onDeleteExercise,
-  onDuplicateExercise,
   onAddSet,
   onUpdateNotes,
   patientId,
   sessionStatus,
-  exerciseLog
+  exerciseLog,
+  isSelected,
+  onToggleSelect,
 }: any) {
   const [expanded, setExpanded] = React.useState(false);
   const {
@@ -315,10 +336,24 @@ function SortableExercise({
       {/* Exercise header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3 flex-1">
+          <input
+            type="checkbox"
+            className={cn(
+              "h-4 w-4 shrink-0 rounded border-gray-300 cursor-pointer transition-opacity mt-1",
+              isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            )}
+            checked={!!isSelected}
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggleSelect?.(e.target.checked);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            disabled={sessionStatus === "COMPLETED"}
+          />
           <div
             {...attributes}
             {...listeners}
-            className={`cursor-move p-1 -ml-1 ${sessionStatus === "COMPLETED" ? "opacity-0 cursor-default" : "hover:bg-muted text-muted-foreground/40 rounded opacity-0 group-hover:opacity-100 transition-opacity"}`}                                                                
+            className={`cursor-move p-1 -ml-1 ${sessionStatus === "COMPLETED" ? "opacity-0 cursor-default" : "hover:bg-muted text-muted-foreground/40 rounded opacity-0 group-hover:opacity-100 transition-opacity"}`}
           >
             <GripVertical className="h-4 w-4" />
           </div>
@@ -373,11 +408,6 @@ function SortableExercise({
       <MoreVertical className="h-3.5 w-3.5" />
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end">
-      <DropdownMenuItem onClick={() => onDuplicateExercise(blockIndex, exerciseIndex)}>
-        <Copy className="h-3.5 w-3.5 mr-1.5" />
-        Duplicate
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
       <DropdownMenuItem
         variant="destructive"
         onClick={() => onDeleteExercise(blockIndex, exerciseIndex)}
@@ -551,8 +581,44 @@ function SortableExercise({
     </div>
   );
 }
+// ---------------------------------------------------------------------------  // Clipboard conversion helpers
+// ---------------------------------------------------------------------------
+
+function calendarExToClipboardEx(ex: any) {
+  return {
+    exerciseId: ex.exercise.id as string,
+    orderIndex: ex.orderIndex as number,
+    restSeconds: (ex.restSeconds ?? null) as number | null,
+    notes: (ex.notes ?? null) as string | null,
+    supersetGroup: (ex.supersetGroup ?? null) as string | null,
+    _exerciseName: ex.exercise.name as string,
+    sets: (ex.sets as any[]).map((s, i) => ({
+      orderIndex: i,
+      setType: (s.setType ?? "NORMAL") as string,
+      targetReps: (s.targetReps ?? null) as number | null,
+      targetWeight: (s.targetWeight ?? null) as number | null,
+      targetDuration: (s.targetDuration ?? null) as number | null,
+      targetRPE: (s.targetRPE ?? null) as number | null,
+      restAfter: (s.restAfter ?? null) as number | null,
+    })),
+  };
+}
+
+function calendarBlockToClipboardBlock(block: any) {
+  return {
+    name: (block.name ?? null) as string | null,
+    type: block.type as string,
+    orderIndex: block.orderIndex as number,
+    rounds: (block.rounds ?? 1) as number,
+    restBetweenRounds: (block.restBetweenRounds ?? null) as number | null,
+    timeCap: (block.timeCap ?? null) as number | null,
+    notes: (block.notes ?? null) as string | null,
+    exercises: (block.exercises as any[]).map(calendarExToClipboardEx),
+  };
+}
+
 // ---------------------------------------------------------------------------  // Main Component
-// ---------------------------------------------------------------------------  
+// ---------------------------------------------------------------------------
 
 export function WorkoutEditorPanel({
   panelState,
@@ -579,6 +645,9 @@ export function WorkoutEditorPanel({
   const [duplicateDate, setDuplicateDate] = useState("");
   const [duplicating, setDuplicating] = useState(false);
   const [duplicatePopoverOpen, setDuplicatePopoverOpen] = useState(false);
+  const [selection, setSelection] = useState<SelectionState>(DEFAULT_SELECTION);
+  const [hoveredPasteTarget, setHoveredPasteTarget] = useState<string | null>(null);
+  const { clipboard, copy } = useClipboard();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),        
@@ -935,6 +1004,98 @@ export function WorkoutEditorPanel({
     }
   }
 
+  function handleExerciseCheck(
+    blockIndex: number,
+    blockId: string,
+    exerciseIndex: number,
+    checked: boolean
+  ) {
+    setSelection((prev) => {
+      const sameBlock =
+        prev.level === "exercises" &&
+        prev.blockIndex === blockIndex;
+      const newIdxs = sameBlock ? new Set(prev.exerciseIdxs) : new Set<number>();
+      if (checked) {
+        newIdxs.add(exerciseIndex);
+        return { level: "exercises", blockIndex, blockId, exerciseIdxs: newIdxs };
+      }
+      newIdxs.delete(exerciseIndex);
+      return newIdxs.size > 0
+        ? { level: "exercises", blockIndex, blockId, exerciseIdxs: newIdxs }
+        : DEFAULT_SELECTION;
+    });
+  }
+
+  function handleCopy() {
+    if (!session) return;
+    const { level, blockIndex, exerciseIdxs } = selection;
+
+    if (level === "block" && blockIndex !== null) {
+      const block = session.workout.blocks[blockIndex];
+      const data = calendarBlockToClipboardBlock(block);
+      copy({ type: "block", data: data as any, label: `"${block.name || "Block"}"` });
+    } else if (level === "exercises" && blockIndex !== null && exerciseIdxs.size > 0) {
+      const block = session.workout.blocks[blockIndex];
+      const sorted = Array.from(exerciseIdxs).sort((a, b) => a - b);
+      const exs = sorted.map((i) => calendarExToClipboardEx(block.exercises[i]));
+      const firstName = block.exercises[sorted[0]]?.exercise?.name ?? "Exercise";
+      const label = exs.length === 1 ? `"${firstName}"` : `${exs.length} exercises`;
+      copy({ type: "exercises", data: exs as any, label });
+    }
+  }
+
+  async function handlePaste() {
+    if (!clipboard || !session) return;
+
+    if (clipboard.type === "block") {
+      const result = await pasteBlockToWorkoutAction(
+        session.workout.id,
+        clipboard.data as any
+      );
+      if (result.success) {
+        toast.success(`Block "${clipboard.data.name || "Block"}" pasted`);
+        const refreshed = await getSessionWithWorkout(session.id);
+        if (refreshed.success) setSession(refreshed.data);
+        onWorkoutUpdated();
+      } else {
+        toast.error(result.error);
+      }
+      return;
+    }
+
+    if (clipboard.type === "exercises") {
+      const { blockIndex, blockId } = selection;
+      if (blockIndex === null || blockId === null) {
+        toast.info("Click a block first, then paste");
+        return;
+      }
+      const result = await pasteExercisesToBlockAction(
+        blockId,
+        clipboard.data as any
+      );
+      if (result.success) {
+        const n = clipboard.data.length;
+        toast.success(`${n} exercise${n > 1 ? "s" : ""} pasted`);
+        const refreshed = await getSessionWithWorkout(session.id);
+        if (refreshed.success) setSession(refreshed.data);
+        onWorkoutUpdated();
+      } else {
+        toast.error(result.error);
+      }
+      return;
+    }
+
+    if (clipboard.type === "workout") {
+      toast.info("To paste a full workout day into the calendar, use the program builder");
+    }
+  }
+
+  useBuilderKeyboard({
+    onCopy: handleCopy,
+    onPaste: handlePaste,
+    onEscape: () => setSelection(DEFAULT_SELECTION),
+  });
+
   // Reorder exercises
   async function handleDragEnd(event: DragEndEvent, blockIndex: number) {       
     if (!session) return;
@@ -1261,10 +1422,35 @@ export function WorkoutEditorPanel({
                     return (
                       <div
                         key={block.id}
-                        className="mb-6 relative"   
+                        className={cn(
+                          "mb-6 relative rounded-lg transition-shadow",
+                          selection.level === "block" && selection.blockIndex === blockIndex
+                            ? "ring-2 ring-blue-400"
+                            : "",
+                          clipboard?.type === "exercises" &&
+                          hoveredPasteTarget === `block-${blockIndex}`
+                            ? "outline outline-2 outline-dashed outline-blue-400"
+                            : ""
+                        )}
+                        onMouseEnter={() => {
+                          if (clipboard?.type === "exercises") setHoveredPasteTarget(`block-${blockIndex}`);
+                        }}
+                        onMouseLeave={() => setHoveredPasteTarget(null)}
                       >
                         {/* Block header */}
-                        <div className="flex items-center justify-between mb-2 pb-1 border-b border-muted">
+                        <div
+                          className="flex items-center justify-between mb-2 pb-1 border-b border-muted cursor-pointer"
+                          onClick={(e) => {
+                            const target = e.target as HTMLElement;
+                            if (target.closest("input, button, [role='combobox']")) return;
+                            setSelection({
+                              level: "block",
+                              blockIndex,
+                              blockId: block.id,
+                              exerciseIdxs: new Set(),
+                            });
+                          }}
+                        >
                           <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
                             <Badge
                               variant="secondary"
@@ -1317,11 +1503,6 @@ export function WorkoutEditorPanel({
                                   </DropdownMenuItem>
                                 ))}
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleDuplicateBlock(blockIndex)}>
-                                  <Copy className="h-3.5 w-3.5 mr-1.5" />
-                                  Duplicate Block
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   variant="destructive"
                                   onClick={() => handleDeleteBlock(blockIndex)}
@@ -1361,9 +1542,16 @@ export function WorkoutEditorPanel({
                                   onSetChange={handleSetChange}
                                   onDeleteSet={handleDeleteSet}
                                   onDeleteExercise={handleDeleteExercise}
-                                  onDuplicateExercise={handleDuplicateExercise}
                                   onAddSet={handleAddSet}
-                                  onUpdateNotes={handleUpdateExerciseNotes}     
+                                  onUpdateNotes={handleUpdateExerciseNotes}
+                                  isSelected={
+                                    selection.level === "exercises" &&
+                                    selection.blockIndex === blockIndex &&
+                                    selection.exerciseIdxs.has(exerciseIndex)
+                                  }
+                                  onToggleSelect={(checked: boolean) =>
+                                    handleExerciseCheck(blockIndex, block.id, exerciseIndex, checked)
+                                  }
                                 />
                               ))}
                             </SortableContext>

@@ -28,6 +28,7 @@ import { AssignProgramDialog } from "@/components/calendar/assign-program-dialog
 import { AiGenerateProgramDialog } from "@/components/calendar/ai-generate-program-dialog";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useClipboard } from "@/lib/clipboard-context";
 
 // ---------------------------------------------------------------------------
 // Localizer
@@ -243,6 +244,7 @@ export function ClientCalendar({
   clinicOrganizationId,
 }: ClientCalendarProps) {
   const router = useRouter();
+  const { clipboard } = useClipboard();
   const [view, setView] = useState<View>(Views.MONTH);
   const [date, setDate] = useState(new Date());
   const [panelState, setPanelState] = useState<PanelState>({ mode: "closed" });
@@ -273,8 +275,13 @@ export function ClientCalendar({
   );
 
   const handleSelectSlot = useCallback(
-    ({ start }: { start: Date }) => setPanelState({ mode: "creating", date: start }),
-    []
+    ({ start }: { start: Date }) => {
+      // When clipboard has block/exercise content, ignore empty-slot clicks so
+      // an accidental miss on a workout chip doesn't open the create dialog.
+      if (clipboard?.type === "block" || clipboard?.type === "exercises") return;
+      setPanelState({ mode: "creating", date: start });
+    },
+    [clipboard]
   );
 
   const handleSelectEvent = useCallback(
