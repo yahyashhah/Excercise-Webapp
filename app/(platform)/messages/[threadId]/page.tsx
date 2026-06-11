@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { pusherServer } from "@/lib/pusher";
 import { threadChannel } from "@/lib/pusher-channels";
 import { MessageThread } from "@/components/messages/message-thread";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   params: Promise<{ threadId: string }>;
@@ -26,13 +29,23 @@ export default async function ThreadPage({ params }: Props) {
     .catch((err) => console.error("[pusher] messages-read trigger failed:", err));
 
   return (
-    <div className="h-[calc(100vh-10rem)]">
+    <div className="flex flex-col h-[calc(100vh-10rem)]">
+      <div className="shrink-0 pb-2">
+        <Button variant="ghost" size="sm" asChild>
+          <Link href="/messages">
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Back to Messages
+          </Link>
+        </Button>
+      </div>
+      <div className="flex-1 min-h-0">
       <MessageThread
         messages={messages}
         currentUserId={user.id}
         recipientId={threadId}
         recipientName={`${otherUser.firstName} ${otherUser.lastName}`}
       />
+      </div>
     </div>
   );
 }
