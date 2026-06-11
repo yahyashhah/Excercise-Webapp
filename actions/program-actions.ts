@@ -351,7 +351,7 @@ export async function generateProgramAction(
     const program = await createProgramFromGeneratedPlan({
       aiPlan,
       clinicianId: user.id,
-      isTemplate: !params.patientId,
+      isTemplate: false,
       aiGenerationParams: params,
       patientId: params.patientId || null,
       startDate: params.patientId
