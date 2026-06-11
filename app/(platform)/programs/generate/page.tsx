@@ -2,6 +2,11 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { GenerateProgramForm } from "@/components/programs/generate-program-form";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+
+export const maxDuration = 120; // parallel per-week LLM calls can take up to ~30s; 120s gives headroom for larger programs
 
 export const metadata = {
   title: "Generate AI Program - Unity Health",
@@ -67,6 +72,12 @@ export default async function GenerateProgramPage({
   return (
     <div className="space-y-6">
       <div>
+        <Button variant="ghost" size="sm" asChild className="mb-2">
+          <Link href="/programs">
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Back to Programs
+          </Link>
+        </Button>
         <h2 className="text-2xl font-bold">Generate Program</h2>
         <p className="text-muted-foreground">
           Use AI to create a personalised program for a client.

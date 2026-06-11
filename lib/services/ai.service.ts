@@ -380,8 +380,6 @@ Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ") : "Gene
     const uniqueDayIndices = Array.from(new Set(effectiveDayIndices)).sort((a, b) => a - b)
 
     const totalWeeks = weekPlans.length
-    const totalSessions = totalWeeks * params.daysPerWeek
-    const totalExercisesAll = totalSessions * totalExercisesPerSession
 
     const circuitStructureStr = hasCircuits
       ? circuits
@@ -389,104 +387,122 @@ Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ") : "Gene
           .join('\n')
       : null
 
-    const weekSections = weekPlans.map((wPlan, idx) => {
-      const pool = weekPools[idx]
-      const poolStr = pool
-        .map(
-          e =>
-            `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhase ?? 'STRENGTHENING'} | Region: ${e.bodyRegion} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(', ')} | Equipment: ${e.equipmentRequired.join(', ') || 'None'} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + 's hold' : '10'}`
-        )
-        .join('\n')
-
-      return `=== WEEK ${wPlan.week}: ${wPlan.title} (${wPlan.rehabStage}) ===
-Clinical Guidance: ${wPlan.clinicalGuidance}
-Progression Goal: ${wPlan.progressionGoal}
-Contraindicated This Week: ${wPlan.contraindicationsThisWeek.join(', ') || 'None'}
-Available Exercises for Week ${wPlan.week} (use ONLY these IDs for this week):
-${poolStr || 'No tagged exercises found — use general bodyweight exercises appropriate for this rehab stage.'}`
-    }).join('\n\n')
-
-    const multiWeekSystemPrompt = `You are an expert DPT and strength & conditioning coach. Generate a complete multi-week rehabilitation program following the provided week-by-week clinical plan. Each week is clinically distinct — use ONLY the exercises provided for that week. Never use the same exerciseId in more than one week.
+    // Generate one week at a time to stay within the LLM output token limit.
+    // A single call for all weeks would require ~500 tokens per exercise × daysPerWeek × weeks × exercisesPerSession,
+    // which easily exceeds GPT-4o's 16,384-token output cap for programs with 3+ days and 10+ exercises per session.
+    const perWeekSystemPrompt = `You are an expert DPT and strength & conditioning coach. Generate exercises for ONE week of a rehabilitation program following the provided clinical guidance. Use ONLY exercise IDs from the provided pool. Never invent IDs.
 
 RULES:
-1. Use ONLY exercise IDs from each week's provided pool. Never invent IDs.
-2. Each week must use COMPLETELY DIFFERENT exercise IDs from all other weeks.
-3. Every training day must have EXACTLY ${totalExercisesPerSession} exercises.
-4. Follow the clinical guidance and contraindications for each week strictly.
-5. Write 1-2 specific technique cues per exercise relevant to that week's clinical goals.
-6. Distribute sessions using ONLY these weekday indexes: ${uniqueDayIndices.join(', ')}.
-7. Session names must reflect the actual week focus — not generic labels.
-${hasCircuits ? `8. Each exercise MUST include circuitIndex (0-based). Circuit structure per session:\n${circuitStructureStr}` : ''}
+1. Use ONLY exercise IDs from the provided pool.
+2. Every training day must have EXACTLY ${totalExercisesPerSession} exercises.
+3. Follow the clinical guidance and contraindications strictly.
+4. Write 1-2 specific technique cues per exercise relevant to this week's clinical goals.
+5. Distribute sessions using ONLY these weekday indexes: ${uniqueDayIndices.join(', ')}.
+6. Session names must reflect the actual week focus — not generic labels.
+${hasCircuits ? `7. Each exercise MUST include circuitIndex (0-based). Circuit structure per session:\n${circuitStructureStr}` : ''}
 
 Respond with valid JSON only.`
 
-    const multiWeekUserPrompt = `${clientContext}
+    // Fire all week calls in parallel — wall-clock time = slowest single week (~15s) not sum of all weeks.
+    // Each week uses its own rehab-stage-filtered pool so cross-week exercise overlap is naturally low.
+    const weekResults = await Promise.all(
+      weekPlans.map(async (wPlan, weekIdx) => {
+        const pool = weekPools[weekIdx]
+        const poolStr = pool
+          .map(
+            e =>
+              `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhase ?? 'STRENGTHENING'} | Region: ${e.bodyRegion} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(', ')} | Equipment: ${e.equipmentRequired.join(', ') || 'None'} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + 's hold' : '10'}`
+          )
+          .join('\n')
 
-Program: ${totalWeeks} weeks, ${params.daysPerWeek} days/week, ~${params.durationMinutes} min/session
-Total exercises in output: EXACTLY ${totalExercisesAll} (${totalExercisesPerSession} per session × ${params.daysPerWeek} days × ${totalWeeks} weeks)
+        const totalExercisesThisWeek = params.daysPerWeek * totalExercisesPerSession
+
+        const jsonFormat = weekIdx === 0
+          ? `{
+  "title": "Program title",
+  "description": "2-3 sentence clinical program description",
+  "sessions": [{ "dayOfWeek": 0, "weekIndex": ${weekIdx}, "name": "Clinical session name" }],
+  "exercises": [{
+    "exerciseId": "id from pool", "exerciseName": "name", "phase": "ACTIVATION",
+    ${hasCircuits ? '"circuitIndex": 0,' : ''}
+    "sets": 3, "reps": 15, "durationSeconds": null, "restSeconds": 30,
+    "dayOfWeek": 0, "weekIndex": ${weekIdx}, "orderIndex": 0, "notes": "1-2 technique cues"
+  }]
+}`
+          : `{
+  "sessions": [{ "dayOfWeek": 0, "weekIndex": ${weekIdx}, "name": "Clinical session name" }],
+  "exercises": [{
+    "exerciseId": "id from pool", "exerciseName": "name", "phase": "ACTIVATION",
+    ${hasCircuits ? '"circuitIndex": 0,' : ''}
+    "sets": 3, "reps": 15, "durationSeconds": null, "restSeconds": 30,
+    "dayOfWeek": 0, "weekIndex": ${weekIdx}, "orderIndex": 0, "notes": "1-2 technique cues"
+  }]
+}`
+
+        const weekUserPrompt = `${clientContext}
+
+Week ${wPlan.week} of ${totalWeeks}: ${wPlan.title} (${wPlan.rehabStage})
+Clinical Guidance: ${wPlan.clinicalGuidance}
+Progression Goal: ${wPlan.progressionGoal}
+Contraindicated This Week: ${wPlan.contraindicationsThisWeek.join(', ') || 'None'}
+
+Program: ${params.daysPerWeek} sessions this week, ~${params.durationMinutes} min/session, weekIndex=${weekIdx}
+Total exercises in output: EXACTLY ${totalExercisesThisWeek} (${totalExercisesPerSession} per session × ${params.daysPerWeek} days)
 ${params.subjective ? `Clinician Subjective: ${params.subjective}` : ''}
 ${params.clinicianPrompt ? `Clinician Instructions: ${params.clinicianPrompt}` : ''}
 
-${weekSections}
+Available Exercises (use ONLY these IDs):
+${poolStr || 'No tagged exercises found — use general bodyweight exercises appropriate for this rehab stage.'}
 
 Respond with this exact JSON:
-{
-  "title": "Program title",
-  "description": "2-3 sentence clinical program description",
-  "sessions": [
-    { "dayOfWeek": 0, "weekIndex": 0, "name": "Clinical session name" }
-  ],
-  "exercises": [
-    {
-      "exerciseId": "id from that week's pool",
-      "exerciseName": "exercise name",
-      "phase": "ACTIVATION",
-      ${hasCircuits ? '"circuitIndex": 0,' : ''}
-      "sets": 3,
-      "reps": 15,
-      "durationSeconds": null,
-      "restSeconds": 30,
-      "dayOfWeek": 0,
-      "weekIndex": 0,
-      "orderIndex": 0,
-      "notes": "1-2 specific technique cues for this week's clinical goal"
+${jsonFormat}`
+
+        const weekResponse = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          max_tokens: 8000,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: perWeekSystemPrompt },
+            { role: 'user', content: weekUserPrompt },
+          ],
+        })
+
+        const weekParsed = JSON.parse(weekResponse.choices[0].message.content ?? '{}') as Partial<GeneratedPlan>
+        const weekPoolIds = new Set(pool.map(e => e.id))
+        const validExercises = (weekParsed.exercises ?? []).filter(e => weekPoolIds.has(e.exerciseId))
+
+        // Force correct weekIndex in case AI drifted
+        for (const ex of validExercises) ex.weekIndex = weekIdx
+        const sessions = (weekParsed.sessions ?? []).map(s => ({ ...s, weekIndex: weekIdx }))
+
+        return { weekIdx, sessions, exercises: validExercises, title: weekParsed.title, description: weekParsed.description }
+      })
+    )
+
+    const allCollectedSessions: GeneratedPlan['sessions'] = []
+    const allCollectedExercises: GeneratedExercise[] = []
+    let programTitle = ''
+    let programDescription = ''
+
+    for (const result of weekResults) {
+      if (result.exercises.length === 0) {
+        console.warn(`[AI] Week ${result.weekIdx + 1} returned no valid exercises — skipping`)
+        continue
+      }
+      if (result.weekIdx === 0) {
+        programTitle = result.title ?? ''
+        programDescription = result.description ?? ''
+      }
+      allCollectedSessions.push(...result.sessions)
+      allCollectedExercises.push(...result.exercises)
     }
-  ]
-}`
 
-    const multiWeekResponse = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      max_tokens: 16000,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: multiWeekSystemPrompt },
-        { role: 'user', content: multiWeekUserPrompt },
-      ],
-    })
-
-    const rawParsed = JSON.parse(multiWeekResponse.choices[0].message.content ?? '{}') as GeneratedPlan
-
-    // Build a set of all valid pool IDs across all weeks
-    const allPoolIds = new Set(weekPools.flatMap(pool => pool.map(e => e.id)))
-    const validExercises = rawParsed.exercises.filter(e => allPoolIds.has(e.exerciseId))
-
-    if (validExercises.length === 0) {
+    if (allCollectedExercises.length === 0) {
       throw new Error('AI generated no valid exercises for the multi-week program. Please try again.')
     }
 
-    // Warn on cross-week duplicates (log only — allow to proceed)
-    const usedAcrossWeeks = new Map<string, number>()
-    for (const ex of validExercises) {
-      const week = ex.weekIndex ?? 0
-      if (usedAcrossWeeks.has(ex.exerciseId)) {
-        console.warn(`[AI] Exercise ${ex.exerciseId} used in week ${usedAcrossWeeks.get(ex.exerciseId)} AND week ${week}`)
-      } else {
-        usedAcrossWeeks.set(ex.exerciseId, week)
-      }
-    }
-
     // Sort by week, then day, then phase, then original orderIndex
-    const sorted = [...validExercises].sort((a, b) => {
+    const sorted = [...allCollectedExercises].sort((a, b) => {
       const weekDiff = (a.weekIndex ?? 0) - (b.weekIndex ?? 0)
       if (weekDiff !== 0) return weekDiff
       const dayDiff = (a.dayOfWeek ?? 0) - (b.dayOfWeek ?? 0)
@@ -506,7 +522,12 @@ Respond with this exact JSON:
       ex.orderIndex = dayOrder++
     }
 
-    return { ...rawParsed, exercises: sorted }
+    return {
+      title: programTitle || 'AI Generated Program',
+      description: programDescription,
+      sessions: allCollectedSessions,
+      exercises: sorted,
+    }
   }
   // === END multi-week path ===
 

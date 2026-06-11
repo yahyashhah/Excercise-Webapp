@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getPatientsForClinician } from "@/lib/services/patient.service";
 import { ProgramBriefUpload } from "@/components/programs/program-brief-upload";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export const metadata = {
   title: "Upload Program Brief - Unity Health",
@@ -30,6 +33,12 @@ export default async function ProgramBriefUploadPage() {
   return (
     <div className="space-y-6">
       <div>
+        <Button variant="ghost" size="sm" asChild className="mb-2">
+          <Link href="/programs">
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Back to Programs
+          </Link>
+        </Button>
         <h2 className="text-2xl font-bold">Upload Program Brief</h2>
         <p className="text-muted-foreground">
           Upload a structured brief and let AI generate a full program for review.
