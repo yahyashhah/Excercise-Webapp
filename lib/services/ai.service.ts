@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { prisma } from "@/lib/prisma";
 import type { BodyRegion } from "@prisma/client";
 import type { ClinicalPlan, ClinicalPlanParams, WeekPlan } from '@/lib/ai/types/program-generation'
+import { filterByEquipment } from '@/lib/ai/utils/exercise-pool'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -35,7 +36,9 @@ interface CircuitConfig {
 
 interface GenerateWorkoutParams {
   patientId?: string | null;
-  focusAreas: string[];
+  programGoals?: string[];         // replaces focusAreas at the form level
+  focusAreas?: string[];           // keep for backward compat (brief upload flow still uses it)
+  availableEquipment?: string[];   // filters exercise pool to matching gear + bodyweight
   durationMinutes: number;
   daysPerWeek: number;
   /** Per-circuit configuration — preferred over exercisesPerSession/circuitsPerSession */
@@ -183,14 +186,20 @@ const EXERCISE_POOL_SELECT = {
   cuesThumbnail: true, videoUrl: true,
 }
 
+const VALID_BODY_REGIONS = new Set(['LOWER_BODY', 'UPPER_BODY', 'CORE', 'FULL_BODY', 'BALANCE', 'FLEXIBILITY'])
+
 async function buildExercisePoolForWeek(
   weekPlan: WeekPlan,
   usedIds: Set<string>,
-  patientLimitations: string[]
+  patientLimitations: string[],
+  availableEquipment?: string[]
 ): Promise<ExercisePoolItem[]> {
+  const validRegions = weekPlan.focusAreas.filter(r => VALID_BODY_REGIONS.has(r))
+  const regionsForQuery = validRegions.length > 0 ? validRegions : [...VALID_BODY_REGIONS]
+
   const baseWhere = {
     isActive: true,
-    bodyRegion: { in: weekPlan.focusAreas },
+    bodyRegion: { in: regionsForQuery },
     ...(usedIds.size > 0 ? { id: { notIn: [...usedIds] } } : {}),
   }
 
@@ -218,17 +227,21 @@ async function buildExercisePoolForWeek(
   }
 
   // Apply patient contraindication filter
-  if (patientLimitations.length === 0) return pool
-  return pool.filter(exercise => {
-    const contraLower = exercise.contraindications.map((c: string) => c.toLowerCase())
-    return !patientLimitations.some((limitation: string) =>
-      contraLower.some(
-        (contra: string) =>
-          contra.includes(limitation.toLowerCase()) ||
-          limitation.toLowerCase().includes(contra)
-      )
-    )
-  })
+  const afterContraFilter = patientLimitations.length === 0
+    ? pool
+    : pool.filter(exercise => {
+        const contraLower = exercise.contraindications.map((c: string) => c.toLowerCase())
+        return !patientLimitations.some((limitation: string) =>
+          contraLower.some(
+            (contra: string) =>
+              contra.includes(limitation.toLowerCase()) ||
+              limitation.toLowerCase().includes(contra)
+          )
+        )
+      })
+
+  // Apply equipment filter
+  return filterByEquipment(afterContraFilter, availableEquipment ?? [])
 }
 
 async function pickClosestExerciseNameAI(
@@ -311,7 +324,7 @@ export async function generateWorkoutPlan(
   const profile = patient?.patientProfile ?? null;
 
   // Map focus areas to body regions for pre-filtering
-  const targetRegions = mapFocusAreasToBodyRegions(params.focusAreas);
+  const targetRegions = mapFocusAreasToBodyRegions(params.focusAreas ?? []);
 
   // Parse patient limitations for contraindication filtering
   const patientLimitations = profile?.limitations
@@ -354,7 +367,9 @@ Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ") : "Gene
 
     // Build per-week exercise pools (parallel DB queries)
     const weekPools: ExercisePoolItem[][] = await Promise.all(
-      weekPlans.map(wPlan => buildExercisePoolForWeek(wPlan, globalUsedIds, patientLimitations))
+      weekPlans.map(wPlan =>
+        buildExercisePoolForWeek(wPlan, globalUsedIds, patientLimitations, params.availableEquipment)
+      )
     )
 
     // Track used IDs globally — exercises used in earlier weeks are excluded from later week queries
@@ -780,7 +795,7 @@ Respond with valid JSON only. No markdown, no explanation.`;
 ${clientContext}
 
 Program Parameters:
-- Focus Areas: ${params.focusAreas.join(", ")}
+- Program Goals: ${(params.programGoals ?? params.focusAreas ?? []).join(", ")}
 - Duration: ~${params.durationMinutes} minutes per session
 - Days per Week: ${params.daysPerWeek}
 - Difficulty Level: ${params.difficultyLevel}
@@ -1122,7 +1137,8 @@ Respond with valid JSON only. No markdown, no explanation.`
 Program Parameters:
 - Duration: ${params.durationWeeks} weeks
 - Days per week: ${params.daysPerWeek}
-- Focus areas: ${params.focusAreas.join(', ')}
+- Program Goals: ${params.programGoals.join(', ')}
+${params.availableEquipment?.length ? `- Available Equipment: ${params.availableEquipment.join(', ')}` : '- Available Equipment: Any (no restriction)'}
 - Difficulty level: ${params.difficultyLevel}
 - Circuits per session:
 ${circuitSummary}

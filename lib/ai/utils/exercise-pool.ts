@@ -47,3 +47,22 @@ export function buildWeekPoolWhereClause(
 
   return clause
 }
+
+interface ExerciseWithEquipment {
+  id: string
+  equipmentRequired: string[]
+}
+
+export function filterByEquipment<T extends ExerciseWithEquipment>(
+  exercises: T[],
+  availableEquipment: string[]
+): T[] {
+  if (availableEquipment.length === 0) return exercises
+  return exercises.filter(exercise => {
+    const required = exercise.equipmentRequired.filter(
+      e => e && e.toLowerCase() !== 'none'
+    )
+    if (required.length === 0) return true
+    return required.every(e => availableEquipment.includes(e))
+  })
+}

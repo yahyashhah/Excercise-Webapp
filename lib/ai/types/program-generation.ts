@@ -17,7 +17,8 @@ export interface ClinicalPlan {
 
 export interface ClinicalPlanParams {
   patientId?: string | null
-  focusAreas: string[]
+  programGoals: string[]
+  availableEquipment?: string[]
   durationWeeks: number
   daysPerWeek: number
   difficultyLevel: string

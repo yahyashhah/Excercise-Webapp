@@ -518,3 +518,19 @@ export async function copyGlobalProgramAction(globalProgramId: string) {
     return { success: false as const, error: "Failed to copy program" };
   }
 }
+
+export async function getDistinctEquipmentAction(): Promise<{ success: true; data: string[] } | { success: false; error: string }> {
+  try {
+    const exercises = await prisma.exercise.findMany({
+      where: { isActive: true },
+      select: { equipmentRequired: true },
+    })
+    const all = exercises.flatMap(e => e.equipmentRequired)
+    const distinct = [...new Set(all)]
+      .filter(e => e && e.toLowerCase() !== 'none' && e.trim() !== '')
+      .sort()
+    return { success: true, data: distinct }
+  } catch {
+    return { success: false, error: 'Failed to load equipment list' }
+  }
+}
