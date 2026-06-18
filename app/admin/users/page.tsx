@@ -19,7 +19,7 @@ interface PageProps {
 export default async function AdminUsersPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const search = params.search ?? "";
-  const role = (params.role as "CLINICIAN" | "PATIENT" | "ALL") ?? "ALL";
+  const role = (params.role as "TRAINER" | "CLIENT" | "ALL") ?? "ALL";
   const page = parseInt(params.page ?? "1", 10);
 
   const { items: users, total, totalPages } = await getAllUsers({ page, pageSize: 25, search, role });
@@ -49,8 +49,8 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All roles</SelectItem>
-            <SelectItem value="CLINICIAN">Clinician</SelectItem>
-            <SelectItem value="PATIENT">Patient</SelectItem>
+            <SelectItem value="TRAINER">Trainer</SelectItem>
+            <SelectItem value="CLIENT">Client</SelectItem>
           </SelectContent>
         </Select>
         <button
@@ -97,18 +97,18 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                     <Badge
                       variant="outline"
                       className={
-                        u.role === "CLINICIAN"
+                        u.role === "TRAINER"
                           ? "border-blue-500/30 bg-blue-500/10 text-blue-600 text-[10px]"
                           : "border-cyan-500/30 bg-cyan-500/10 text-cyan-600 text-[10px]"
                       }
                     >
-                      {u.role === "CLINICIAN" ? "Clinician" : "Patient"}
+                      {u.role === "TRAINER" ? "Trainer" : "Client"}
                     </Badge>
                   </td>
                   <td className="px-5 py-3 hidden md:table-cell text-muted-foreground text-xs">
-                    {u.role === "CLINICIAN"
-                      ? `${u.connectionCount} patient${u.connectionCount !== 1 ? "s" : ""}`
-                      : `${u.connectionCount} clinician${u.connectionCount !== 1 ? "s" : ""}`}
+                    {u.role === "TRAINER"
+                      ? `${u.connectionCount} client${u.connectionCount !== 1 ? "s" : ""}`
+                      : `${u.connectionCount} trainer${u.connectionCount !== 1 ? "s" : ""}`}
                   </td>
                   <td className="px-5 py-3 hidden lg:table-cell">
                     {u.onboarded ? (

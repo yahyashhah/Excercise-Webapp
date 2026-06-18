@@ -41,7 +41,7 @@ export function GlobalProgramActions({ programId, programName }: Props) {
   }
 
   async function handleDelete() {
-    if (!confirm(`Archive "${programName}"? It will no longer appear in the clinic library.`)) return;
+    if (!confirm(`Archive "${programName}"? It will no longer appear in the organization library.`)) return;
     setLoading(true);
     try {
       const result = await deleteGlobalProgramAction(programId);

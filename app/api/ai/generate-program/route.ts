@@ -10,7 +10,7 @@ const blockExerciseSchema = z.object({
   reps: z.number().optional().describe("Number of repetitions per set"),
   durationSeconds: z.number().optional().describe("Duration in seconds (e.g., 60 for 1 min hold)"),
   restSeconds: z.number().optional().describe("Rest period after exercise in seconds"),
-  notes: z.string().optional().describe("Clinician guidance, e.g., 'keep back straight'")
+  notes: z.string().optional().describe("Trainer guidance, e.g., 'keep back straight'")
 });
 
 const workoutBlockSchema = z.object({
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       schema: workoutPlanSchema,
       prompt: `You are an expert physical therapist and strength coach.
 Generate a structured workout plan. 
-Patient Context:
+Client Context:
 - Pain Level (1-10): ${painLevel || "Not specified"}
 - Available Equipment: ${availableEquipment || "Bodyweight only"}
 - Target Days/Week: ${daysPerWeek || "3"}

@@ -124,16 +124,16 @@ const styles = StyleSheet.create({
 
 interface ProgramDocumentProps {
   programName: string
-  patientName: string | null
-  clinicName: string
+  clientName: string | null
+  organizationName: string
   sections: PdfSection[]
   equipmentRequired?: string[]
 }
 
 export function ProgramDocument({
   programName,
-  patientName,
-  clinicName,
+  clientName,
+  organizationName,
   sections,
   equipmentRequired = [],
 }: ProgramDocumentProps) {
@@ -143,8 +143,8 @@ export function ProgramDocument({
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <Text style={styles.title}>{programName}</Text>
-          {patientName && <Text style={styles.subtitle}>Patient: {patientName}</Text>}
-          <Text style={styles.subtitle}>{clinicName}</Text>
+          {clientName && <Text style={styles.subtitle}>Client: {clientName}</Text>}
+          <Text style={styles.subtitle}>{organizationName}</Text>
         </View>
 
         {equipment.length > 0 && (
@@ -206,7 +206,7 @@ export function ProgramDocument({
         <Text
           style={styles.footer}
           render={({ pageNumber, totalPages }) =>
-            `${clinicName}  ·  Page ${pageNumber} of ${totalPages}`
+            `${organizationName}  ·  Page ${pageNumber} of ${totalPages}`
           }
           fixed
         />

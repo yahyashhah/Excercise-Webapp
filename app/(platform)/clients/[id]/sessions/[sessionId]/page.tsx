@@ -74,10 +74,10 @@ async function fetchSession(sessionId: string) {
   return prisma.workoutSessionV2.findUnique({
     where: { id: sessionId },
     include: {
-      patient: { select: { firstName: true, lastName: true } },
+      client: { select: { firstName: true, lastName: true } },
       workout: {
         include: {
-          program: { select: { clinicianId: true, name: true } },
+          program: { select: { trainerId: true, name: true } },
           blocks: {
             orderBy: { orderIndex: "asc" },
             include: {
@@ -107,15 +107,15 @@ interface Props {
 
 export default async function SessionReviewPage({ params }: Props) {
   const { id, sessionId } = await params;
-  const user = await requireRole("CLINICIAN");
+  const user = await requireRole("TRAINER");
 
   const session = await fetchSession(sessionId);
   if (!session) notFound();
 
-  // Authorization: session must belong to this patient AND this clinician must
+  // Authorization: session must belong to this client AND this trainer must
   // own the program. Either failure → 404 (avoid leaking existence).
-  if (session.patientId !== id) notFound();
-  if (session.workout.program.clinicianId !== user.id) notFound();
+  if (session.clientId !== id) notFound();
+  if (session.workout.program.trainerId !== user.id) notFound();
 
   // Build a lookup from blockExerciseId → setLogs for O(1) access in render.
   const setLogsByBlockExerciseId = new Map<string, SetLog[]>();
@@ -135,13 +135,13 @@ export default async function SessionReviewPage({ params }: Props) {
   const setsLogged = allSetLogs.length;
   const couldntComplete = allSetLogs.filter(isCouldntComplete).length;
 
-  const patientName = `${session.patient.firstName} ${session.patient.lastName}`;
+  const clientName = `${session.client.firstName} ${session.client.lastName}`;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href={`/patients/${id}/adherence`}>
+          <Link href={`/clients/${id}/adherence`}>
             <ArrowLeft className="mr-1 h-4 w-4" />
             Back
           </Link>
@@ -154,7 +154,7 @@ export default async function SessionReviewPage({ params }: Props) {
           <CardTitle className="text-2xl font-bold">
             {session.workout.name}
           </CardTitle>
-          <p className="text-sm text-muted-foreground">{patientName}</p>
+          <p className="text-sm text-muted-foreground">{clientName}</p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 text-sm">

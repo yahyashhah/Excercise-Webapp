@@ -38,21 +38,21 @@ describe('getExercisesForPicker', () => {
     defaultReps: 10, musclesTargeted: [], description: null,
     videoUrl: null, videoProvider: null, exercisePhase: null,
   }
-  const publicClinicEx = {
-    id: '2', name: 'Band Pull', source: 'CLINIC', organizationId: 'org_other',
+  const publicOrganizationEx = {
+    id: '2', name: 'Band Pull', source: 'ORGANIZATION', organizationId: 'org_other',
     isPublic: true, bodyRegion: 'UPPER_BODY', difficultyLevel: 'BEGINNER',
     defaultReps: 12, musclesTargeted: [], description: null,
     videoUrl: null, videoProvider: null, exercisePhase: null,
   }
-  const privateClinicEx = {
-    id: '3', name: 'Custom Hold', source: 'CLINIC', organizationId: 'org_mine',
+  const privateOrganizationEx = {
+    id: '3', name: 'Custom Hold', source: 'ORGANIZATION', organizationId: 'org_mine',
     isPublic: false, bodyRegion: 'CORE', difficultyLevel: 'INTERMEDIATE',
     defaultReps: null, musclesTargeted: [], description: null,
     videoUrl: null, videoProvider: null, exercisePhase: null,
   }
 
-  it('returns all exercises for the calling clinic (universal + public + own private)', async () => {
-    mockFindMany.mockResolvedValue([universalEx, publicClinicEx, privateClinicEx] as any)
+  it('returns all exercises for the calling organization (universal + public + own private)', async () => {
+    mockFindMany.mockResolvedValue([universalEx, publicOrganizationEx, privateOrganizationEx] as any)
     const result = await getExercisesForPicker('org_mine')
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -60,8 +60,8 @@ describe('getExercisesForPicker', () => {
           isActive: true,
           OR: expect.arrayContaining([
             { source: 'UNIVERSAL' },
-            { source: 'CLINIC', isPublic: true },
-            { source: 'CLINIC', organizationId: 'org_mine' },
+            { source: 'ORGANIZATION', isPublic: true },
+            { source: 'ORGANIZATION', organizationId: 'org_mine' },
           ]),
         }),
       })
@@ -70,14 +70,14 @@ describe('getExercisesForPicker', () => {
   })
 
   it('works without an organizationId (falls back to universal + public only)', async () => {
-    mockFindMany.mockResolvedValue([universalEx, publicClinicEx] as any)
+    mockFindMany.mockResolvedValue([universalEx, publicOrganizationEx] as any)
     await getExercisesForPicker()
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           OR: expect.arrayContaining([
             { source: 'UNIVERSAL' },
-            { source: 'CLINIC', isPublic: true },
+            { source: 'ORGANIZATION', isPublic: true },
           ]),
         }),
       })
@@ -107,22 +107,22 @@ describe('getExercises', () => {
     )
   })
 
-  it('filters to CLINIC + organizationId when both provided', async () => {
+  it('filters to ORGANIZATION + organizationId when both provided', async () => {
     mockFindMany.mockResolvedValue([] as any)
-    await getExercises({ source: 'CLINIC' as any, organizationId: 'org_abc' })
+    await getExercises({ source: 'ORGANIZATION' as any, organizationId: 'org_abc' })
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ source: 'CLINIC', organizationId: 'org_abc' }),
+        where: expect.objectContaining({ source: 'ORGANIZATION', organizationId: 'org_abc' }),
       })
     )
   })
 
-  it('returns no results when source is CLINIC but no orgId (sentinel prevents fallthrough)', async () => {
+  it('returns no results when source is ORGANIZATION but no orgId (sentinel prevents fallthrough)', async () => {
     mockFindMany.mockResolvedValue([] as any)
-    await getExercises({ source: 'CLINIC' as any })
+    await getExercises({ source: 'ORGANIZATION' as any })
     const call = mockFindMany.mock.calls[0][0] as any
-    // Must still filter by source=CLINIC so the query never falls through to returning all exercises
-    expect(call.where).toHaveProperty('source', 'CLINIC')
+    // Must still filter by source=ORGANIZATION so the query never falls through to returning all exercises
+    expect(call.where).toHaveProperty('source', 'ORGANIZATION')
     // organizationId sentinel ensures no real exercise matches
     expect(call.where).toHaveProperty('organizationId')
   })

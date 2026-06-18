@@ -20,7 +20,7 @@ export default async function AdminNewExercisePage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Add Exercise</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Add a new exercise to the platform library. All clinicians can use it in programs.
+          Add a new exercise to the platform library. All trainers can use it in programs.
         </p>
       </div>
       <div className="mx-auto max-w-2xl">

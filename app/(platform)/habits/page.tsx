@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import * as habitService from "@/lib/services/habit.service";
-import { getPatientsForClinician } from "@/lib/services/patient.service";
+import { getClientsForTrainer } from "@/lib/services/client.service";
 import { HabitCard } from "@/components/habits/habit-card";
 import { AddHabitDialog } from "@/components/habits/add-habit-dialog";
 import { Sparkles } from "lucide-react";
@@ -29,20 +29,20 @@ function getWeekMonday(): Date {
 export default async function HabitsPage() {
   const user = await getCurrentUser();
 
-  if (user.role === "CLINICIAN") {
-    return <ClinicianHabitsView clinicianId={user.id} />;
+  if (user.role === "TRAINER") {
+    return <TrainerHabitsView trainerId={user.id} />;
   }
 
-  return <PatientHabitsView patientId={user.id} />;
+  return <ClientHabitsView clientId={user.id} />;
 }
 
-// ─── Patient View ─────────────────────────────────────────────────────────────
+// ─── Client View ─────────────────────────────────────────────────────────────
 
-async function PatientHabitsView({ patientId }: { patientId: string }) {
+async function ClientHabitsView({ clientId }: { clientId: string }) {
   const weekMonday = getWeekMonday();
 
   // Fetch all active habits with today's log and this week's logs together
-  const habits = await habitService.getHabitsOverview(patientId);
+  const habits = await habitService.getHabitsOverview(clientId);
 
   // Fetch this week's logs for the week-grid — one query for all habit ids
   const habitIds = habits.map((h) => h.id);
@@ -173,15 +173,15 @@ async function PatientHabitsView({ patientId }: { patientId: string }) {
   );
 }
 
-// ─── Clinician View ───────────────────────────────────────────────────────────
+// ─── Trainer View ───────────────────────────────────────────────────────────
 
-async function ClinicianHabitsView({ clinicianId }: { clinicianId: string }) {
-  const [grouped, linkedPatients] = await Promise.all([
-    habitService.getHabitsForClinician(clinicianId),
-    getPatientsForClinician(clinicianId),
+async function TrainerHabitsView({ trainerId }: { trainerId: string }) {
+  const [grouped, linkedClients] = await Promise.all([
+    habitService.getHabitsForTrainer(trainerId),
+    getClientsForTrainer(trainerId),
   ]);
 
-  const patients = linkedPatients.map((p) => ({
+  const clients = linkedClients.map((p) => ({
     id: p.id,
     firstName: p.firstName,
     lastName: p.lastName,
@@ -193,14 +193,14 @@ async function ClinicianHabitsView({ clinicianId }: { clinicianId: string }) {
       {/* ── Header ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Patient Habits</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Client Habits</h2>
           <p className="text-muted-foreground">
             {totalHabits > 0
-              ? `${totalHabits} habit${totalHabits !== 1 ? "s" : ""} assigned across ${grouped.length} patient${grouped.length !== 1 ? "s" : ""}`
-              : "Assign habits to your patients to help them build healthy routines"}
+              ? `${totalHabits} habit${totalHabits !== 1 ? "s" : ""} assigned across ${grouped.length} client${grouped.length !== 1 ? "s" : ""}`
+              : "Assign habits to your clients to help them build healthy routines"}
           </p>
         </div>
-        <AddHabitDialog patients={patients} />
+        <AddHabitDialog clients={clients} />
       </div>
 
       {/* ── Empty state ───────────────────────────────────────────────── */}
@@ -211,22 +211,22 @@ async function ClinicianHabitsView({ clinicianId }: { clinicianId: string }) {
           </div>
           <h3 className="mt-5 text-lg font-semibold">No habits assigned yet</h3>
           <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-            Assign daily habits to your patients — hydration, sleep, mobility
+            Assign daily habits to your clients — hydration, sleep, mobility
             work and more.
           </p>
-          {patients.length > 0 && (
+          {clients.length > 0 && (
             <div className="mt-5">
-              <AddHabitDialog patients={patients} triggerLabel="Assign first habit" />
+              <AddHabitDialog clients={clients} triggerLabel="Assign first habit" />
             </div>
           )}
         </div>
       )}
 
-      {/* ── Grouped by patient ────────────────────────────────────────── */}
-      {grouped.map(({ patient, habits }) => (
-        <section key={patient.id} className="space-y-3">
+      {/* ── Grouped by client ────────────────────────────────────────── */}
+      {grouped.map(({ client, habits }) => (
+        <section key={client.id} className="space-y-3">
           <h3 className="text-sm font-semibold">
-            {patient.firstName} {patient.lastName}
+            {client.firstName} {client.lastName}
             <span className="ml-2 text-xs font-normal text-muted-foreground">
               {habits.length} habit{habits.length !== 1 ? "s" : ""}
             </span>

@@ -25,26 +25,26 @@ import { format } from "date-fns";
 
 interface Props {
   programId: string;
-  patients: { id: string; firstName: string; lastName: string }[];
+  clients: { id: string; firstName: string; lastName: string }[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 export function AssignProgramDialog({
   programId,
-  patients,
+  clients,
   open,
   onOpenChange,
 }: Props) {
   const router = useRouter();
-  const [patientId, setPatientId] = useState("");
+  const [clientId, setClientId] = useState("");
   const [startDate, setStartDate] = useState(
     format(new Date(), "yyyy-MM-dd")
   );
   const [saving, setSaving] = useState(false);
 
   async function handleAssign() {
-    if (!patientId) {
+    if (!clientId) {
       toast.error("Select a client");
       return;
     }
@@ -52,7 +52,7 @@ export function AssignProgramDialog({
     try {
       const result = await assignProgramAction({
         programId,
-        patientId,
+        clientId,
         startDate: new Date(startDate).toISOString(),
       });
       if (result.success) {
@@ -76,12 +76,12 @@ export function AssignProgramDialog({
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>Client</Label>
-            <Select value={patientId} onValueChange={(v) => setPatientId(v ?? "")}>
+            <Select value={clientId} onValueChange={(v) => setClientId(v ?? "")}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a client" />
               </SelectTrigger>
               <SelectContent>
-                {patients.map((p) => (
+                {clients.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.firstName} {p.lastName}
                   </SelectItem>

@@ -9,7 +9,7 @@ import * as aiService from "@/lib/services/ai.service";
 import type { PlanStatus } from "@prisma/client";
 
 export async function createPlanAction(input: {
-  patientId?: string | null;
+  clientId?: string | null;
   title: string;
   description?: string;
   durationMinutes?: number;
@@ -30,7 +30,7 @@ export async function createPlanAction(input: {
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
   try {
     const plan = await workoutPlanService.createPlan({
@@ -47,7 +47,7 @@ export async function createPlanAction(input: {
 }
 
 export async function generatePlanAction(input: {
-  patientId?: string | null;
+  clientId?: string | null;
   focusAreas: string[];
   durationMinutes: number;
   daysPerWeek: number;
@@ -59,13 +59,13 @@ export async function generatePlanAction(input: {
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
   try {
     const generated = await aiService.generateWorkoutPlan(input);
 
     const plan = await workoutPlanService.createPlan({
-      patientId: input.patientId,
+      clientId: input.clientId,
       createdById: dbUser.id,
       title: generated.title,
       description: generated.description,
@@ -98,9 +98,9 @@ export async function updatePlanStatusAction(planId: string, status: string) {
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
-  // Verify the clinician owns this plan
+  // Verify the trainer owns this plan
   const plan = await prisma.workoutPlan.findUnique({
     where: { id: planId },
     select: { createdById: true },
@@ -137,7 +137,7 @@ export async function updatePlanExerciseAction(
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
   try {
     await workoutPlanService.updatePlanExercise(planExerciseId, data);
@@ -173,9 +173,9 @@ export async function saveProgramBuilderBlocksAction(
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
-  // Verify the clinician owns this plan
+  // Verify the trainer owns this plan
   const plan = await prisma.workoutPlan.findUnique({
     where: { id: planId },
     select: { createdById: true },
@@ -202,7 +202,7 @@ export async function swapExerciseAction(planExerciseId: string, newExerciseId: 
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
   try {
     await workoutPlanService.swapExercise(planExerciseId, newExerciseId);
@@ -214,13 +214,13 @@ export async function swapExerciseAction(planExerciseId: string, newExerciseId: 
   }
 }
 
-export async function assignClientToPlanAction(planId: string, patientId: string | null) {
+export async function assignClientToPlanAction(planId: string, clientId: string | null) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
   const plan = await prisma.workoutPlan.findUnique({
     where: { id: planId },
@@ -233,7 +233,7 @@ export async function assignClientToPlanAction(planId: string, patientId: string
   try {
     await prisma.workoutPlan.update({
       where: { id: planId },
-      data: { patientId: patientId ?? null },
+      data: { clientId: clientId ?? null },
     });
     revalidatePath(`/workout-plans/${planId}`);
     revalidatePath("/workout-plans");

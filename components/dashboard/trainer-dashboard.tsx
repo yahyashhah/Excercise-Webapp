@@ -16,8 +16,8 @@ import {
 import { formatFeedbackRating, formatRelativeTime, formatSessionStatus } from "@/lib/utils/formatting";
 import { format } from "date-fns";
 
-interface ClinicianDashboardProps {
-  patientCount: number;
+interface TrainerDashboardProps {
+  clientCount: number;
   activePlans: number;
   pendingFeedback: number;
   unreadMessages: number;
@@ -26,10 +26,10 @@ interface ClinicianDashboardProps {
     rating: string;
     comment: string | null;
     createdAt: Date;
-    patient: { firstName: string; lastName: string };
+    client: { firstName: string; lastName: string };
     planExercise: { exercise: { name: string } };
   }[];
-  lowAdherencePatients: {
+  lowAdherenceClients: {
     id: string;
     firstName: string;
     lastName: string;
@@ -40,7 +40,7 @@ interface ClinicianDashboardProps {
     id: string;
     scheduledDate: Date;
     status: string;
-    patient?: { id: string; firstName: string; lastName: string } | null;
+    client?: { id: string; firstName: string; lastName: string } | null;
     workout?: {
       program?: { id: string; name: string } | null;
     } | null;
@@ -48,16 +48,16 @@ interface ClinicianDashboardProps {
 }
 
 const statCards = (
-  patientCount: number,
+  clientCount: number,
   activePrograms: number,
   pendingFeedback: number,
   unreadMessages: number,
 ) => [
   {
     label: "Active Clients",
-    value: patientCount,
+    value: clientCount,
     icon: Users,
-    href: "/patients",
+    href: "/clients",
     gradient: "from-blue-500 to-indigo-600",
     bg: "bg-blue-50",
     iconColor: "text-blue-600",
@@ -109,15 +109,15 @@ const sessionStatusColors: Record<string, string> = {
   MISSED: "bg-red-100 text-red-700",
 };
 
-export function ClinicianDashboard({
-  patientCount,
+export function TrainerDashboard({
+  clientCount,
   pendingFeedback,
   unreadMessages,
   recentFeedback,
   activePrograms = 0,
   upcomingSessions = [],
-}: ClinicianDashboardProps) {
-  const cards = statCards(patientCount, activePrograms, pendingFeedback, unreadMessages);
+}: TrainerDashboardProps) {
+  const cards = statCards(clientCount, activePrograms, pendingFeedback, unreadMessages);
 
   return (
     <div className="space-y-8">
@@ -198,19 +198,19 @@ export function ClinicianDashboard({
                     key={session.id}
                     className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
                   >
-                    {/* Patient avatar */}
-                    {session.patient && (
+                    {/* Client avatar */}
+                    {session.client && (
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-blue-400 to-indigo-500 text-xs font-bold text-white">
-                        {session.patient.firstName[0]}{session.patient.lastName[0]}
+                        {session.client.firstName[0]}{session.client.lastName[0]}
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
                         {session.workout?.program?.name || "Workout"}
                       </p>
-                      {session.patient && (
+                      {session.client && (
                         <p className="text-xs text-muted-foreground">
-                          {session.patient.firstName} {session.patient.lastName}
+                          {session.client.firstName} {session.client.lastName}
                         </p>
                       )}
                     </div>
@@ -257,7 +257,7 @@ export function ClinicianDashboard({
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">
-                          {fb.patient.firstName} {fb.patient.lastName}
+                          {fb.client.firstName} {fb.client.lastName}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {fb.planExercise.exercise.name}

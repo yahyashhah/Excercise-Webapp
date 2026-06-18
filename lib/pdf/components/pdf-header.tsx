@@ -20,10 +20,10 @@ const styles = StyleSheet.create({
     height: 60,
     objectFit: "contain",
   },
-  clinicInfo: {
+  organizationInfo: {
     flexDirection: "column",
   },
-  clinicName: {
+  organizationName: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#111827",
@@ -40,14 +40,14 @@ const styles = StyleSheet.create({
 });
 
 interface PdfHeaderProps {
-  clinicName?: string;
+  organizationName?: string;
   tagline?: string;
   logoBuffer?: Buffer | null;
   pageNumber: number;
 }
 
 export function PdfHeader({
-  clinicName,
+  organizationName,
   tagline,
   logoBuffer,
   pageNumber,
@@ -61,8 +61,8 @@ export function PdfHeader({
             src={{ data: logoBuffer, format: "png" }}
           />
         )}
-        <View style={styles.clinicInfo}>
-          {clinicName && <Text style={styles.clinicName}>{clinicName}</Text>}
+        <View style={styles.organizationInfo}>
+          {organizationName && <Text style={styles.organizationName}>{organizationName}</Text>}
           {tagline && <Text style={styles.tagline}>{tagline}</Text>}
         </View>
       </View>

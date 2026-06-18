@@ -4,8 +4,8 @@ import { subMonths, startOfMonth, endOfMonth, format } from "date-fns";
 export async function getPlatformStats() {
   const [
     totalUsers,
-    clinicians,
-    patients,
+    trainers,
+    clients,
     totalExercises,
     totalPrograms,
     totalSessions,
@@ -13,8 +13,8 @@ export async function getPlatformStats() {
     newUsersThisMonth,
   ] = await Promise.all([
     prisma.user.count(),
-    prisma.user.count({ where: { role: "CLINICIAN" } }),
-    prisma.user.count({ where: { role: "PATIENT" } }),
+    prisma.user.count({ where: { role: "TRAINER" } }),
+    prisma.user.count({ where: { role: "CLIENT" } }),
     prisma.exercise.count(),
     prisma.program.count(),
     prisma.workoutSessionV2.count({ where: { status: "COMPLETED" } }),
@@ -28,8 +28,8 @@ export async function getPlatformStats() {
 
   return {
     totalUsers,
-    clinicians,
-    patients,
+    trainers,
+    clients,
     totalExercises,
     totalPrograms,
     totalSessions,
@@ -105,9 +105,9 @@ export async function getRecentUsers(limit = 10) {
   });
 }
 
-export async function getTopClinicians(limit = 5) {
-  const clinicians = await prisma.user.findMany({
-    where: { role: "CLINICIAN" },
+export async function getTopTrainers(limit = 5) {
+  const trainers = await prisma.user.findMany({
+    where: { role: "TRAINER" },
     select: {
       id: true,
       firstName: true,
@@ -121,14 +121,14 @@ export async function getTopClinicians(limit = 5) {
   });
 
   const withCounts = await Promise.all(
-    clinicians.map(async (c) => ({
+    trainers.map(async (c) => ({
       id: c.id,
       name: `${c.firstName} ${c.lastName}`,
       email: c.email,
       imageUrl: c.imageUrl,
-      patientCount: c.clerkOrgId
+      clientCount: c.clerkOrgId
         ? await prisma.user.count({
-            where: { clerkOrgId: c.clerkOrgId, role: "PATIENT" },
+            where: { clerkOrgId: c.clerkOrgId, role: "CLIENT" },
           })
         : 0,
       programCount: c.programsCreated.length,
@@ -136,7 +136,7 @@ export async function getTopClinicians(limit = 5) {
   );
 
   return withCounts
-    .sort((a, b) => b.patientCount - a.patientCount)
+    .sort((a, b) => b.clientCount - a.clientCount)
     .slice(0, limit);
 }
 
@@ -144,7 +144,7 @@ export async function getAllUsers(params: {
   page?: number;
   pageSize?: number;
   search?: string;
-  role?: "CLINICIAN" | "PATIENT" | "ALL";
+  role?: "TRAINER" | "CLIENT" | "ALL";
 }) {
   const { page = 1, pageSize = 20, search, role = "ALL" } = params;
 
@@ -181,7 +181,7 @@ export async function getAllUsers(params: {
   ]);
 
   // Compute connection counts per user based on their organization.
-  // Clinicians: number of patients in the org. Patients: number of clinicians in the org.
+  // Trainers: number of clients in the org. Clients: number of trainers in the org.
   const items = await Promise.all(
     rawItems.map(async (u) => {
       let connectionCount = 0;
@@ -189,7 +189,7 @@ export async function getAllUsers(params: {
         connectionCount = await prisma.user.count({
           where: {
             clerkOrgId: u.clerkOrgId,
-            role: u.role === "CLINICIAN" ? "PATIENT" : "CLINICIAN",
+            role: u.role === "TRAINER" ? "CLIENT" : "TRAINER",
           },
         });
       }
@@ -258,8 +258,8 @@ export async function getAllPrograms(params: {
     prisma.program.findMany({
       where,
       include: {
-        clinician: { select: { firstName: true, lastName: true, email: true } },
-        patient: { select: { firstName: true, lastName: true, email: true } },
+        trainer: { select: { firstName: true, lastName: true, email: true } },
+        client: { select: { firstName: true, lastName: true, email: true } },
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,

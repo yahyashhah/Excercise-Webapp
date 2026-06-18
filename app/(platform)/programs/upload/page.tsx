@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getPatientsForClinician } from "@/lib/services/patient.service";
+import { getClientsForTrainer } from "@/lib/services/client.service";
 import { ProgramBriefUpload } from "@/components/programs/program-brief-upload";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -24,11 +24,11 @@ export default async function ProgramBriefUploadPage() {
     select: { id: true, role: true },
   });
 
-  if (!user || user.role !== "CLINICIAN") {
+  if (!user || user.role !== "TRAINER") {
     redirect("/dashboard");
   }
 
-  const patients = await getPatientsForClinician(user.id);
+  const clients = await getClientsForTrainer(user.id);
 
   return (
     <div className="space-y-6">
@@ -45,7 +45,7 @@ export default async function ProgramBriefUploadPage() {
         </p>
       </div>
       <div className="max-w-3xl">
-        <ProgramBriefUpload patients={patients} />
+        <ProgramBriefUpload clients={clients} />
       </div>
     </div>
   );

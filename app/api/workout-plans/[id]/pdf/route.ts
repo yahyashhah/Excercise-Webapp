@@ -40,7 +40,7 @@ export async function GET(
         },
         orderBy: { orderIndex: "asc" },
       },
-      patient: true,
+      client: true,
       createdBy: true,
     },
   });
@@ -51,25 +51,25 @@ export async function GET(
 
   // Verify access
   if (
-    dbUser.role === "PATIENT" &&
-    plan.patientId !== dbUser.id
+    dbUser.role === "CLIENT" &&
+    plan.clientId !== dbUser.id
   ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   if (
-    dbUser.role === "CLINICIAN" &&
+    dbUser.role === "TRAINER" &&
     plan.createdById !== dbUser.id
   ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Fetch clinic profile from Clerk org metadata
+  // Fetch organization profile from Clerk org metadata
   const creator = await prisma.user.findUnique({
     where: { id: plan.createdById },
     select: { clerkOrgId: true },
   });
 
-  let clinicProfile: { clinicName?: string; tagline?: string; logoUrl?: string } = {};
+  let organizationProfile: { organizationName?: string; tagline?: string; logoUrl?: string } = {};
   if (creator?.clerkOrgId) {
     try {
       const client = await clerkClient();
@@ -77,13 +77,13 @@ export async function GET(
         organizationId: creator.clerkOrgId,
       });
       const meta = (org.publicMetadata ?? {}) as Record<string, string>;
-      clinicProfile = {
-        clinicName: org.name,
+      organizationProfile = {
+        organizationName: org.name,
         tagline: meta.tagline || undefined,
         logoUrl: meta.logoUrl || undefined,
       };
     } catch {
-      // Proceed without clinic profile
+      // Proceed without organization profile
     }
   }
 
@@ -101,18 +101,18 @@ export async function GET(
     );
   }
 
-  // Fetch clinic logo
-  let clinicLogoBuffer: Buffer | null = null;
-  if (clinicProfile?.logoUrl) {
+  // Fetch organization logo
+  let organizationLogoBuffer: Buffer | null = null;
+  if (organizationProfile?.logoUrl) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
-      const logoRes = await fetch(clinicProfile.logoUrl, {
+      const logoRes = await fetch(organizationProfile.logoUrl, {
         signal: controller.signal,
       });
       clearTimeout(timeout);
       if (logoRes.ok) {
-        clinicLogoBuffer = Buffer.from(await logoRes.arrayBuffer());
+        organizationLogoBuffer = Buffer.from(await logoRes.arrayBuffer());
       }
     } catch {
       // Proceed without logo
@@ -189,8 +189,8 @@ export async function GET(
     });
   }
 
-  const clientName = plan.patient
-    ? `${plan.patient.firstName} ${plan.patient.lastName}`
+  const clientName = plan.client
+    ? `${plan.client.firstName} ${plan.client.lastName}`
     : undefined;
 
   const createdDate = plan.createdAt.toLocaleDateString("en-US", {
@@ -207,9 +207,9 @@ export async function GET(
     createdDate,
     daysPerWeek: plan.daysPerWeek,
     durationMinutes: plan.durationMinutes,
-    clinicName: clinicProfile?.clinicName,
-    clinicTagline: clinicProfile?.tagline ?? undefined,
-    clinicLogoBuffer,
+    organizationName: organizationProfile?.organizationName,
+    organizationTagline: organizationProfile?.tagline ?? undefined,
+    organizationLogoBuffer,
     exercisesByDay,
     imageMap,
     placeholderBuffer,

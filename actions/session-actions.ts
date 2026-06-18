@@ -29,23 +29,23 @@ export async function rescheduleSessionAction(
   }
 }
 
-export async function getClinicianSessionsAction(
+export async function getTrainerSessionsAction(
   from: string,
   to: string,
-  patientId?: string
+  clientId?: string
 ) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!dbUser || dbUser.role !== "CLINICIAN")
+  if (!dbUser || dbUser.role !== "TRAINER")
     return { success: false as const, error: "Unauthorized" };
 
   try {
-    const sessions = await sessionService.getSessionsForClinician(dbUser.id, {
+    const sessions = await sessionService.getSessionsForTrainer(dbUser.id, {
       from: new Date(from),
       to: new Date(to),
-      patientId,
+      clientId,
     });
     return { success: true as const, data: sessions };
   } catch (error) {
@@ -54,7 +54,7 @@ export async function getClinicianSessionsAction(
   }
 }
 
-export async function getPatientSessionsAction(from?: string, to?: string) {
+export async function getClientSessionsAction(from?: string, to?: string) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
@@ -62,7 +62,7 @@ export async function getPatientSessionsAction(from?: string, to?: string) {
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   try {
-    const sessions = await sessionService.getSessionsForPatient(dbUser.id, {
+    const sessions = await sessionService.getSessionsForClient(dbUser.id, {
       from: from ? new Date(from) : undefined,
       to: to ? new Date(to) : undefined,
     });

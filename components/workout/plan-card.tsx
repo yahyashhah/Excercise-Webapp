@@ -11,7 +11,7 @@ interface PlanCardProps {
   description?: string | null;
   exerciseCount: number;
   sessionCount: number;
-  patientName?: string;
+  clientName?: string;
   updatedAt: Date;
 }
 
@@ -22,7 +22,7 @@ export function PlanCard({
   description,
   exerciseCount,
   sessionCount,
-  patientName,
+  clientName,
   updatedAt,
 }: PlanCardProps) {
   return (
@@ -36,8 +36,8 @@ export function PlanCard({
             <PlanStatusBadge status={status} />
           </div>
           <h3 className="mb-1 font-semibold text-slate-900">{title}</h3>
-          {patientName && (
-            <p className="text-sm text-blue-600">{patientName}</p>
+          {clientName && (
+            <p className="text-sm text-blue-600">{clientName}</p>
           )}
           {description && (
             <p className="mb-3 mt-1 line-clamp-2 text-sm text-slate-500">{description}</p>

@@ -88,7 +88,7 @@ export function AiGenerationForm() {
         <CardHeader>
           <CardTitle>AI Program Generator</CardTitle>
           <CardDescription>
-            Input basic patient context, and our AI will build a template for you.
+            Input basic client context, and our AI will build a template for you.
           </CardDescription>
         </CardHeader>
         <CardContent>

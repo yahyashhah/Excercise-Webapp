@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default async function EditProgramPage({ params }: Props) {
-  const user = await requireRole("CLINICIAN");
+  const user = await requireRole("TRAINER");
   const { id } = await params;
 
   const [program, exercises] = await Promise.all([
@@ -20,7 +20,7 @@ export default async function EditProgramPage({ params }: Props) {
     getExercises(),
   ]);
 
-  if (!program || program.clinicianId !== user.id) notFound();
+  if (!program || program.trainerId !== user.id) notFound();
 
   return (
     <div className="space-y-6">

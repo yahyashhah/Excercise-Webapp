@@ -21,17 +21,17 @@ export default async function ProgramsPage({ searchParams }: Props) {
       : "programs";
 
   const [programs, globalPrograms] = await Promise.all([
-    user.role === "CLINICIAN"
+    user.role === "TRAINER"
       ? programService.getPrograms(user.id, {
           search: params.search,
           status: params.status as any,
           isTemplate: tab === "templates",
         })
-      : programService.getProgramsForPatient(user.id),
-    user.role === "CLINICIAN" ? programService.getGlobalPrograms() : Promise.resolve([]),
+      : programService.getProgramsForClient(user.id),
+    user.role === "TRAINER" ? programService.getGlobalPrograms() : Promise.resolve([]),
   ]);
 
-  // For each clinic program that came from a global master, check if master has been updated
+  // For each organization program that came from a global master, check if master has been updated
   const updatableIds = new Set<string>(
     programs
       .filter((p) => {
@@ -48,10 +48,10 @@ export default async function ProgramsPage({ searchParams }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            {user.role === "CLINICIAN" ? "Programs" : "My Programs"}
+            {user.role === "TRAINER" ? "Programs" : "My Programs"}
           </h1>
           <p className="text-muted-foreground">
-            {user.role === "CLINICIAN"
+            {user.role === "TRAINER"
               ? "Create, manage, and assign training programs to your clients."
               : `You have ${programs.length} programs assigned.`}
           </p>

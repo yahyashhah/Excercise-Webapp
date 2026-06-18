@@ -12,13 +12,13 @@ import { toast } from "sonner";
 import { Loader2, Sparkles } from "lucide-react";
 
 interface GeneratePlanFormProps {
-  patients: { id: string; firstName: string; lastName: string }[];
+  clients: { id: string; firstName: string; lastName: string }[];
 }
 
-export function GeneratePlanForm({ patients }: GeneratePlanFormProps) {
+export function GeneratePlanForm({ clients }: GeneratePlanFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState("");
+  const [selectedClient, setSelectedClient] = useState("");
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState("BEGINNER");
   const [duration, setDuration] = useState(25);
@@ -41,7 +41,7 @@ export function GeneratePlanForm({ patients }: GeneratePlanFormProps) {
     const formData = new FormData(e.currentTarget);
 
     const result = await generatePlanAction({
-      patientId: selectedPatient || null,
+      clientId: selectedClient || null,
       focusAreas: selectedAreas,
       durationMinutes: duration,
       daysPerWeek,
@@ -74,11 +74,11 @@ export function GeneratePlanForm({ patients }: GeneratePlanFormProps) {
             <Label>Client <span className="text-muted-foreground font-normal">(optional)</span></Label>
             <select
               className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm"
-              value={selectedPatient}
-              onChange={(e) => setSelectedPatient(e.target.value)}
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
             >
               <option value="">No client — general program</option>
-              {patients.map((p) => (
+              {clients.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.firstName} {p.lastName}
                 </option>

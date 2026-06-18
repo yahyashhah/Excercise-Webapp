@@ -12,8 +12,8 @@ export async function getCurrentUser(): Promise<User> {
   });
 
   if (!user) {
-    // New Clerk user: orgId present = came via org invitation = patient path
-    if (orgId) redirect("/onboarding/patient");
+    // New Clerk user: orgId present = came via org invitation = client path
+    if (orgId) redirect("/onboarding/client");
     redirect("/onboarding");
   }
 
@@ -28,7 +28,7 @@ export async function getCurrentUser(): Promise<User> {
   }
 
   if (!user.onboarded) {
-    if (user.role === "PATIENT") redirect("/onboarding/patient");
+    if (user.role === "CLIENT") redirect("/onboarding/client");
     redirect("/onboarding");
   }
 
@@ -41,7 +41,7 @@ export async function getCurrentUserOrNull(): Promise<User | null> {
   return prisma.user.findUnique({ where: { clerkId: userId } });
 }
 
-export async function requireRole(role: "CLINICIAN" | "PATIENT"): Promise<User> {
+export async function requireRole(role: "TRAINER" | "CLIENT"): Promise<User> {
   const user = await getCurrentUser();
   if (user.role !== role) redirect("/dashboard");
   return user;

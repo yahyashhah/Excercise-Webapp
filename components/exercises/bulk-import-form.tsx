@@ -647,7 +647,7 @@ function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleE
 
           <div className="space-y-1.5">
             <Label className="text-xs font-medium">Instructions</Label>
-            <Textarea rows={3} value={row.instructions} onChange={(e) => onUpdate({ instructions: e.target.value })} placeholder="Step-by-step patient instructions" />
+            <Textarea rows={3} value={row.instructions} onChange={(e) => onUpdate({ instructions: e.target.value })} placeholder="Step-by-step client instructions" />
           </div>
 
           <div className="space-y-1.5">

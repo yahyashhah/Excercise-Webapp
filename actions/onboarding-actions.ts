@@ -4,10 +4,10 @@ import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 
-export async function completeClinicianOnboarding(data: {
+export async function completeTrainerOnboarding(data: {
   firstName: string;
   lastName: string;
-  clinicName: string;
+  organizationName: string;
   phone?: string;
 }) {
   const { userId } = await auth();
@@ -19,7 +19,7 @@ export async function completeClinicianOnboarding(data: {
   try {
     const client = await clerkClient();
     const org = await client.organizations.createOrganization({
-      name: data.clinicName,
+      name: data.organizationName,
       createdBy: userId,
     });
 
@@ -28,7 +28,7 @@ export async function completeClinicianOnboarding(data: {
       update: {
         firstName: data.firstName,
         lastName: data.lastName,
-        role: "CLINICIAN",
+        role: "TRAINER",
         phone: data.phone ?? null,
         clerkOrgId: org.id,
         onboarded: true,
@@ -38,7 +38,7 @@ export async function completeClinicianOnboarding(data: {
         email: clerkUser.emailAddresses[0].emailAddress,
         firstName: data.firstName,
         lastName: data.lastName,
-        role: "CLINICIAN",
+        role: "TRAINER",
         phone: data.phone ?? null,
         imageUrl: clerkUser.imageUrl,
         clerkOrgId: org.id,
@@ -46,14 +46,14 @@ export async function completeClinicianOnboarding(data: {
       },
     });
   } catch (err) {
-    console.error("Failed to complete clinician onboarding:", err);
-    return { success: false as const, error: "Failed to set up clinic. Please try again." };
+    console.error("Failed to complete trainer onboarding:", err);
+    return { success: false as const, error: "Failed to set up organization. Please try again." };
   }
 
   redirect("/dashboard");
 }
 
-export async function completePatientOnboarding(data: {
+export async function completeClientOnboarding(data: {
   firstName: string;
   lastName: string;
   phone?: string;
@@ -109,7 +109,7 @@ export async function completePatientOnboarding(data: {
       email: clerkUser.emailAddresses[0].emailAddress,
       firstName: data.firstName,
       lastName: data.lastName,
-      role: "PATIENT",
+      role: "CLIENT",
       phone: data.phone ?? null,
       dateOfBirth: data.dateOfBirth ?? null,
       imageUrl: clerkUser.imageUrl,
@@ -118,7 +118,7 @@ export async function completePatientOnboarding(data: {
     },
   });
 
-  await prisma.patientProfile.upsert({
+  await prisma.clientProfile.upsert({
     where: { userId: user.id },
     update: profileData,
     create: { userId: user.id, ...profileData },

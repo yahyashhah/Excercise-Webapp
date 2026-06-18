@@ -23,7 +23,7 @@ interface ClinicalNote {
 }
 
 interface ClinicalNoteFormProps {
-  patientId: string;
+  clientId: string;
   /** Pass an existing note to enable edit mode. */
   existingNote?: ClinicalNote;
   onSuccess?: () => void;
@@ -43,7 +43,7 @@ const SECTION_STYLES = {
 } as const;
 
 export function ClinicalNoteForm({
-  patientId,
+  clientId,
   existingNote,
   onSuccess,
   onCancel,
@@ -87,8 +87,8 @@ export function ClinicalNoteForm({
     startTransition(async () => {
       const formData = buildFormData();
       const result = isEditing && existingNote
-        ? await updateClinicalNoteAction(existingNote.id, patientId, formData)
-        : await createClinicalNoteAction(patientId, formData);
+        ? await updateClinicalNoteAction(existingNote.id, clientId, formData)
+        : await createClinicalNoteAction(clientId, formData);
 
       if (result.success) {
         onSuccess?.();
@@ -118,10 +118,10 @@ export function ClinicalNoteForm({
           Subjective (S)
         </Label>
         <p className="text-xs text-blue-600/70 mb-2">
-          What the patient reports — symptoms, pain levels, functional complaints
+          What the client reports — symptoms, pain levels, functional complaints
         </p>
         <Textarea
-          placeholder="Patient reports..."
+          placeholder="Client reports..."
           value={subjective}
           onChange={(e) => setSubjective(e.target.value)}
           rows={3}
@@ -180,13 +180,13 @@ export function ClinicalNoteForm({
         />
       </div>
 
-      {/* Private Notes — clinician-only */}
+      {/* Private Notes — trainer-only */}
       <div className={SECTION_STYLES.private}>
         <Label className="text-slate-600 font-semibold text-sm mb-1.5 block">
-          Private Notes (clinician only)
+          Private Notes (trainer only)
         </Label>
         <p className="text-xs text-muted-foreground mb-2">
-          Internal observations not visible to the patient
+          Internal observations not visible to the client
         </p>
         <Textarea
           placeholder="Internal notes..."

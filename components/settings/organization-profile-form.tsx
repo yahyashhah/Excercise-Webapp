@@ -7,18 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { saveOrganizationProfile, type ClinicMetadata } from "@/actions/organization-actions";
+import { saveOrganizationProfile, type OrganizationMetadata } from "@/actions/organization-actions";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { UploadButton } from "@uploadthing/react";
 import type { OurFileRouter } from "@/lib/uploadthing";
 import Image from "next/image";
 
-interface ClinicProfileFormProps {
-  initialData?: ClinicMetadata;
+interface OrganizationProfileFormProps {
+  initialData?: OrganizationMetadata;
 }
 
-export function ClinicProfileForm({ initialData }: ClinicProfileFormProps) {
+export function OrganizationProfileForm({ initialData }: OrganizationProfileFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [logoUrl, setLogoUrl] = useState(initialData?.logoUrl ?? "");
@@ -29,7 +29,7 @@ export function ClinicProfileForm({ initialData }: ClinicProfileFormProps) {
 
     const formData = new FormData(e.currentTarget);
     const result = await saveOrganizationProfile({
-      clinicName: formData.get("clinicName") as string,
+      organizationName: formData.get("organizationName") as string,
       tagline: (formData.get("tagline") as string) || undefined,
       logoUrl: logoUrl || undefined,
       phone: (formData.get("phone") as string) || undefined,
@@ -41,7 +41,7 @@ export function ClinicProfileForm({ initialData }: ClinicProfileFormProps) {
     setLoading(false);
 
     if (result.success) {
-      toast.success("Clinic profile saved");
+      toast.success("Organization profile saved");
       router.refresh();
     } else {
       toast.error(result.error);
@@ -52,16 +52,16 @@ export function ClinicProfileForm({ initialData }: ClinicProfileFormProps) {
     <form onSubmit={handleSubmit}>
       <Card>
         <CardHeader>
-          <CardTitle>Clinic Details</CardTitle>
+          <CardTitle>Organization Details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="clinicName">Clinic Name *</Label>
+            <Label htmlFor="organizationName">Organization Name *</Label>
             <Input
-              id="clinicName"
-              name="clinicName"
+              id="organizationName"
+              name="organizationName"
               required
-              defaultValue={initialData?.clinicName ?? ""}
+              defaultValue={initialData?.organizationName ?? ""}
               placeholder="e.g., Summit Physical Therapy"
             />
           </div>
@@ -77,20 +77,20 @@ export function ClinicProfileForm({ initialData }: ClinicProfileFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label>Clinic Logo</Label>
+            <Label>Organization Logo</Label>
             {logoUrl && (
               <div className="mb-2">
                 <Image
                   src={logoUrl}
-                  alt="Clinic logo"
+                  alt="Organization logo"
                   width={80}
                   height={80}
                   className="rounded-md border"
                 />
               </div>
             )}
-            <UploadButton<OurFileRouter, "clinicLogo">
-              endpoint="clinicLogo"
+            <UploadButton<OurFileRouter, "organizationLogo">
+              endpoint="organizationLogo"
               onClientUploadComplete={(res) => {
                 if (res?.[0]?.ufsUrl) {
                   setLogoUrl(res[0].ufsUrl);
@@ -120,7 +120,7 @@ export function ClinicProfileForm({ initialData }: ClinicProfileFormProps) {
                 name="email"
                 type="email"
                 defaultValue={initialData?.email ?? ""}
-                placeholder="clinic@example.com"
+                placeholder="organization@example.com"
               />
             </div>
           </div>

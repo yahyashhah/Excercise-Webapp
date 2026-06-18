@@ -8,7 +8,7 @@ import type {
   SessionExercise,
   Assessment,
   Message,
-  PatientProfile,
+  ClientProfile,
   ExerciseMedia,
   ExerciseProgression,
 } from "@prisma/client";
@@ -34,14 +34,14 @@ export type PlanWithExercises = WorkoutPlan & {
 
 export type PlanWithDetails = WorkoutPlan & {
   exercises: PlanExerciseWithExercise[];
-  patient: User;
+  client: User;
   createdBy: User;
   _count: { sessions: number };
 };
 
 export type FeedbackWithDetails = ExerciseFeedback & {
   planExercise: PlanExercise & { exercise: Exercise };
-  patient: User;
+  client: User;
 };
 
 export type SessionWithExercises = WorkoutSession & {
@@ -56,8 +56,8 @@ export type MessageWithUsers = Message & {
   recipient: User;
 };
 
-export type PatientWithProfile = User & {
-  patientProfile: PatientProfile | null;
+export type ClientWithProfile = User & {
+  clientProfile: ClientProfile | null;
 };
 
 export type InboxThread = {

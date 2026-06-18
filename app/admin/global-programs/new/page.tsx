@@ -20,7 +20,7 @@ export default async function NewGlobalProgramPage() {
         </Button>
         <h1 className="text-3xl font-bold tracking-tight">New Global Program</h1>
         <p className="text-muted-foreground">
-          Create a master program that will be available to all clinics.
+          Create a master program that will be available to all organizations.
         </p>
       </div>
       <GlobalProgramEditorWrapper exercises={exercises} />

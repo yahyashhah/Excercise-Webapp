@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import * as progressService from "@/lib/services/progress.service";
 
 // ---------------------------------------------------------------------------
-// Progress Photo Actions (patient only)
+// Progress Photo Actions (client only)
 // ---------------------------------------------------------------------------
 
 export async function addProgressPhotoAction(
@@ -14,8 +14,8 @@ export async function addProgressPhotoAction(
   notes?: string
 ) {
   const user = await getCurrentUser();
-  if (user.role !== "PATIENT") {
-    return { success: false as const, error: "Only patients can add progress photos" };
+  if (user.role !== "CLIENT") {
+    return { success: false as const, error: "Only clients can add progress photos" };
   }
 
   try {
@@ -25,7 +25,7 @@ export async function addProgressPhotoAction(
       angle,
       notes
     );
-    revalidatePath(`/patients/${user.id}/progress`);
+    revalidatePath(`/clients/${user.id}/progress`);
     return { success: true as const, data: photo };
   } catch (error) {
     console.error("Failed to add progress photo:", error);
@@ -35,13 +35,13 @@ export async function addProgressPhotoAction(
 
 export async function deleteProgressPhotoAction(photoId: string) {
   const user = await getCurrentUser();
-  if (user.role !== "PATIENT") {
-    return { success: false as const, error: "Only patients can delete their photos" };
+  if (user.role !== "CLIENT") {
+    return { success: false as const, error: "Only clients can delete their photos" };
   }
 
   try {
     await progressService.deleteProgressPhoto(photoId, user.id);
-    revalidatePath(`/patients/${user.id}/progress`);
+    revalidatePath(`/clients/${user.id}/progress`);
     return { success: true as const };
   } catch (error) {
     console.error("Failed to delete progress photo:", error);
@@ -50,11 +50,11 @@ export async function deleteProgressPhotoAction(photoId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Body Metric Actions (patient or clinician)
+// Body Metric Actions (client or trainer)
 // ---------------------------------------------------------------------------
 
 export async function addBodyMetricAction(
-  patientId: string,
+  clientId: string,
   metricType: string,
   value: number,
   unit: string,
@@ -62,20 +62,20 @@ export async function addBodyMetricAction(
 ) {
   const user = await getCurrentUser();
 
-  // Patients can only add metrics for themselves; clinicians for any patient
-  if (user.role === "PATIENT" && user.id !== patientId) {
+  // Clients can only add metrics for themselves; trainers for any client
+  if (user.role === "CLIENT" && user.id !== clientId) {
     return { success: false as const, error: "Forbidden" };
   }
 
   try {
     const metric = await progressService.addBodyMetric(
-      patientId,
+      clientId,
       metricType,
       value,
       unit,
       notes
     );
-    revalidatePath(`/patients/${patientId}/progress`);
+    revalidatePath(`/clients/${clientId}/progress`);
     return { success: true as const, data: metric };
   } catch (error) {
     console.error("Failed to add body metric:", error);

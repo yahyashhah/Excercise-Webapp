@@ -3,7 +3,7 @@ import type { FeedbackRating } from "@prisma/client";
 
 export async function submitFeedback(data: {
   planExerciseId: string;
-  patientId: string;
+  clientId: string;
   rating: FeedbackRating;
   comment?: string;
 }) {
@@ -17,15 +17,15 @@ export async function getFeedbackForPlan(planId: string) {
     },
     include: {
       planExercise: { include: { exercise: true } },
-      patient: true,
+      client: true,
     },
     orderBy: { createdAt: "desc" },
   });
 }
 
-export async function getFeedbackForPatient(patientId: string) {
+export async function getFeedbackForClient(clientId: string) {
   return prisma.exerciseFeedback.findMany({
-    where: { patientId },
+    where: { clientId },
     include: {
       planExercise: {
         include: {
@@ -38,27 +38,27 @@ export async function getFeedbackForPatient(patientId: string) {
   });
 }
 
-export async function getPendingFeedbackForClinician(clinicianId: string) {
+export async function getPendingFeedbackForTrainer(trainerId: string) {
   return prisma.exerciseFeedback.findMany({
     where: {
-      clinicianResponse: null,
+      trainerResponse: null,
       planExercise: {
-        plan: { createdById: clinicianId },
+        plan: { createdById: trainerId },
       },
     },
     include: {
       planExercise: { include: { exercise: true } },
-      patient: true,
+      client: true,
     },
     orderBy: { createdAt: "desc" },
   });
 }
 
-export async function respondToFeedback(id: string, clinicianResponse: string) {
+export async function respondToFeedback(id: string, trainerResponse: string) {
   return prisma.exerciseFeedback.update({
     where: { id },
     data: {
-      clinicianResponse,
+      trainerResponse,
       respondedAt: new Date(),
     },
   });

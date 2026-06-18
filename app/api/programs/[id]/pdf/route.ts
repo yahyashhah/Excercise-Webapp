@@ -19,7 +19,7 @@ export async function GET(
   const program = await prisma.program.findUnique({
     where: { id },
     include: {
-      patient: { select: { firstName: true, lastName: true } },
+      client: { select: { firstName: true, lastName: true } },
       workouts: {
         orderBy: { orderIndex: 'asc' },
         include: {
@@ -42,14 +42,14 @@ export async function GET(
 
   if (!program) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const isOwner = program.clinicianId === dbUser.id
-  const isPatient = program.patientId === dbUser.id
-  if (!isOwner && !isPatient) {
+  const isOwner = program.trainerId === dbUser.id
+  const isClient = program.clientId === dbUser.id
+  if (!isOwner && !isClient) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const patientName = program.patient
-    ? `${program.patient.firstName} ${program.patient.lastName}`
+  const clientName = program.client
+    ? `${program.client.firstName} ${program.client.lastName}`
     : null
 
   const sections = buildProgramPdfSections(
@@ -59,8 +59,8 @@ export async function GET(
   const buffer = await renderToBuffer(
     React.createElement(ProgramDocument, {
       programName: program.name,
-      patientName,
-      clinicName: 'INMOTUS RX',
+      clientName,
+      organizationName: 'INMOTUS RX',
       sections,
       equipmentRequired: program.equipmentRequired ?? [],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

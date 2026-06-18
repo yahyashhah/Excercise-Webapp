@@ -3,11 +3,11 @@
 
 import { prisma } from "@/lib/prisma";
 
-export async function getPatientExerciseHistory(patientId: string, exerciseId: string, limit: number = 3) {
+export async function getClientExerciseHistory(clientId: string, exerciseId: string, limit: number = 3) {
   try {
     const sessions = await prisma.workoutSessionV2.findMany({
       where: {
-        patientId,
+        clientId,
         status: { in: ["COMPLETED", "IN_PROGRESS", "SCHEDULED"] },
         workout: {
           blocks: {

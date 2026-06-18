@@ -11,10 +11,10 @@ export default async function RespondPage({ params }: Props) {
   const { id } = await params;
   const user = await getCurrentUser();
 
-  if (user.role !== "PATIENT") redirect("/check-ins");
+  if (user.role !== "CLIENT") redirect("/check-ins");
 
   // id here is the assignment id
-  const assignment = await checkinService.getCheckInAssignmentsForPatient(
+  const assignment = await checkinService.getCheckInAssignmentsForClient(
     user.id
   ).then((list) => list.find((a) => a.id === id));
 

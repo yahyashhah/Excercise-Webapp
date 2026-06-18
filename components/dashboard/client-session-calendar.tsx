@@ -41,7 +41,7 @@ const STATUS_DOT: Record<string, string> = {
   SCHEDULED: "bg-blue-500",
 };
 
-export function PatientSessionCalendar({ sessions }: Props) {
+export function ClientSessionCalendar({ sessions }: Props) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => {
     // Auto-select today if there's a session

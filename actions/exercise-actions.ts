@@ -27,9 +27,9 @@ export async function createExerciseAction(input: {
 
     const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
     if (!dbUser) return { success: false as const, error: "User not found" };
-    if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+    if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
-    const clinicOrgId = sessionOrgId ?? dbUser.clerkOrgId ?? null;
+    const organizationOrgId = sessionOrgId ?? dbUser.clerkOrgId ?? null;
 
     const parsed = createExerciseSchema.safeParse(input);
     if (!parsed.success) {
@@ -44,8 +44,8 @@ export async function createExerciseAction(input: {
         videoUrl: parsed.data.videoUrl || undefined,
         videoProvider: parsed.data.videoProvider || undefined,
         createdById: dbUser.id,
-        source: clinicOrgId ? "CLINIC" : "UNIVERSAL",
-        organizationId: clinicOrgId ?? undefined,
+        source: organizationOrgId ? "ORGANIZATION" : "UNIVERSAL",
+        organizationId: organizationOrgId ?? undefined,
         isPublic: parsed.data.isPublic ?? true,
       });
 
@@ -66,7 +66,7 @@ export async function updateExerciseAction(
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
   const parsed = updateExerciseSchema.safeParse(input);
   if (!parsed.success) {
@@ -93,7 +93,7 @@ export async function addExerciseMediaAction(
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
   try {
     const item = await prisma.exerciseMedia.create({
@@ -122,7 +122,7 @@ export async function deleteExerciseMediaAction(
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
   try {
     await prisma.exerciseMedia.delete({ where: { id: mediaId } });
@@ -148,14 +148,14 @@ export async function deleteExerciseAction(exerciseId: string) {
   const superAdmin = await isSuperAdmin();
 
   if (!superAdmin) {
-    // Clinicians can only delete their own clinic's exercises
-    if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
-    const clinicOrgId = sessionOrgId ?? dbUser.clerkOrgId ?? null;
+    // Trainers can only delete their own organization's exercises
+    if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
+    const organizationOrgId = sessionOrgId ?? dbUser.clerkOrgId ?? null;
     if (exercise.source === "UNIVERSAL") {
       return { success: false as const, error: "Universal exercises can only be deleted by admins" };
     }
-    if (exercise.source === "CLINIC" && exercise.organizationId !== clinicOrgId) {
-      return { success: false as const, error: "You can only delete your clinic's exercises" };
+    if (exercise.source === "ORGANIZATION" && exercise.organizationId !== organizationOrgId) {
+      return { success: false as const, error: "You can only delete your organization's exercises" };
     }
   }
 
@@ -170,7 +170,7 @@ export async function deleteExerciseAction(exerciseId: string) {
   }
 }
 
-export async function createClinicExerciseAction(input: {
+export async function createOrganizationExerciseAction(input: {
   name: string;
   description?: string;
   bodyRegion: string;
@@ -184,9 +184,9 @@ export async function createClinicExerciseAction(input: {
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
-  const clinicOrgId = sessionOrgId ?? dbUser.clerkOrgId ?? null;
+  const organizationOrgId = sessionOrgId ?? dbUser.clerkOrgId ?? null;
 
   try {
     const exercise = await exerciseService.createExercise({
@@ -198,8 +198,8 @@ export async function createClinicExerciseAction(input: {
       contraindications: [],
       videoUrl: input.videoUrl?.trim() || undefined,
       createdById: dbUser.id,
-      source: clinicOrgId ? "CLINIC" : "UNIVERSAL",
-      organizationId: clinicOrgId ?? undefined,
+      source: organizationOrgId ? "ORGANIZATION" : "UNIVERSAL",
+      organizationId: organizationOrgId ?? undefined,
       isPublic: input.isPublic,
       exercisePhase: input.exercisePhase as ExercisePhase | undefined,
     });
@@ -207,7 +207,7 @@ export async function createClinicExerciseAction(input: {
     revalidatePath("/exercises");
     return { success: true as const, data: exercise };
   } catch (error) {
-    console.error("Failed to create clinic exercise:", error);
+    console.error("Failed to create organization exercise:", error);
     return { success: false as const, error: "Failed to create exercise" };
   }
 }
@@ -218,17 +218,17 @@ export async function toggleExercisePublicAction(exerciseId: string, isPublic: b
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
-  const clinicOrgId = sessionOrgId ?? dbUser.clerkOrgId ?? null;
+  const organizationOrgId = sessionOrgId ?? dbUser.clerkOrgId ?? null;
 
   const exercise = await prisma.exercise.findUnique({ where: { id: exerciseId } });
   if (!exercise) return { success: false as const, error: "Exercise not found" };
-  if (exercise.source !== "CLINIC") {
+  if (exercise.source !== "ORGANIZATION") {
     return { success: false as const, error: "Cannot modify a universal exercise" };
   }
-  if (exercise.organizationId !== clinicOrgId) {
-    return { success: false as const, error: "You can only modify your clinic's exercises" };
+  if (exercise.organizationId !== organizationOrgId) {
+    return { success: false as const, error: "You can only modify your organization's exercises" };
   }
 
   try {

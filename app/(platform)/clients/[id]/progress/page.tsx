@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireRole } from "@/lib/current-user";
-import { getPatientDetail } from "@/lib/services/patient.service";
+import { getClientDetail } from "@/lib/services/client.service";
 import * as progressService from "@/lib/services/progress.service";
 import * as noteService from "@/lib/services/clinical-note.service";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,19 +17,19 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
-export default async function PatientProgressPage({ params }: Props) {
+export default async function ClientProgressPage({ params }: Props) {
   const { id } = await params;
-  const user = await requireRole("CLINICIAN");
-  const patient = await getPatientDetail(id);
+  const user = await requireRole("TRAINER");
+  const client = await getClientDetail(id);
 
-  if (!patient) notFound();
+  if (!client) notFound();
 
   // Fetch all progress data in parallel
   const [photos, metrics, metricTypes, notes] = await Promise.all([
-    progressService.getProgressPhotos(patient.id),
-    progressService.getBodyMetrics(patient.id),
-    progressService.getBodyMetricTypes(patient.id),
-    noteService.getNotesForPatient(patient.id, user.id),
+    progressService.getProgressPhotos(client.id),
+    progressService.getBodyMetrics(client.id),
+    progressService.getBodyMetricTypes(client.id),
+    noteService.getNotesForClient(client.id, user.id),
   ]);
 
   return (
@@ -37,28 +37,28 @@ export default async function PatientProgressPage({ params }: Props) {
       {/* Back navigation */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href={`/patients/${id}`}>
+          <Link href={`/clients/${id}`}>
             <ArrowLeft className="mr-1 h-4 w-4" />
-            Back to Patient
+            Back to Client
           </Link>
         </Button>
       </div>
 
-      {/* Patient header */}
+      {/* Client header */}
       <Card className="border-0 shadow-sm ring-1 ring-border/50">
         <CardContent className="flex items-center gap-5 p-5">
           <Avatar className="h-14 w-14">
-            <AvatarImage src={patient.imageUrl ?? undefined} />
+            <AvatarImage src={client.imageUrl ?? undefined} />
             <AvatarFallback className="text-base">
-              {patient.firstName[0]}
-              {patient.lastName[0]}
+              {client.firstName[0]}
+              {client.lastName[0]}
             </AvatarFallback>
           </Avatar>
           <div>
             <h1 className="text-lg font-bold">
-              {patient.firstName} {patient.lastName}
+              {client.firstName} {client.lastName}
             </h1>
-            <p className="text-sm text-muted-foreground">{patient.email}</p>
+            <p className="text-sm text-muted-foreground">{client.email}</p>
           </div>
           <div className="ml-auto">
             <p className="text-right text-sm font-semibold text-muted-foreground">
@@ -89,7 +89,7 @@ export default async function PatientProgressPage({ params }: Props) {
         {/* Photos tab                                                        */}
         {/* ---------------------------------------------------------------- */}
         <TabsContent value="photos" className="mt-5">
-          <PhotosTab photos={photos} patientId={patient.id} />
+          <PhotosTab photos={photos} clientId={client.id} />
         </TabsContent>
 
         {/* ---------------------------------------------------------------- */}
@@ -99,7 +99,7 @@ export default async function PatientProgressPage({ params }: Props) {
           <MetricsTab
             metrics={metrics}
             metricTypes={metricTypes}
-            patientId={patient.id}
+            clientId={client.id}
           />
         </TabsContent>
 
@@ -107,7 +107,7 @@ export default async function PatientProgressPage({ params }: Props) {
         {/* SOAP notes tab                                                    */}
         {/* ---------------------------------------------------------------- */}
         <TabsContent value="notes" className="mt-5">
-          <SoapNotesTab notes={notes} patientId={patient.id} />
+          <SoapNotesTab notes={notes} clientId={client.id} />
         </TabsContent>
       </Tabs>
     </div>

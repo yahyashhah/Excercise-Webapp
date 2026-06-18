@@ -609,7 +609,7 @@ export function WorkoutSessionTracker({
                 </div>
               )}
 
-              {/* Clinician notes */}
+              {/* Trainer notes */}
               {blockExercise.notes && (
                 <div className="flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
                   <span className="mt-0.5 text-xs font-bold uppercase tracking-widest text-blue-500">Note</span>

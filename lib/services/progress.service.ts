@@ -4,22 +4,22 @@ import { prisma } from "@/lib/prisma";
 // Progress Photos
 // ---------------------------------------------------------------------------
 
-export async function getProgressPhotos(patientId: string) {
+export async function getProgressPhotos(clientId: string) {
   return prisma.progressPhoto.findMany({
-    where: { patientId },
+    where: { clientId },
     orderBy: { recordedAt: "desc" },
   });
 }
 
 export async function addProgressPhoto(
-  patientId: string,
+  clientId: string,
   imageUrl: string,
   angle?: string,
   notes?: string
 ) {
   return prisma.progressPhoto.create({
     data: {
-      patientId,
+      clientId,
       imageUrl,
       angle,
       notes,
@@ -28,10 +28,10 @@ export async function addProgressPhoto(
   });
 }
 
-export async function deleteProgressPhoto(id: string, patientId: string) {
+export async function deleteProgressPhoto(id: string, clientId: string) {
   // Verify ownership before deleting
   const photo = await prisma.progressPhoto.findUnique({ where: { id } });
-  if (!photo || photo.patientId !== patientId) {
+  if (!photo || photo.clientId !== clientId) {
     throw new Error("Photo not found or access denied");
   }
   return prisma.progressPhoto.delete({ where: { id } });
@@ -41,10 +41,10 @@ export async function deleteProgressPhoto(id: string, patientId: string) {
 // Body Metrics
 // ---------------------------------------------------------------------------
 
-export async function getBodyMetrics(patientId: string, metricType?: string) {
+export async function getBodyMetrics(clientId: string, metricType?: string) {
   return prisma.bodyMetric.findMany({
     where: {
-      patientId,
+      clientId,
       ...(metricType ? { metricType } : {}),
     },
     // Ascending order so Recharts can render a chronological line chart
@@ -53,7 +53,7 @@ export async function getBodyMetrics(patientId: string, metricType?: string) {
 }
 
 export async function addBodyMetric(
-  patientId: string,
+  clientId: string,
   metricType: string,
   value: number,
   unit: string,
@@ -61,7 +61,7 @@ export async function addBodyMetric(
 ) {
   return prisma.bodyMetric.create({
     data: {
-      patientId,
+      clientId,
       metricType,
       value,
       unit,
@@ -71,10 +71,10 @@ export async function addBodyMetric(
   });
 }
 
-/** Returns all distinct metric types this patient has recorded. */
-export async function getBodyMetricTypes(patientId: string): Promise<string[]> {
+/** Returns all distinct metric types this client has recorded. */
+export async function getBodyMetricTypes(clientId: string): Promise<string[]> {
   const rows = await prisma.bodyMetric.findMany({
-    where: { patientId },
+    where: { clientId },
     select: { metricType: true },
     distinct: ["metricType"],
     orderBy: { metricType: "asc" },
@@ -84,14 +84,14 @@ export async function getBodyMetricTypes(patientId: string): Promise<string[]> {
 
 /** Returns the single most-recent reading per metric type. */
 export async function getLatestBodyMetrics(
-  patientId: string
+  clientId: string
 ): Promise<{ metricType: string; value: number; unit: string; recordedAt: Date }[]> {
-  const types = await getBodyMetricTypes(patientId);
+  const types = await getBodyMetricTypes(clientId);
 
   const latestPerType = await Promise.all(
     types.map((metricType) =>
       prisma.bodyMetric.findFirst({
-        where: { patientId, metricType },
+        where: { clientId, metricType },
         orderBy: { recordedAt: "desc" },
         select: { metricType: true, value: true, unit: true, recordedAt: true },
       })

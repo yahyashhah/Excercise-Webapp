@@ -16,7 +16,7 @@ export interface ClinicalPlan {
 }
 
 export interface ClinicalPlanParams {
-  patientId?: string | null
+  clientId?: string | null
   programGoals: string[]
   availableEquipment?: string[]
   durationWeeks: number
@@ -31,6 +31,6 @@ export interface ClinicalPlanParams {
   }[]
   preferredWeekdays?: string[]
   subjective?: string
-  clinicianPrompt?: string
+  trainerPrompt?: string
   additionalNotes?: string
 }

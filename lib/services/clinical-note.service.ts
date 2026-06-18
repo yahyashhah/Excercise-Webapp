@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
 
 export interface CreateClinicalNoteData {
-  patientId: string;
-  clinicianId: string;
+  clientId: string;
+  trainerId: string;
   sessionId?: string;
   appointmentDate: Date;
   subjective?: string;
@@ -13,19 +13,19 @@ export interface CreateClinicalNoteData {
 }
 
 export type UpdateClinicalNoteData = Partial<
-  Omit<CreateClinicalNoteData, "patientId" | "clinicianId">
+  Omit<CreateClinicalNoteData, "clientId" | "trainerId">
 >;
 
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
 
-export async function getNotesForPatient(
-  patientId: string,
-  clinicianId: string
+export async function getNotesForClient(
+  clientId: string,
+  trainerId: string
 ) {
   return prisma.clinicalNote.findMany({
-    where: { patientId, clinicianId },
+    where: { clientId, trainerId },
     orderBy: { appointmentDate: "desc" },
   });
 }
@@ -44,20 +44,20 @@ export async function createNote(data: CreateClinicalNoteData) {
 
 export async function updateNote(
   id: string,
-  clinicianId: string,
+  trainerId: string,
   data: UpdateClinicalNoteData
 ) {
-  // Ensure the clinician owns this note before allowing edits
+  // Ensure the trainer owns this note before allowing edits
   const existing = await prisma.clinicalNote.findUnique({ where: { id } });
-  if (!existing || existing.clinicianId !== clinicianId) {
+  if (!existing || existing.trainerId !== trainerId) {
     throw new Error("Note not found or access denied");
   }
   return prisma.clinicalNote.update({ where: { id }, data });
 }
 
-export async function deleteNote(id: string, clinicianId: string) {
+export async function deleteNote(id: string, trainerId: string) {
   const existing = await prisma.clinicalNote.findUnique({ where: { id } });
-  if (!existing || existing.clinicianId !== clinicianId) {
+  if (!existing || existing.trainerId !== trainerId) {
     throw new Error("Note not found or access denied");
   }
   return prisma.clinicalNote.delete({ where: { id } });

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { PlanStatus, Prisma } from "@prisma/client";
 
 export async function createPlan(data: {
-  patientId?: string | null;
+  clientId?: string | null;
   createdById: string;
   title: string;
   description?: string;
@@ -20,12 +20,12 @@ export async function createPlan(data: {
     notes?: string;
   }[];
 }) {
-  const { exercises, aiGenerationParams, patientId, ...planData } = data;
+  const { exercises, aiGenerationParams, clientId, ...planData } = data;
 
   return prisma.workoutPlan.create({
     data: {
       ...planData,
-      ...(patientId ? { patientId } : {}),
+      ...(clientId ? { clientId } : {}),
       aiGenerationParams: aiGenerationParams
         ? (aiGenerationParams as Prisma.InputJsonValue)
         : undefined,
@@ -38,7 +38,7 @@ export async function createPlan(data: {
         include: { exercise: true },
         orderBy: { orderIndex: "asc" },
       },
-      patient: true,
+      client: true,
     },
   });
 }
@@ -58,16 +58,16 @@ export async function getPlanById(id: string) {
         },
         orderBy: { orderIndex: "asc" },
       },
-      patient: { include: { patientProfile: true } },
+      client: { include: { clientProfile: true } },
       createdBy: true,
       _count: { select: { sessions: true } },
     },
   });
 }
 
-export async function getPlansForPatient(patientId: string) {
+export async function getPlansForClient(clientId: string) {
   return prisma.workoutPlan.findMany({
-    where: { patientId },
+    where: { clientId },
     include: {
       createdBy: true,
       _count: { select: { exercises: true, sessions: true } },
@@ -76,11 +76,11 @@ export async function getPlansForPatient(patientId: string) {
   });
 }
 
-export async function getPlansCreatedBy(clinicianId: string) {
+export async function getPlansCreatedBy(trainerId: string) {
   return prisma.workoutPlan.findMany({
-    where: { createdById: clinicianId },
+    where: { createdById: trainerId },
     include: {
-      patient: true,
+      client: true,
       _count: { select: { exercises: true, sessions: true } },
     },
     orderBy: { updatedAt: "desc" },

@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/current-user";
 import { getInboxThreads } from "@/lib/services/message.service";
-import { getPatientsForClinician, getCliniciansForPatient } from "@/lib/services/patient.service";
+import { getClientsForTrainer, getTrainersForClient } from "@/lib/services/client.service";
 import { NewMessageDialog } from "@/components/messages/new-message-dialog";
 import { MessagesInboxClient } from "@/components/messages/messages-inbox-client";
 import { MessageSquare } from "lucide-react";
@@ -10,9 +10,9 @@ export default async function MessagesPage() {
   const threads = await getInboxThreads(user.id);
 
   const contacts =
-    user.role === "CLINICIAN"
-      ? await getPatientsForClinician(user.id)
-      : await getCliniciansForPatient(user.id);
+    user.role === "TRAINER"
+      ? await getClientsForTrainer(user.id)
+      : await getTrainersForClient(user.id);
 
   return (
     <div className="space-y-6">

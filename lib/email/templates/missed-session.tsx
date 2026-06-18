@@ -1,21 +1,21 @@
 import * as React from 'react'
 
 interface MissedSessionEmailProps {
-  clinicianName: string
-  patientName: string
+  trainerName: string
+  clientName: string
   missedCount: number
   lookbackDays: number
-  patientLink: string
-  clinicName?: string
+  clientLink: string
+  organizationName?: string
 }
 
 export function MissedSessionEmail({
-  clinicianName,
-  patientName,
+  trainerName,
+  clientName,
   missedCount,
   lookbackDays,
-  patientLink,
-  clinicName = 'INMOTUS RX',
+  clientLink,
+  organizationName = 'INMOTUS RX',
 }: MissedSessionEmailProps) {
   return (
     <html lang="en">
@@ -33,40 +33,40 @@ export function MissedSessionEmail({
                   <tbody>
                     <tr>
                       <td style={styles.headerBar}>
-                        <p style={styles.brandName}>{clinicName}</p>
+                        <p style={styles.brandName}>{organizationName}</p>
                       </td>
                     </tr>
                     <tr>
                       <td style={styles.bodyPad}>
-                        <p style={styles.greeting}>Hi {clinicianName},</p>
+                        <p style={styles.greeting}>Hi {trainerName},</p>
                         <p style={styles.intro}>
-                          This is an alert that <strong>{patientName}</strong> has missed{' '}
+                          This is an alert that <strong>{clientName}</strong> has missed{' '}
                           <strong>
                             {missedCount} session{missedCount !== 1 ? 's' : ''}
                           </strong>{' '}
                           in the last {lookbackDays} days.
                         </p>
                         <p style={styles.intro}>
-                          You may want to reach out to check in with your patient.
+                          You may want to reach out to check in with your client.
                         </p>
                         <table width="100%" cellPadding={0} cellSpacing={0} style={{ marginTop: 28, textAlign: 'center' }}>
                           <tbody>
                             <tr>
                               <td align="center">
-                                <a href={patientLink} style={styles.ctaButton}>View Patient</a>
+                                <a href={clientLink} style={styles.ctaButton}>View Client</a>
                               </td>
                             </tr>
                           </tbody>
                         </table>
                         <p style={styles.footnote}>
-                          You received this alert because you are the assigned clinician for this patient.
+                          You received this alert because you are the assigned trainer for this client.
                         </p>
                       </td>
                     </tr>
                     <tr>
                       <td style={styles.footer}>
                         <p style={styles.footerText}>
-                          &copy; {new Date().getFullYear()} {clinicName}. All rights reserved.
+                          &copy; {new Date().getFullYear()} {organizationName}. All rights reserved.
                         </p>
                       </td>
                     </tr>

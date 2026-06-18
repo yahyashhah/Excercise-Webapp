@@ -7,7 +7,7 @@ import { createAssessmentSchema } from "@/lib/validators/assessment";
 import * as outcomeService from "@/lib/services/outcome.service";
 
 export async function createAssessmentAction(input: {
-  patientId?: string;
+  clientId?: string;
   assessmentType: string;
   value: number;
   unit: string;
@@ -19,16 +19,16 @@ export async function createAssessmentAction(input: {
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
 
-  // Patients always record for themselves; clinicians must supply a patientId
-  if (dbUser.role === "CLINICIAN" && !input.patientId) {
-    return { success: false as const, error: "Please select a patient" };
+  // Clients always record for themselves; trainers must supply a clientId
+  if (dbUser.role === "TRAINER" && !input.clientId) {
+    return { success: false as const, error: "Please select a client" };
   }
-  const resolvedPatientId =
-    dbUser.role === "PATIENT" ? dbUser.id : (input.patientId ?? "");
+  const resolvedClientId =
+    dbUser.role === "CLIENT" ? dbUser.id : (input.clientId ?? "");
 
   const parsed = createAssessmentSchema.safeParse({
     ...input,
-    patientId: resolvedPatientId,
+    clientId: resolvedClientId,
   });
   if (!parsed.success) {
     return { success: false as const, error: parsed.error.issues[0].message };
@@ -36,8 +36,8 @@ export async function createAssessmentAction(input: {
 
   try {
     const assessment = await outcomeService.recordAssessment({
-      patientId: parsed.data.patientId,
-      assessedById: dbUser.role === "CLINICIAN" ? dbUser.id : undefined,
+      clientId: parsed.data.clientId,
+      assessedById: dbUser.role === "TRAINER" ? dbUser.id : undefined,
       assessmentType: parsed.data.assessmentType,
       value: parsed.data.value,
       unit: parsed.data.unit,

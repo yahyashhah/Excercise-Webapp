@@ -19,14 +19,14 @@ function getCurrentWeekRange(d: Date): { weekStart: Date; weekEnd: Date } {
 // ─── Public Service Functions ─────────────────────────────────────────────────
 
 /**
- * Returns all active habits for a patient, each decorated with today's log
- * (if the patient has already logged it today).
+ * Returns all active habits for a client, each decorated with today's log
+ * (if the client has already logged it today).
  */
-export async function getHabitsForPatient(patientId: string) {
+export async function getHabitsForClient(clientId: string) {
   const today = toDateOnly(new Date());
 
   return prisma.habitDefinition.findMany({
-    where: { patientId, isActive: true },
+    where: { clientId, isActive: true },
     include: {
       logs: {
         where: { date: today },
@@ -56,11 +56,11 @@ export async function getHabitWithLogs(habitId: string, days = 30) {
 }
 
 /**
- * Creates a new HabitDefinition. Both clinicians and patients may call this.
+ * Creates a new HabitDefinition. Both trainers and clients may call this.
  */
 export async function createHabit(data: {
-  patientId: string;
-  clinicianId?: string;
+  clientId: string;
+  trainerId?: string;
   name: string;
   icon?: string;
   targetValue?: number;
@@ -69,8 +69,8 @@ export async function createHabit(data: {
 }) {
   return prisma.habitDefinition.create({
     data: {
-      patientId: data.patientId,
-      clinicianId: data.clinicianId ?? null,
+      clientId: data.clientId,
+      trainerId: data.trainerId ?? null,
       name: data.name.trim(),
       icon: data.icon ?? null,
       targetValue: data.targetValue ?? null,
@@ -171,14 +171,14 @@ export async function getHabitStreakAndStats(habitId: string) {
 }
 
 /**
- * Returns all active habits for a patient with their today status and current
+ * Returns all active habits for a client with their today status and current
  * streak — used by the habits overview page.
  */
-export async function getHabitsOverview(patientId: string) {
+export async function getHabitsOverview(clientId: string) {
   const today = toDateOnly(new Date());
 
   const habits = await prisma.habitDefinition.findMany({
-    where: { patientId, isActive: true },
+    where: { clientId, isActive: true },
     include: {
       logs: {
         where: { date: today },
@@ -200,35 +200,35 @@ export async function getHabitsOverview(patientId: string) {
 }
 
 /**
- * Returns habits assigned by a clinician across all their patients,
- * grouped by patientId with patient name attached.
+ * Returns habits assigned by a trainer across all their clients,
+ * grouped by clientId with client name attached.
  */
-export async function getHabitsForClinician(clinicianId: string) {
+export async function getHabitsForTrainer(trainerId: string) {
   const habits = await prisma.habitDefinition.findMany({
-    where: { clinicianId, isActive: true },
+    where: { trainerId, isActive: true },
     include: {
-      patient: { select: { id: true, firstName: true, lastName: true } },
+      client: { select: { id: true, firstName: true, lastName: true } },
       logs: {
         where: { date: toDateOnly(new Date()) },
         take: 1,
       },
     },
-    orderBy: [{ patient: { firstName: "asc" } }, { createdAt: "asc" }],
+    orderBy: [{ client: { firstName: "asc" } }, { createdAt: "asc" }],
   });
 
-  // Group by patient for the clinician view
+  // Group by client for the trainer view
   const grouped = new Map<
     string,
-    { patient: { id: string; firstName: string | null; lastName: string | null }; habits: typeof habits }
+    { client: { id: string; firstName: string | null; lastName: string | null }; habits: typeof habits }
   >();
 
   for (const habit of habits) {
-    const existing = grouped.get(habit.patientId);
+    const existing = grouped.get(habit.clientId);
     if (existing) {
       existing.habits.push(habit);
     } else {
-      grouped.set(habit.patientId, {
-        patient: habit.patient,
+      grouped.set(habit.clientId, {
+        client: habit.client,
         habits: [habit],
       });
     }

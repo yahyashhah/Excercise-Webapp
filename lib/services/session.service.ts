@@ -1,12 +1,12 @@
 import { prisma } from "@/lib/prisma";
 
-export async function getSessionsForPatient(
-  patientId: string,
+export async function getSessionsForClient(
+  clientId: string,
   options?: { from?: Date; to?: Date }
 ) {
   return prisma.workoutSessionV2.findMany({
     where: {
-      patientId,
+      clientId,
       ...(options?.from || options?.to
         ? {
             scheduledDate: {
@@ -131,30 +131,30 @@ export async function logExercise(
 
 export async function submitSessionFeedback(
   sessionId: string,
-  patientId: string,
+  clientId: string,
   rating: string,
   comment?: string
 ) {
   return prisma.sessionFeedback.create({
     data: {
       sessionId,
-      patientId,
+      clientId,
       rating: rating as "FELT_GOOD" | "MILD_DISCOMFORT" | "PAINFUL" | "UNSURE_HOW_TO_PERFORM",
       comment,
     },
   });
 }
 
-export async function getSessionsForClinician(
-  clinicianId: string,
-  options?: { from?: Date; to?: Date; patientId?: string }
+export async function getSessionsForTrainer(
+  trainerId: string,
+  options?: { from?: Date; to?: Date; clientId?: string }
 ) {
   return prisma.workoutSessionV2.findMany({
     where: {
       workout: {
-        program: { clinicianId },
+        program: { trainerId },
       },
-      ...(options?.patientId && { patientId: options.patientId }),
+      ...(options?.clientId && { clientId: options.clientId }),
       ...(options?.from || options?.to
         ? {
             scheduledDate: {
@@ -165,7 +165,7 @@ export async function getSessionsForClinician(
         : {}),
     },
     include: {
-      patient: { select: { id: true, firstName: true, lastName: true } },
+      client: { select: { id: true, firstName: true, lastName: true } },
       workout: {
         include: {
           program: { select: { id: true, name: true } },
@@ -176,10 +176,10 @@ export async function getSessionsForClinician(
   });
 }
 
-export async function getUpcomingSessions(patientId: string, limit = 5) {
+export async function getUpcomingSessions(clientId: string, limit = 5) {
   return prisma.workoutSessionV2.findMany({
     where: {
-      patientId,
+      clientId,
       status: "SCHEDULED",
       scheduledDate: { gte: new Date() },
     },

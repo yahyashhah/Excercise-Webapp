@@ -16,7 +16,7 @@ export const metadata = {
 export default async function GenerateProgramPage({
   searchParams,
 }: {
-  searchParams: Promise<{ patientId?: string }>;
+  searchParams: Promise<{ clientId?: string }>;
 }) {
   const { userId } = await auth();
 
@@ -29,24 +29,24 @@ export default async function GenerateProgramPage({
     select: { id: true, role: true, clerkOrgId: true },
   });
 
-  if (!user || user.role !== "CLINICIAN") {
+  if (!user || user.role !== "TRAINER") {
     redirect("/dashboard");
   }
 
-  const { patientId } = await searchParams;
+  const { clientId } = await searchParams;
 
-  // Fetch patients for this clinician's organization with profile fields needed for the inline summary
-  const rawPatients = user.clerkOrgId
+  // Fetch clients for this trainer's organization with profile fields needed for the inline summary
+  const rawClients = user.clerkOrgId
     ? await prisma.user.findMany({
     where: {
-      role: 'PATIENT',
+      role: 'CLIENT',
       clerkOrgId: user.clerkOrgId,
     },
     select: {
       id: true,
       firstName: true,
       lastName: true,
-      patientProfile: {
+      clientProfile: {
         select: {
           primaryDiagnosis: true,
           painScore: true,
@@ -59,14 +59,14 @@ export default async function GenerateProgramPage({
   })
     : []
 
-  const patients = rawPatients.map(p => ({
+  const clients = rawClients.map(p => ({
     id: p.id,
     firstName: p.firstName,
     lastName: p.lastName,
-    primaryDiagnosis: p.patientProfile?.primaryDiagnosis ?? null,
-    painScore: p.patientProfile?.painScore ?? null,
-    limitations: p.patientProfile?.limitations ?? null,
-    availableEquipment: p.patientProfile?.availableEquipment ?? [],
+    primaryDiagnosis: p.clientProfile?.primaryDiagnosis ?? null,
+    painScore: p.clientProfile?.painScore ?? null,
+    limitations: p.clientProfile?.limitations ?? null,
+    availableEquipment: p.clientProfile?.availableEquipment ?? [],
   }))
 
   return (
@@ -85,7 +85,7 @@ export default async function GenerateProgramPage({
       </div>
 
       <div className="max-w-2xl">
-        <GenerateProgramForm patients={patients} initialPatientId={patientId} />
+        <GenerateProgramForm clients={clients} initialClientId={clientId} />
       </div>
     </div>
   );

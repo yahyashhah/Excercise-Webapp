@@ -1,12 +1,12 @@
 import { requireRole } from "@/lib/current-user";
 import { getOrganizationProfile } from "@/actions/organization-actions";
-import { ClinicProfileForm } from "@/components/settings/clinic-profile-form";
+import { OrganizationProfileForm } from "@/components/settings/organization-profile-form";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-export default async function ClinicSettingsPage() {
-  await requireRole("CLINICIAN");
+export default async function OrganizationSettingsPage() {
+  await requireRole("TRAINER");
   const profile = await getOrganizationProfile();
 
   return (
@@ -18,10 +18,10 @@ export default async function ClinicSettingsPage() {
             Back to Settings
           </Link>
         </Button>
-        <h2 className="text-2xl font-bold text-slate-900">Clinic Profile</h2>
-        <p className="text-slate-600">Customize your clinic branding for PDF exports</p>
+        <h2 className="text-2xl font-bold text-slate-900">Organization Profile</h2>
+        <p className="text-slate-600">Customize your organization branding for PDF exports</p>
       </div>
-      <ClinicProfileForm initialData={profile ?? undefined} />
+      <OrganizationProfileForm initialData={profile ?? undefined} />
     </div>
   );
 }

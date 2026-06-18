@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const onboardingSchema = z.object({
-  role: z.enum(["CLINICIAN", "PATIENT"]),
+  role: z.enum(["TRAINER", "CLIENT"]),
   firstName: z.string().min(1, "First name is required").max(100),
   lastName: z.string().min(1, "Last name is required").max(100),
   phone: z.string().max(20).optional(),

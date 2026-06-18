@@ -40,14 +40,14 @@ const METRIC_OPTIONS: MetricOption[] = [
 ];
 
 interface AddBodyMetricDialogProps {
-  patientId: string;
+  clientId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
 }
 
 export function AddBodyMetricDialog({
-  patientId,
+  clientId,
   open,
   onOpenChange,
   onSuccess,
@@ -86,7 +86,7 @@ export function AddBodyMetricDialog({
 
     startTransition(async () => {
       const result = await addBodyMetricAction(
-        patientId,
+        clientId,
         metricType,
         numericValue,
         unit.trim(),

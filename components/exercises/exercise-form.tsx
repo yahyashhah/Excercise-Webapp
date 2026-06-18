@@ -90,7 +90,7 @@ export function ExerciseForm() {
 
     if (result.success) {
       toast.success("Exercise created successfully");
-      const tab = result.data.source === "CLINIC" ? "CLINIC" : "UNIVERSAL";
+      const tab = result.data.source === "ORGANIZATION" ? "ORGANIZATION" : "UNIVERSAL";
       router.push(`/exercises?source=${tab}`);
     } else {
       toast.error(result.error);
@@ -260,7 +260,7 @@ export function ExerciseForm() {
               id="instructions"
               name="instructions"
               rows={4}
-              placeholder="Step-by-step instructions for the patient"
+              placeholder="Step-by-step instructions for the client"
             />
           </div>
 

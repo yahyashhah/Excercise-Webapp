@@ -45,7 +45,7 @@ const CIRCUIT_FOCUS_OPTIONS = [
   { value: "CARDIO", label: "Cardio" },
 ];
 
-interface PatientSummary {
+interface ClientSummary {
   id: string;
   firstName: string;
   lastName: string;
@@ -56,7 +56,7 @@ interface PatientSummary {
 }
 
 export type GenerateExercisesHandler = (params: {
-  patientId: string | null;
+  clientId: string | null;
   programGoals: string[];
   availableEquipment: string[];
   startDate?: string | null;
@@ -70,15 +70,15 @@ export type GenerateExercisesHandler = (params: {
 }) => Promise<{ success: boolean; error?: string; data?: string }>;
 
 interface GenerateProgramFormProps {
-  patients: PatientSummary[];
-  initialPatientId?: string;
+  clients: ClientSummary[];
+  initialClientId?: string;
   onGenerateExercises?: GenerateExercisesHandler;
   redirectTo?: string;
 }
 
 type GenerateState = 'CONFIGURE' | 'PLANNING' | 'REVIEWING' | 'GENERATING';
 
-export function GenerateProgramForm({ patients, initialPatientId, onGenerateExercises, redirectTo }: GenerateProgramFormProps) {
+export function GenerateProgramForm({ clients, initialClientId, onGenerateExercises, redirectTo }: GenerateProgramFormProps) {
   const weekDays = [
     "Monday",
     "Tuesday",
@@ -93,7 +93,7 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
   const [generateState, setGenerateState] = useState<GenerateState>('CONFIGURE');
   const [clinicalPlan, setClinicalPlan] = useState<ClinicalPlan | null>(null);
   const [durationWeeks, setDurationWeeks] = useState(4);
-  const [selectedPatient, setSelectedPatient] = useState(initialPatientId ?? "");
+  const [selectedClient, setSelectedClient] = useState(initialClientId ?? "");
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [equipmentOptions, setEquipmentOptions] = useState<string[]>([]);
@@ -180,7 +180,7 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
       toast.error('Please select at least one program goal');
       return;
     }
-    if (selectedPatient && !startDate) {
+    if (selectedClient && !startDate) {
       toast.error('Please select a start date for this client');
       return;
     }
@@ -202,7 +202,7 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          patientId: selectedPatient || null,
+          clientId: selectedClient || null,
           programGoals: selectedGoals,
           availableEquipment: selectedEquipment,
           durationWeeks,
@@ -213,7 +213,7 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
           })),
           preferredWeekdays: selectedWeekdays,
           subjective: (formData.get('subjective') as string) || undefined,
-          clinicianPrompt: (formData.get('clinicianPrompt') as string) || undefined,
+          trainerPrompt: (formData.get('trainerPrompt') as string) || undefined,
           additionalNotes: (formData.get('notes') as string) || undefined,
         }),
       });
@@ -232,10 +232,10 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
     setGenerateState('GENERATING');
 
     const genParams = {
-      patientId: selectedPatient || null,
+      clientId: selectedClient || null,
       programGoals: selectedGoals,
       availableEquipment: selectedEquipment,
-      startDate: selectedPatient ? startDate : null,
+      startDate: selectedClient ? startDate : null,
       durationMinutes: duration,
       daysPerWeek,
       durationWeeks,
@@ -306,18 +306,18 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Patient selector — hidden when no patients available (e.g. admin context) */}
-              {patients.length > 0 && (
+              {/* Client selector — hidden when no clients available (e.g. admin context) */}
+              {clients.length > 0 && (
                 <>
                   <div className="space-y-2">
                     <Label>Client <span className="text-muted-foreground font-normal">(optional)</span></Label>
                     <select
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      value={selectedPatient}
-                      onChange={(e) => setSelectedPatient(e.target.value)}
+                      value={selectedClient}
+                      onChange={(e) => setSelectedClient(e.target.value)}
                     >
                       <option value="">No client — general program template</option>
-                      {patients.map((p) => (
+                      {clients.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.firstName} {p.lastName}
                         </option>
@@ -325,9 +325,9 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
                     </select>
                   </div>
 
-                  {/* Patient profile inline summary */}
-                  {selectedPatient && (() => {
-                    const p = patients.find(pt => pt.id === selectedPatient)
+                  {/* Client profile inline summary */}
+                  {selectedClient && (() => {
+                    const p = clients.find(pt => pt.id === selectedClient)
                     if (!p) return null
                     return (
                       <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm space-y-0.5">
@@ -348,7 +348,7 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
               )}
 
               {/* Start Date — shown only when a client is selected */}
-              {selectedPatient && (
+              {selectedClient && (
                 <div className="space-y-2">
                   <Label htmlFor="startDate">
                     Program Start Date <span className="text-destructive">*</span>
@@ -695,12 +695,12 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
                 />
               </div>
 
-              {/* Clinician prompt */}
+              {/* Trainer prompt */}
               <div className="space-y-2">
-                <Label htmlFor="clinicianPrompt">Program Instructions (Optional)</Label>
+                <Label htmlFor="trainerPrompt">Program Instructions (Optional)</Label>
                 <Textarea
-                  id="clinicianPrompt"
-                  name="clinicianPrompt"
+                  id="trainerPrompt"
+                  name="trainerPrompt"
                   rows={3}
                   placeholder='Example: "Act as a DPT and create a 1-week, 3-day PT progression for this subjective."'
                 />

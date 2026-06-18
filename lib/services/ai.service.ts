@@ -35,7 +35,7 @@ interface CircuitConfig {
 }
 
 interface GenerateWorkoutParams {
-  patientId?: string | null;
+  clientId?: string | null;
   programGoals?: string[];         // replaces focusAreas at the form level
   focusAreas?: string[];           // keep for backward compat (brief upload flow still uses it)
   availableEquipment?: string[];   // filters exercise pool to matching gear + bodyweight
@@ -50,7 +50,7 @@ interface GenerateWorkoutParams {
   difficultyLevel: string;
   additionalNotes?: string;
   subjective?: string;
-  clinicianPrompt?: string;
+  trainerPrompt?: string;
   programTitle?: string;
   preferredWeekdays?: string[];
   preferredExerciseNames?: string[];
@@ -191,7 +191,7 @@ const VALID_BODY_REGIONS = new Set(['LOWER_BODY', 'UPPER_BODY', 'CORE', 'FULL_BO
 async function buildExercisePoolForWeek(
   weekPlan: WeekPlan,
   usedIds: Set<string>,
-  patientLimitations: string[],
+  clientLimitations: string[],
   availableEquipment?: string[]
 ): Promise<ExercisePoolItem[]> {
   const validRegions = weekPlan.focusAreas.filter(r => VALID_BODY_REGIONS.has(r))
@@ -226,12 +226,12 @@ async function buildExercisePoolForWeek(
     })) as ExercisePoolItem[]
   }
 
-  // Apply patient contraindication filter
-  const afterContraFilter = patientLimitations.length === 0
+  // Apply client contraindication filter
+  const afterContraFilter = clientLimitations.length === 0
     ? pool
     : pool.filter(exercise => {
         const contraLower = exercise.contraindications.map((c: string) => c.toLowerCase())
-        return !patientLimitations.some((limitation: string) =>
+        return !clientLimitations.some((limitation: string) =>
           contraLower.some(
             (contra: string) =>
               contra.includes(limitation.toLowerCase()) ||
@@ -314,20 +314,20 @@ export async function generateWorkoutPlan(
     .join(", ");
 
   // Fetch client profile for context
-  const patient = params.patientId
+  const client = params.clientId
     ? await prisma.user.findUnique({
-        where: { id: params.patientId },
-        include: { patientProfile: true },
+        where: { id: params.clientId },
+        include: { clientProfile: true },
       })
     : null;
 
-  const profile = patient?.patientProfile ?? null;
+  const profile = client?.clientProfile ?? null;
 
   // Map focus areas to body regions for pre-filtering
   const targetRegions = mapFocusAreasToBodyRegions(params.focusAreas ?? []);
 
-  // Parse patient limitations for contraindication filtering
-  const patientLimitations = profile?.limitations
+  // Parse client limitations for contraindication filtering
+  const clientLimitations = profile?.limitations
     ? profile.limitations
         .toLowerCase()
         .split(",")
@@ -342,9 +342,9 @@ export async function generateWorkoutPlan(
     return Math.round((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24 * 7));
   }
 
-  const clientContext = patient
+  const clientContext = client
     ? `CLIENT PROFILE:
-Name: ${patient.firstName} ${patient.lastName}
+Name: ${client.firstName} ${client.lastName}
 Primary Diagnosis / Goal: ${profileExtended?.primaryDiagnosis ?? "Not specified"}
 Secondary Conditions: ${profileExtended?.secondaryDiagnoses?.length ? profileExtended.secondaryDiagnoses.join(", ") : "None"}
 Current Pain Score: ${profileExtended?.painScore != null ? `${profileExtended.painScore}/10` : "Not assessed"}
@@ -368,7 +368,7 @@ Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ") : "Gene
     // Build per-week exercise pools (parallel DB queries)
     const weekPools: ExercisePoolItem[][] = await Promise.all(
       weekPlans.map(wPlan =>
-        buildExercisePoolForWeek(wPlan, globalUsedIds, patientLimitations, params.availableEquipment)
+        buildExercisePoolForWeek(wPlan, globalUsedIds, clientLimitations, params.availableEquipment)
       )
     )
 
@@ -463,8 +463,8 @@ Contraindicated This Week: ${wPlan.contraindicationsThisWeek.join(', ') || 'None
 
 Program: ${params.daysPerWeek} sessions this week, ~${params.durationMinutes} min/session, weekIndex=${weekIdx}
 Total exercises in output: EXACTLY ${totalExercisesThisWeek} (${totalExercisesPerSession} per session × ${params.daysPerWeek} days)
-${params.subjective ? `Clinician Subjective: ${params.subjective}` : ''}
-${params.clinicianPrompt ? `Clinician Instructions: ${params.clinicianPrompt}` : ''}
+${params.subjective ? `Trainer Subjective: ${params.subjective}` : ''}
+${params.trainerPrompt ? `Trainer Instructions: ${params.trainerPrompt}` : ''}
 
 Available Exercises (use ONLY these IDs):
 ${poolStr || 'No tagged exercises found — use general bodyweight exercises appropriate for this rehab stage.'}
@@ -590,9 +590,9 @@ ${jsonFormat}`
 
   // Filter out exercises with contraindication overlap
   const filtered = allExercises.filter((exercise) => {
-    if (patientLimitations.length === 0) return true;
+    if (clientLimitations.length === 0) return true;
     const contraLower = exercise.contraindications.map((c) => c.toLowerCase());
-    return !patientLimitations.some((limitation) =>
+    return !clientLimitations.some((limitation) =>
       contraLower.some(
         (contra) =>
           contra.includes(limitation) || limitation.includes(contra)
@@ -626,7 +626,7 @@ ${jsonFormat}`
     throw new Error(
       preferredNames.length
         ? "No exercises from the brief matched your library. Please check exercise names."
-        : "No suitable exercises found for the given focus areas and patient profile."
+        : "No suitable exercises found for the given focus areas and client profile."
     );
   }
 
@@ -740,7 +740,7 @@ ${jsonFormat}`
 
     const programTitle =
       params.programTitle ||
-      params.clinicianPrompt?.split("\n")?.[0]?.replace(/^Program title:\s*/i, "").trim() ||
+      params.trainerPrompt?.split("\n")?.[0]?.replace(/^Program title:\s*/i, "").trim() ||
       "Athletic Program";
 
     return {
@@ -757,7 +757,7 @@ PROGRAM DESIGN RULES:
 1. STRUCTURE each session with phases appropriate to the program type. For rehab: Warm-up → Activation → Therapeutic work → Mobility → Cool-down. For athletic/performance: Dynamic warm-up → Power/Plyometrics → Strength work → Conditioning → Recovery. For general fitness: Warm-up → Main work → Cool-down.
 2. SELECT exercises that match the stated focus areas, difficulty level, and any documented limitations or contraindications. Never prescribe an exercise that directly conflicts with listed contraindications.
 3. EQUIPMENT: Use only exercises matching available equipment; default to bodyweight if none stated.
-4. VOLUME: Scale to difficulty — BEGINNER: 2-3 sets; INTERMEDIATE: 3-4 sets; ADVANCED: 4-5 sets. Follow any explicit set/rep prescriptions in the clinician instructions.
+4. VOLUME: Scale to difficulty — BEGINNER: 2-3 sets; INTERMEDIATE: 3-4 sets; ADVANCED: 4-5 sets. Follow any explicit set/rep prescriptions in the trainer instructions.
 5. VARIETY: Every training day MUST use a COMPLETELY DIFFERENT set of exercise IDs. Never use the same exerciseId on more than one day. Each session should feel like a fresh workout with its own exercise selection drawn from the provided pool.
 6. SESSION NAMES: Use concise, descriptive names that reflect the actual training focus (e.g. "Lower Body Power", "Upper Body Pull", "Plyometric Development", "Mobility & Recovery") — not generic labels.
 7. NOTES: Write 1-2 specific technique cues per exercise relevant to the program goal and client profile.
@@ -802,8 +802,8 @@ Program Parameters:
 - Allowed Weekdays: ${scheduleLabel} (${uniqueWeekdayIndices.join(", ")})
 - Total Exercises Per Session: EXACTLY ${totalExercisesPerSession}
 ${hasCircuits ? `- Circuit Structure (EXACT — follow precisely):\n${circuitStructureStr}` : `- Circuits / Supersets: ${(params.circuitsPerSession ?? 0) === 0 ? "None — use straight sets only" : `${params.circuitsPerSession} circuit block(s) per session`}`}
-${params.subjective ? `- Clinician Subjective: ${params.subjective}` : ""}
-${params.clinicianPrompt ? `- Clinician Instructions: ${params.clinicianPrompt}` : ""}
+${params.subjective ? `- Trainer Subjective: ${params.subjective}` : ""}
+${params.trainerPrompt ? `- Trainer Instructions: ${params.trainerPrompt}` : ""}
 ${params.additionalNotes ? `- Additional Notes: ${params.additionalNotes}` : ""}
 
 ${hasCircuits ? `CIRCUIT ASSIGNMENT RULES (CRITICAL):
@@ -846,7 +846,7 @@ Respond with this exact JSON structure:
       "restSeconds": 30,
       "dayOfWeek": 0,
       "orderIndex": 2,
-      "notes": "2-3 clinical form cues specific to this patient"
+      "notes": "2-3 clinical form cues specific to this client"
     }
   ]
 }
@@ -855,15 +855,15 @@ Each entry in "sessions" must have one entry per unique dayOfWeek used in exerci
 
 Rules:
 1. ONLY use exercise IDs from the list provided
-2. Respect patient limitations and contraindications
+2. Respect client limitations and contraindications
 3. Match the difficulty level requested
 4. Distribute exercises across ${params.daysPerWeek} days using ONLY these weekday indexes: ${uniqueWeekdayIndices.join(", ")}
 5. Keep total session time around ${params.durationMinutes} minutes
 6. Use either reps OR durationSeconds per exercise, not both (set unused to null)
 ${hasCircuits ? `7. Assign "circuitIndex" to every exercise — it MUST match one of the circuit indexes (0 through ${circuits.length - 1})
 8. Every day must have EXACTLY ${totalExercisesPerSession} exercises total, with EXACTLY the specified count per circuit — DO NOT split or distribute a circuit's count across days; repeat the full circuit on each day
-9. Let the clinician instructions and subjective guide exercise selection, cue language, and loading strategy` : `7. Follow the phase ordering appropriate to the program type
-8. Let the clinician instructions and subjective guide exercise selection, cue language, and loading strategy`}`;
+9. Let the trainer instructions and subjective guide exercise selection, cue language, and loading strategy` : `7. Follow the phase ordering appropriate to the program type
+8. Let the trainer instructions and subjective guide exercise selection, cue language, and loading strategy`}`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -1093,18 +1093,18 @@ export async function generateProgram(
 export async function generateClinicalPlan(
   params: ClinicalPlanParams
 ): Promise<ClinicalPlan> {
-  const patient = params.patientId
+  const client = params.clientId
     ? await prisma.user.findUnique({
-        where: { id: params.patientId },
-        include: { patientProfile: true },
+        where: { id: params.clientId },
+        include: { clientProfile: true },
       })
     : null
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const profile = patient?.patientProfile as any ?? null
+  const profile = client?.clientProfile as any ?? null
 
-  const patientContext = patient
-    ? `Patient: ${patient.firstName} ${patient.lastName}
+  const clientContext = client
+    ? `Client: ${client.firstName} ${client.lastName}
 Primary Diagnosis: ${profile?.primaryDiagnosis ?? 'Not specified'}
 Secondary Conditions: ${profile?.secondaryDiagnoses?.length ? profile.secondaryDiagnoses.join(', ') : 'None'}
 Pain Score: ${profile?.painScore != null ? `${profile.painScore}/10` : 'Not assessed'}
@@ -1115,24 +1115,24 @@ Functional Challenges: ${profile?.functionalChallenges ?? 'None'}
 Surgery/Injury History: ${profile?.surgeryHistory ?? 'None documented'}
 Time Since Injury/Surgery: ${profile?.injuryDate ? Math.round((Date.now() - new Date(profile.injuryDate).getTime()) / (1000 * 60 * 60 * 24 * 7)) + ' weeks ago' : 'Not specified'}
 Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(', ') : 'General fitness'}`
-    : 'No specific patient — create a general program.'
+    : 'No specific client — create a general program.'
 
   const circuitSummary = params.circuits
     .map(c => `  - ${c.name} (${c.focusType}): ${c.exerciseCount} exercises, ${c.rounds} sets`)
     .join('\n')
 
-  const systemPrompt = `You are an expert Doctor of Physical Therapy (DPT). Analyze the patient profile and program parameters, then produce a week-by-week clinical rehabilitation plan as JSON.
+  const systemPrompt = `You are an expert Doctor of Physical Therapy (DPT). Analyze the client profile and program parameters, then produce a week-by-week clinical rehabilitation plan as JSON.
 
 Think step-by-step:
-1. Identify the patient's current rehabilitation phase based on diagnosis, time post-injury, pain score, and limitations.
-2. Plan each week as a clinically distinct, progressive stage toward the patient's goals.
+1. Identify the client's current rehabilitation phase based on diagnosis, time post-injury, pain score, and limitations.
+2. Plan each week as a clinically distinct, progressive stage toward the client's goals.
 3. Assign an appropriate rehabStage to each week: EARLY_REHAB (pain control, ROM, gentle activation), MID_REHAB (progressive strengthening, neuromuscular control), LATE_REHAB (functional loading, activity-specific), or MAINTENANCE (general fitness, prevention).
 4. For each week, specify what is contraindicated THIS specific week — this may differ from the global contraindications.
 5. Derive indication tags (lowercase, hyphenated clinical keywords) that should be used to find appropriate exercises for each week.
 
 Respond with valid JSON only. No markdown, no explanation.`
 
-  const userPrompt = `${patientContext}
+  const userPrompt = `${clientContext}
 
 Program Parameters:
 - Duration: ${params.durationWeeks} weeks
@@ -1142,13 +1142,13 @@ ${params.availableEquipment?.length ? `- Available Equipment: ${params.available
 - Difficulty level: ${params.difficultyLevel}
 - Circuits per session:
 ${circuitSummary}
-${params.subjective ? `\nClinician Subjective:\n${params.subjective}` : ''}
-${params.clinicianPrompt ? `\nClinician Instructions:\n${params.clinicianPrompt}` : ''}
+${params.subjective ? `\nTrainer Subjective:\n${params.subjective}` : ''}
+${params.trainerPrompt ? `\nTrainer Instructions:\n${params.trainerPrompt}` : ''}
 ${params.additionalNotes ? `\nAdditional Notes:\n${params.additionalNotes}` : ''}
 
 Produce this exact JSON structure:
 {
-  "clinicalAssessment": "2-3 sentence clinical assessment of this patient's current state and appropriate rehabilitation approach",
+  "clinicalAssessment": "2-3 sentence clinical assessment of this client's current state and appropriate rehabilitation approach",
   "weeklyPlan": [
     {
       "week": 1,
@@ -1158,7 +1158,7 @@ Produce this exact JSON structure:
       "difficultyLevel": "BEGINNER",
       "clinicalGuidance": "What to prioritize this week, specific technique or loading guidance",
       "contraindicationsThisWeek": ["loaded knee flexion >60°"],
-      "progressionGoal": "What should the patient achieve or improve by end of this week",
+      "progressionGoal": "What should the client achieve or improve by end of this week",
       "derivedIndicationTags": ["ACL", "knee", "quad-strengthening", "VMO"]
     }
   ]

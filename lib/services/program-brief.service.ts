@@ -19,7 +19,7 @@ const REQUIRED_HEADERS = [
 
 const OPTIONAL_HEADERS = [
   "SUBJECTIVE",
-  "CLINICIAN_INSTRUCTIONS",
+  "TRAINER_INSTRUCTIONS",
   "ADDITIONAL_NOTES",
 ] as const;
 
@@ -99,7 +99,7 @@ export type ProgramBriefParsed = {
   preferredExerciseNames?: string[];
   sessionBlueprint?: SessionBlueprint[];
   subjective?: string;
-  clinicianPrompt?: string;
+  trainerPrompt?: string;
   additionalNotes?: string;
 };
 
@@ -645,8 +645,8 @@ export function parseProgramBrief(text: string): ProgramBriefParseResult {
   const circuits = parseCircuits(sections.CIRCUITS || []);
 
   const subjective = (sections.SUBJECTIVE || []).join("\n").trim() || undefined;
-  const clinicianPrompt =
-    (sections.CLINICIAN_INSTRUCTIONS || []).join("\n").trim() || undefined;
+  const trainerPrompt =
+    (sections.TRAINER_INSTRUCTIONS || []).join("\n").trim() || undefined;
   const additionalNotes =
     (sections.ADDITIONAL_NOTES || []).join("\n").trim() || undefined;
 
@@ -659,7 +659,7 @@ export function parseProgramBrief(text: string): ProgramBriefParseResult {
     preferredWeekdays,
     circuits,
     subjective,
-    clinicianPrompt,
+    trainerPrompt,
     additionalNotes,
   };
 
@@ -786,8 +786,8 @@ export async function parseProgramBriefFlexible(
 
     const structurePrompt = `SESSION STRUCTURE (STRICT):\n- Treat each DAY as a session with the exact title shown.\n- Treat Block A/B/C and Warm Up as circuits.\n- Use EXACT exercise names listed for each day and block.\n- Do NOT add new exercises.\n- If a circuit requires more exercises than listed for a day, repeat the last listed exercise to reach the required count.\n\n${blueprintText}`;
 
-    normalized.clinicianPrompt = [
-      normalized.clinicianPrompt,
+    normalized.trainerPrompt = [
+      normalized.trainerPrompt,
       structurePrompt,
     ]
       .filter(Boolean)

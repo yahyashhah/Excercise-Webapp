@@ -1,4 +1,4 @@
-import { getPlatformStats, getRecentUsers, getTopClinicians } from "@/lib/services/admin.service";
+import { getPlatformStats, getRecentUsers, getTopTrainers } from "@/lib/services/admin.service";
 import { StatCard } from "@/components/admin/stat-card";
 import { Users, UserCheck, User, Dumbbell, Library, Activity, TrendingUp, Zap } from "lucide-react";
 import { format } from "date-fns";
@@ -7,10 +7,10 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
 export default async function AdminOverviewPage() {
-  const [stats, recentUsers, topClinicians] = await Promise.all([
+  const [stats, recentUsers, topTrainers] = await Promise.all([
     getPlatformStats(),
     getRecentUsers(8),
-    getTopClinicians(5),
+    getTopTrainers(5),
   ]);
 
   return (
@@ -24,8 +24,8 @@ export default async function AdminOverviewPage() {
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatCard label="Total Users"     value={stats.totalUsers.toLocaleString()}   sub={`+${stats.newUsersThisMonth} this month`} icon={Users}      color="primary" />
-        <StatCard label="Clinicians"      value={stats.clinicians.toLocaleString()}                                                   icon={UserCheck}  color="blue" />
-        <StatCard label="Patients"        value={stats.patients.toLocaleString()}                                                     icon={User}       color="cyan" />
+        <StatCard label="Trainers"      value={stats.trainers.toLocaleString()}                                                   icon={UserCheck}  color="blue" />
+        <StatCard label="Clients"        value={stats.clients.toLocaleString()}                                                     icon={User}       color="cyan" />
         <StatCard label="Active Programs" value={stats.activePrograms.toLocaleString()} sub={`${stats.totalPrograms.toLocaleString()} total`}           icon={TrendingUp} color="emerald" />
       </div>
 
@@ -67,12 +67,12 @@ export default async function AdminOverviewPage() {
                   <Badge
                     variant="outline"
                     className={
-                      u.role === "CLINICIAN"
+                      u.role === "TRAINER"
                         ? "border-blue-500/30 bg-blue-500/10 text-blue-600 text-[10px]"
                         : "border-cyan-500/30 bg-cyan-500/10 text-cyan-600 text-[10px]"
                     }
                   >
-                    {u.role === "CLINICIAN" ? "Clinician" : "Patient"}
+                    {u.role === "TRAINER" ? "Trainer" : "Client"}
                   </Badge>
                   <span className="text-[10px] text-muted-foreground/60">
                     {format(new Date(u.createdAt), "MMM d")}
@@ -83,14 +83,14 @@ export default async function AdminOverviewPage() {
           </div>
         </div>
 
-        {/* Top clinicians */}
+        {/* Top trainers */}
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <h2 className="text-sm font-semibold text-foreground">Top Clinicians</h2>
-            <span className="text-xs text-muted-foreground">by patient count</span>
+            <h2 className="text-sm font-semibold text-foreground">Top Trainers</h2>
+            <span className="text-xs text-muted-foreground">by client count</span>
           </div>
           <div className="divide-y divide-border">
-            {topClinicians.map((c, i) => (
+            {topTrainers.map((c, i) => (
               <div key={c.id} className="flex items-center gap-3 px-5 py-3">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
                   {i + 1}
@@ -108,8 +108,8 @@ export default async function AdminOverviewPage() {
                 </div>
                 <div className="flex items-center gap-3 text-right">
                   <div>
-                    <p className="text-sm font-bold tabular-nums text-foreground">{c.patientCount}</p>
-                    <p className="text-[10px] text-muted-foreground/60">patients</p>
+                    <p className="text-sm font-bold tabular-nums text-foreground">{c.clientCount}</p>
+                    <p className="text-[10px] text-muted-foreground/60">clients</p>
                   </div>
                   <div>
                     <p className="text-sm font-bold tabular-nums text-foreground">{c.programCount}</p>
@@ -118,8 +118,8 @@ export default async function AdminOverviewPage() {
                 </div>
               </div>
             ))}
-            {topClinicians.length === 0 && (
-              <p className="px-5 py-6 text-center text-sm text-muted-foreground">No clinicians yet.</p>
+            {topTrainers.length === 0 && (
+              <p className="px-5 py-6 text-center text-sm text-muted-foreground">No trainers yet.</p>
             )}
           </div>
         </div>

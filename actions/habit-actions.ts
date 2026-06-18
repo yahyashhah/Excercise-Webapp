@@ -13,13 +13,13 @@ type ActionResult<T = void> =
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
 /**
- * Creates a new habit. Both clinicians (assigning to a patient) and patients
+ * Creates a new habit. Both trainers (assigning to a client) and clients
  * (creating their own) may call this action.
  *
- * Clinicians must supply `patientId`; patients use their own id.
+ * Trainers must supply `clientId`; clients use their own id.
  */
 export async function createHabitAction(data: {
-  patientId?: string;
+  clientId?: string;
   name: string;
   icon?: string;
   targetValue?: number;
@@ -32,23 +32,23 @@ export async function createHabitAction(data: {
     return { success: false, error: "Habit name is required" };
   }
 
-  // Resolve which patient this habit belongs to
-  let targetPatientId: string;
+  // Resolve which client this habit belongs to
+  let targetClientId: string;
 
-  if (user.role === "CLINICIAN") {
-    if (!data.patientId) {
-      return { success: false, error: "Patient is required when creating a habit as a clinician" };
+  if (user.role === "TRAINER") {
+    if (!data.clientId) {
+      return { success: false, error: "Client is required when creating a habit as a trainer" };
     }
-    targetPatientId = data.patientId;
+    targetClientId = data.clientId;
   } else {
-    // PATIENT — always their own id
-    targetPatientId = user.id;
+    // CLIENT — always their own id
+    targetClientId = user.id;
   }
 
   try {
     const habit = await habitService.createHabit({
-      patientId: targetPatientId,
-      clinicianId: user.role === "CLINICIAN" ? user.id : undefined,
+      clientId: targetClientId,
+      trainerId: user.role === "TRAINER" ? user.id : undefined,
       name: data.name,
       icon: data.icon,
       targetValue: data.targetValue,
@@ -67,8 +67,8 @@ export async function createHabitAction(data: {
 }
 
 /**
- * Logs (or updates) today's entry for a habit. Only the owning patient or
- * a clinician linked to that patient should call this — the page-level auth
+ * Logs (or updates) today's entry for a habit. Only the owning client or
+ * a trainer linked to that client should call this — the page-level auth
  * guards enforce ownership; here we do a basic role check.
  */
 export async function logHabitAction(
@@ -103,8 +103,8 @@ export async function logHabitAction(
 }
 
 /**
- * Soft-deletes a habit (sets isActive = false). Only the creating clinician
- * or the patient who owns it may delete it.
+ * Soft-deletes a habit (sets isActive = false). Only the creating trainer
+ * or the client who owns it may delete it.
  */
 export async function deleteHabitAction(
   habitId: string

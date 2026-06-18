@@ -15,7 +15,7 @@ export function GlobalGenerateWrapper() {
 
   return (
     <GenerateProgramForm
-      patients={[]}
+      clients={[]}
       onGenerateExercises={handleGenerate}
       redirectTo="/admin/global-programs"
     />

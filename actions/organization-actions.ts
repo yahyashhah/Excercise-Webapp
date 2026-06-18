@@ -4,8 +4,8 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export interface ClinicMetadata {
-  clinicName: string;
+export interface OrganizationMetadata {
+  organizationName: string;
   tagline?: string;
   logoUrl?: string;
   phone?: string;
@@ -14,7 +14,7 @@ export interface ClinicMetadata {
   address?: string;
 }
 
-export async function getOrganizationProfile(): Promise<ClinicMetadata | null> {
+export async function getOrganizationProfile(): Promise<OrganizationMetadata | null> {
   const { userId } = await auth();
   if (!userId) return null;
 
@@ -26,7 +26,7 @@ export async function getOrganizationProfile(): Promise<ClinicMetadata | null> {
 
   const meta = (org.publicMetadata ?? {}) as Record<string, string>;
   return {
-    clinicName: org.name,
+    organizationName: org.name,
     tagline: meta.tagline ?? "",
     logoUrl: meta.logoUrl ?? "",
     phone: meta.phone ?? "",
@@ -36,23 +36,23 @@ export async function getOrganizationProfile(): Promise<ClinicMetadata | null> {
   };
 }
 
-export async function saveOrganizationProfile(input: ClinicMetadata) {
+export async function saveOrganizationProfile(input: OrganizationMetadata) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
-  if (!dbUser.clerkOrgId) return { success: false as const, error: "Clinic not set up" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
+  if (!dbUser.clerkOrgId) return { success: false as const, error: "Organization not set up" };
 
-  if (!input.clinicName?.trim()) {
-    return { success: false as const, error: "Clinic name is required" };
+  if (!input.organizationName?.trim()) {
+    return { success: false as const, error: "Organization name is required" };
   }
 
   try {
     const client = await clerkClient();
     await client.organizations.updateOrganization(dbUser.clerkOrgId, {
-      name: input.clinicName.trim(),
+      name: input.organizationName.trim(),
       publicMetadata: {
         tagline: input.tagline ?? "",
         logoUrl: input.logoUrl ?? "",
@@ -63,10 +63,10 @@ export async function saveOrganizationProfile(input: ClinicMetadata) {
       },
     });
 
-    revalidatePath("/settings/clinic");
+    revalidatePath("/settings/organization");
     return { success: true as const };
   } catch (err) {
-    console.error("Failed to save clinic profile:", err);
-    return { success: false as const, error: "Failed to save clinic profile" };
+    console.error("Failed to save organization profile:", err);
+    return { success: false as const, error: "Failed to save organization profile" };
   }
 }

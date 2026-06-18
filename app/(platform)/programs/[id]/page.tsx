@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import * as programService from "@/lib/services/program.service";
-import { getPatientsForClinician } from "@/lib/services/patient.service";
+import { getClientsForTrainer } from "@/lib/services/client.service";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { ProgramDetailView } from "@/components/programs/program-detail-view";
@@ -24,16 +24,16 @@ export default async function ProgramDetailPage({
   const program = await programService.getProgramById(id);
   if (!program) notFound();
 
-  // Authorization: clinician who created it OR assigned patient
-  if (program.clinicianId !== user.id && program.patientId !== user.id) {
+  // Authorization: trainer who created it OR assigned client
+  if (program.trainerId !== user.id && program.clientId !== user.id) {
     notFound();
   }
 
-  // Load patients for assignment dialog (clinician only)
-  let patients: { id: string; firstName: string; lastName: string }[] = [];
-  if (user.role === "CLINICIAN") {
-    const linkedPatients = await getPatientsForClinician(user.id);
-    patients = linkedPatients.map((p) => ({
+  // Load clients for assignment dialog (trainer only)
+  let clients: { id: string; firstName: string; lastName: string }[] = [];
+  if (user.role === "TRAINER") {
+    const linkedClients = await getClientsForTrainer(user.id);
+    clients = linkedClients.map((p) => ({
       id: p.id,
       firstName: p.firstName,
       lastName: p.lastName,
@@ -84,8 +84,8 @@ export default async function ProgramDetailPage({
       </Button>
       <ProgramDetailView
         program={program as unknown as Record<string, unknown>}
-        isClinician={user.role === "CLINICIAN"}
-        patients={patients}
+        isTrainer={user.role === "TRAINER"}
+        clients={clients}
         sessions={sessions as Record<string, unknown>[]}
         showAssignDialog={assign === "true"}
       />

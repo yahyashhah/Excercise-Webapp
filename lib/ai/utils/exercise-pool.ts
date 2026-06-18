@@ -6,12 +6,12 @@ interface ExerciseWithContraindications {
 
 export function filterByContraindications<T extends ExerciseWithContraindications>(
   exercises: T[],
-  patientLimitations: string[]
+  clientLimitations: string[]
 ): T[] {
-  if (patientLimitations.length === 0) return exercises
+  if (clientLimitations.length === 0) return exercises
   return exercises.filter(exercise => {
     const contraLower = exercise.contraindications.map(c => c.toLowerCase())
-    return !patientLimitations.some(limitation =>
+    return !clientLimitations.some(limitation =>
       contraLower.some(
         contra =>
           contra.includes(limitation.toLowerCase()) ||

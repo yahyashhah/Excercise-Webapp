@@ -12,12 +12,12 @@ describe('filterByContraindications', () => {
     { id: '3', name: 'Leg Press', contraindications: ['post-surgical knee flexion'] },
   ]
 
-  it('returns all exercises when patient has no limitations', () => {
+  it('returns all exercises when client has no limitations', () => {
     const result = filterByContraindications(exercises, [])
     expect(result).toHaveLength(3)
   })
 
-  it('excludes exercises whose contraindications overlap with patient limitations', () => {
+  it('excludes exercises whose contraindications overlap with client limitations', () => {
     const result = filterByContraindications(exercises, ['knee flexion'])
     const names = result.map(e => e.name)
     expect(names).toContain('Quad Set')

@@ -9,16 +9,16 @@ import type { ActionResult } from "@/lib/types";
 // Auth helper
 // ---------------------------------------------------------------------------
 
-async function getClinicianUser() {
+async function getTrainerUser() {
   const { userId } = await auth();
   if (!userId) return null;
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!dbUser || dbUser.role !== "CLINICIAN") return null;
+  if (!dbUser || dbUser.role !== "TRAINER") return null;
   return dbUser;
 }
 
-function revalidatePatient(patientId: string) {
-  revalidatePath(`/patients/${patientId}`);
+function revalidateClient(clientId: string) {
+  revalidatePath(`/clients/${clientId}`);
   revalidatePath("/dashboard");
 }
 
@@ -27,19 +27,19 @@ function revalidatePatient(patientId: string) {
 // ---------------------------------------------------------------------------
 
 export async function createAdHocWorkout(
-  patientId: string,
+  clientId: string,
   scheduledDate: string,
   workoutName: string
 ): Promise<ActionResult<{ sessionId: string; workoutId: string }>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
-  // Verify clinician has access to this patient (same org)
-  const patient = await prisma.user.findFirst({
-    where: { id: patientId, role: "PATIENT", clerkOrgId: user.clerkOrgId ?? undefined },
+  // Verify trainer has access to this client (same org)
+  const client = await prisma.user.findFirst({
+    where: { id: clientId, role: "CLIENT", clerkOrgId: user.clerkOrgId ?? undefined },
     select: { id: true },
   });
-  if (!user.clerkOrgId || !patient) {
+  if (!user.clerkOrgId || !client) {
     return { success: false, error: "You do not have access to this client" };
   }
 
@@ -49,8 +49,8 @@ export async function createAdHocWorkout(
       const program = await tx.program.create({
         data: {
           name: workoutName,
-          clinicianId: user.id,
-          patientId,
+          trainerId: user.id,
+          clientId,
           isTemplate: false,
           status: "ACTIVE",
           tags: ["ad-hoc"],
@@ -80,7 +80,7 @@ export async function createAdHocWorkout(
       const session = await tx.workoutSessionV2.create({
         data: {
           workoutId: workout.id,
-          patientId,
+          clientId,
           scheduledDate: new Date(scheduledDate),
           status: "SCHEDULED",
         },
@@ -89,7 +89,7 @@ export async function createAdHocWorkout(
       return { sessionId: session.id, workoutId: workout.id };
     });
 
-    revalidatePatient(patientId);
+    revalidateClient(clientId);
     return { success: true, data: result };
   } catch (error) {
     console.error("Failed to create ad-hoc workout:", error);
@@ -105,16 +105,16 @@ export async function addBlockToWorkout(
   workoutId: string,
   blockData: { name?: string; type: string; orderIndex: number }
 ): Promise<ActionResult<{ id: string; name: string | null; type: string; orderIndex: number; rounds: number; timeCap: number | null; restBetweenRounds: number | null; notes: string | null }>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
-    // Verify ownership through workout -> program -> clinician
+    // Verify ownership through workout -> program -> trainer
     const workout = await prisma.workout.findUnique({
       where: { id: workoutId },
-      include: { program: { select: { clinicianId: true, patientId: true } } },
+      include: { program: { select: { trainerId: true, clientId: true } } },
     });
-    if (!workout || workout.program.clinicianId !== user.id) {
+    if (!workout || workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -128,7 +128,7 @@ export async function addBlockToWorkout(
       },
     });
 
-    if (workout.program.patientId) revalidatePatient(workout.program.patientId);
+    if (workout.program.clientId) revalidateClient(workout.program.clientId);
     return {
       success: true,
       data: {
@@ -165,18 +165,18 @@ export async function addExerciseToBlock(
   exercise: { id: string; name: string; imageUrl: string | null; videoUrl: string | null };
   sets: { id: string; orderIndex: number; setType: string; targetReps: number | null; targetWeight: number | null; targetDuration: number | null; targetRPE: number | null; restAfter: number | null }[];
 }>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
     const block = await prisma.workoutBlockV2.findUnique({
       where: { id: blockId },
       include: {
-        workout: { include: { program: { select: { clinicianId: true, patientId: true } } } },
+        workout: { include: { program: { select: { trainerId: true, clientId: true } } } },
         exercises: { select: { orderIndex: true }, orderBy: { orderIndex: "desc" }, take: 1 },
       },
     });
-    if (!block || block.workout.program.clinicianId !== user.id) {
+    if (!block || block.workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -205,7 +205,7 @@ export async function addExerciseToBlock(
       },
     });
 
-    if (block.workout.program.patientId) revalidatePatient(block.workout.program.patientId);
+    if (block.workout.program.clientId) revalidateClient(block.workout.program.clientId);
     return {
       success: true,
       data: {
@@ -248,7 +248,7 @@ export async function updateSet(
     restAfter?: number | null;
   }
 ): Promise<ActionResult<{ id: string }>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
@@ -261,7 +261,7 @@ export async function updateSet(
             block: {
               include: {
                 workout: {
-                  include: { program: { select: { clinicianId: true } } },
+                  include: { program: { select: { trainerId: true } } },
                 },
               },
             },
@@ -269,7 +269,7 @@ export async function updateSet(
         },
       },
     });
-    if (!set || set.blockExercise.block.workout.program.clinicianId !== user.id) {
+    if (!set || set.blockExercise.block.workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -302,7 +302,7 @@ export async function addSetToExercise(
   targetRPE: number | null;
   restAfter: number | null;
 }>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
@@ -312,13 +312,13 @@ export async function addSetToExercise(
         block: {
           include: {
             workout: {
-              include: { program: { select: { clinicianId: true } } },
+              include: { program: { select: { trainerId: true } } },
             },
           },
         },
       },
     });
-    if (!be || be.block.workout.program.clinicianId !== user.id) {
+    if (!be || be.block.workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -354,7 +354,7 @@ export async function addSetToExercise(
 // ---------------------------------------------------------------------------
 
 export async function deleteSet(setId: string): Promise<ActionResult<void>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
@@ -366,7 +366,7 @@ export async function deleteSet(setId: string): Promise<ActionResult<void>> {
             block: {
               include: {
                 workout: {
-                  include: { program: { select: { clinicianId: true } } },
+                  include: { program: { select: { trainerId: true } } },
                 },
               },
             },
@@ -374,7 +374,7 @@ export async function deleteSet(setId: string): Promise<ActionResult<void>> {
         },
       },
     });
-    if (!set || set.blockExercise.block.workout.program.clinicianId !== user.id) {
+    if (!set || set.blockExercise.block.workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -394,7 +394,7 @@ export async function updateBlockExercise(
   blockExerciseId: string,
   data: { notes?: string | null; orderIndex?: number }
 ): Promise<ActionResult<{ id: string; notes: string | null; orderIndex: number }>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
@@ -404,14 +404,14 @@ export async function updateBlockExercise(
         block: {
           include: {
             workout: {
-              include: { program: { select: { clinicianId: true } } },
+              include: { program: { select: { trainerId: true } } },
             },
           },
         },
       },
     });
 
-    if (!be || be.block.workout.program.clinicianId !== user.id) {
+    if (!be || be.block.workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -432,7 +432,7 @@ export async function reorderBlockExercises(
   blockId: string,
   updates: { id: string; orderIndex: number }[]
 ): Promise<ActionResult<void>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
@@ -440,12 +440,12 @@ export async function reorderBlockExercises(
       where: { id: blockId },
       include: {
         workout: {
-          include: { program: { select: { clinicianId: true } } },
+          include: { program: { select: { trainerId: true } } },
         },
       },
     });
 
-    if (!block || block.workout.program.clinicianId !== user.id) {
+    if (!block || block.workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -472,7 +472,7 @@ export async function reorderBlockExercises(
 export async function deleteBlockExercise(
   blockExerciseId: string
 ): Promise<ActionResult<void>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
@@ -482,13 +482,13 @@ export async function deleteBlockExercise(
         block: {
           include: {
             workout: {
-              include: { program: { select: { clinicianId: true } } },
+              include: { program: { select: { trainerId: true } } },
             },
           },
         },
       },
     });
-    if (!be || be.block.workout.program.clinicianId !== user.id) {
+    if (!be || be.block.workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -505,7 +505,7 @@ export async function deleteBlockExercise(
 // ---------------------------------------------------------------------------
 
 export async function deleteBlock(blockId: string): Promise<ActionResult<void>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
@@ -513,11 +513,11 @@ export async function deleteBlock(blockId: string): Promise<ActionResult<void>> 
       where: { id: blockId },
       include: {
         workout: {
-          include: { program: { select: { clinicianId: true } } },
+          include: { program: { select: { trainerId: true } } },
         },
       },
     });
-    if (!block || block.workout.program.clinicianId !== user.id) {
+    if (!block || block.workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -537,15 +537,15 @@ export async function updateWorkoutName(
   workoutId: string,
   name: string
 ): Promise<ActionResult<void>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
     const workout = await prisma.workout.findUnique({
       where: { id: workoutId },
-      include: { program: { select: { clinicianId: true, patientId: true } } },
+      include: { program: { select: { trainerId: true, clientId: true } } },
     });
-    if (!workout || workout.program.clinicianId !== user.id) {
+    if (!workout || workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -554,7 +554,7 @@ export async function updateWorkoutName(
       data: { name },
     });
 
-    if (workout.program.patientId) revalidatePatient(workout.program.patientId);
+    if (workout.program.clientId) revalidateClient(workout.program.clientId);
     return { success: true, data: undefined };
   } catch (error) {
     console.error("Failed to update workout name:", error);
@@ -570,7 +570,7 @@ export async function updateBlock(
   blockId: string,
   data: { name?: string | null; type?: string; rounds?: number; timeCap?: number | null; restBetweenRounds?: number | null }
 ): Promise<ActionResult<{ id: string; name: string | null; type: string; rounds: number; timeCap: number | null; restBetweenRounds: number | null }>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
@@ -578,11 +578,11 @@ export async function updateBlock(
       where: { id: blockId },
       include: {
         workout: {
-          include: { program: { select: { clinicianId: true } } },
+          include: { program: { select: { trainerId: true } } },
         },
       },
     });
-    if (!block || block.workout.program.clinicianId !== user.id) {
+    if (!block || block.workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -615,7 +615,7 @@ export async function updateBlock(
 export async function getSessionWithWorkout(
   sessionId: string
 ): Promise<ActionResult<SessionWithFullWorkout>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
@@ -650,12 +650,12 @@ export async function getSessionWithWorkout(
 
     if (!session) return { success: false, error: "Session not found" };
 
-    // Verify the clinician owns the program
+    // Verify the trainer owns the program
     const workout = await prisma.workout.findUnique({
       where: { id: session.workoutId },
-      include: { program: { select: { clinicianId: true } } },
+      include: { program: { select: { trainerId: true } } },
     });
-    if (!workout || workout.program.clinicianId !== user.id) {
+    if (!workout || workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -716,7 +716,7 @@ export async function getSessionWithWorkout(
 export async function deleteSession(
   sessionId: string
 ): Promise<ActionResult<void>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
@@ -725,17 +725,17 @@ export async function deleteSession(
       include: {
         workout: {
           include: {
-            program: { select: { id: true, clinicianId: true, patientId: true, tags: true } },
+            program: { select: { id: true, trainerId: true, clientId: true, tags: true } },
             _count: { select: { sessions: true } },
           },
         },
       },
     });
-    if (!session || session.workout.program.clinicianId !== user.id) {
+    if (!session || session.workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
-    const patientId = session.workout.program.patientId;
+    const clientId = session.workout.program.clientId;
 
     await prisma.workoutSessionV2.delete({ where: { id: sessionId } });
 
@@ -746,7 +746,7 @@ export async function deleteSession(
       await prisma.program.delete({ where: { id: session.workout.program.id } });
     }
 
-    if (patientId) revalidatePatient(patientId);
+    if (clientId) revalidateClient(clientId);
     return { success: true, data: undefined };
   } catch (error) {
     console.error("Failed to delete session:", error);
@@ -755,16 +755,16 @@ export async function deleteSession(
 }
 
 // ---------------------------------------------------------------------------
-// Get sessions for patient calendar (summary data)
+// Get sessions for client calendar (summary data)
 // ---------------------------------------------------------------------------
 
-export async function getCalendarSessions(patientId: string) {
-  const user = await getClinicianUser();
+export async function getCalendarSessions(clientId: string) {
+  const user = await getTrainerUser();
   if (!user) return { success: false as const, error: "Unauthorized" };
 
   try {
     const sessions = await prisma.workoutSessionV2.findMany({
-      where: { patientId },
+      where: { clientId },
       include: {
         workout: {
           select: {
@@ -827,14 +827,14 @@ export async function duplicateBlockAction(blockId: string): Promise<ActionResul
     }>;
   }>;
 }>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
     const block = await prisma.workoutBlockV2.findUnique({
       where: { id: blockId },
       include: {
-        workout: { include: { program: { select: { clinicianId: true, patientId: true } } } },
+        workout: { include: { program: { select: { trainerId: true, clientId: true } } } },
         exercises: {
           orderBy: { orderIndex: "asc" },
           include: {
@@ -845,7 +845,7 @@ export async function duplicateBlockAction(blockId: string): Promise<ActionResul
       },
     });
 
-    if (!block || block.workout.program.clinicianId !== user.id) {
+    if (!block || block.workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -934,7 +934,7 @@ export async function duplicateBlockAction(blockId: string): Promise<ActionResul
       });
     }
 
-    if (block.workout.program.patientId) revalidatePatient(block.workout.program.patientId);
+    if (block.workout.program.clientId) revalidateClient(block.workout.program.clientId);
     return {
       success: true,
       data: {
@@ -980,7 +980,7 @@ export async function duplicateBlockExerciseAction(blockExerciseId: string): Pro
     tempo: string | null;
   }>;
 }>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
@@ -991,13 +991,13 @@ export async function duplicateBlockExerciseAction(blockExerciseId: string): Pro
         sets: { orderBy: { orderIndex: "asc" } },
         block: {
           include: {
-            workout: { include: { program: { select: { clinicianId: true, patientId: true } } } },
+            workout: { include: { program: { select: { trainerId: true, clientId: true } } } },
           },
         },
       },
     });
 
-    if (!blockExercise || blockExercise.block.workout.program.clinicianId !== user.id) {
+    if (!blockExercise || blockExercise.block.workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -1047,8 +1047,8 @@ export async function duplicateBlockExerciseAction(blockExerciseId: string): Pro
       },
     });
 
-    if (blockExercise.block.workout.program.patientId) {
-      revalidatePatient(blockExercise.block.workout.program.patientId);
+    if (blockExercise.block.workout.program.clientId) {
+      revalidateClient(blockExercise.block.workout.program.clientId);
     }
     return {
       success: true,
@@ -1088,7 +1088,7 @@ export async function duplicateWorkoutToDateAction(
   sessionId: string,
   targetDate: string // ISO date string e.g. "2026-06-10"
 ): Promise<ActionResult<{ sessionId: string }>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
@@ -1097,7 +1097,7 @@ export async function duplicateWorkoutToDateAction(
       include: {
         workout: {
           include: {
-            program: { select: { clinicianId: true, patientId: true } },
+            program: { select: { trainerId: true, clientId: true } },
             blocks: {
               orderBy: { orderIndex: "asc" },
               include: {
@@ -1112,20 +1112,20 @@ export async function duplicateWorkoutToDateAction(
       },
     });
 
-    if (!session || session.workout.program.clinicianId !== user.id) {
+    if (!session || session.workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
     const { workout } = session;
-    const patientId = workout.program.patientId;
-    if (!patientId) return { success: false, error: "No patient associated" };
+    const clientId = workout.program.clientId;
+    if (!clientId) return { success: false, error: "No client associated" };
 
     const newSession = await prisma.$transaction(async (tx) => {
       const program = await tx.program.create({
         data: {
           name: workout.name,
-          clinicianId: user.id,
-          patientId,
+          trainerId: user.id,
+          clientId,
           isTemplate: false,
           status: "ACTIVE",
           tags: ["ad-hoc"],
@@ -1187,14 +1187,14 @@ export async function duplicateWorkoutToDateAction(
       return tx.workoutSessionV2.create({
         data: {
           workoutId: newWorkout.id,
-          patientId,
+          clientId,
           scheduledDate: new Date(targetDate),
           status: "SCHEDULED",
         },
       });
     }, { timeout: 30000 });
 
-    revalidatePatient(patientId);
+    revalidateClient(clientId);
     return { success: true, data: { sessionId: newSession.id } };
   } catch (error) {
     console.error("Failed to duplicate workout:", error);
@@ -1287,7 +1287,7 @@ export async function pasteExercisesToBlockAction(
   blockId: string,
   exercises: PasteExerciseInput[]
 ): Promise<ActionResult<void>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
@@ -1295,7 +1295,7 @@ export async function pasteExercisesToBlockAction(
       where: { id: blockId },
       include: {
         workout: {
-          include: { program: { select: { clinicianId: true, patientId: true } } },
+          include: { program: { select: { trainerId: true, clientId: true } } },
         },
         exercises: {
           select: { orderIndex: true },
@@ -1304,7 +1304,7 @@ export async function pasteExercisesToBlockAction(
         },
       },
     });
-    if (!block || block.workout.program.clinicianId !== user.id) {
+    if (!block || block.workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -1333,7 +1333,7 @@ export async function pasteExercisesToBlockAction(
       });
     }
 
-    if (block.workout.program.patientId) revalidatePatient(block.workout.program.patientId);
+    if (block.workout.program.clientId) revalidateClient(block.workout.program.clientId);
     return { success: true, data: undefined };
   } catch (error) {
     console.error("Failed to paste exercises:", error);
@@ -1359,14 +1359,14 @@ export async function pasteBlockToWorkoutAction(
   workoutId: string,
   block: PasteBlockInput
 ): Promise<ActionResult<void>> {
-  const user = await getClinicianUser();
+  const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
   try {
     const workout = await prisma.workout.findUnique({
       where: { id: workoutId },
       include: {
-        program: { select: { clinicianId: true, patientId: true } },
+        program: { select: { trainerId: true, clientId: true } },
         blocks: {
           select: { orderIndex: true },
           orderBy: { orderIndex: "desc" },
@@ -1374,7 +1374,7 @@ export async function pasteBlockToWorkoutAction(
         },
       },
     });
-    if (!workout || workout.program.clinicianId !== user.id) {
+    if (!workout || workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" };
     }
 
@@ -1413,7 +1413,7 @@ export async function pasteBlockToWorkoutAction(
       },
     });
 
-    if (workout.program.patientId) revalidatePatient(workout.program.patientId);
+    if (workout.program.clientId) revalidateClient(workout.program.clientId);
     return { success: true, data: undefined };
   } catch (error) {
     console.error("Failed to paste block:", error);

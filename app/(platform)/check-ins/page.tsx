@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils/formatting";
 import { AssignCheckInDialog } from "@/components/check-ins/assign-checkin-dialog";
-import { getPatientsForClinician } from "@/lib/services/patient.service";
+import { getClientsForTrainer } from "@/lib/services/client.service";
 
 // ─── Frequency label helper ──────────────────────────────────────────────────
 
@@ -28,16 +28,16 @@ function frequencyLabel(frequency: string): string {
   return map[frequency] ?? frequency;
 }
 
-// ─── Clinician view ──────────────────────────────────────────────────────────
+// ─── Trainer view ──────────────────────────────────────────────────────────
 
-async function ClinicianView({ clinicianId }: { clinicianId: string }) {
-  const [templates, responses, patients] = await Promise.all([
-    checkinService.getTemplatesForClinician(clinicianId),
-    checkinService.getResponsesForClinician(clinicianId),
-    getPatientsForClinician(clinicianId),
+async function TrainerView({ trainerId }: { trainerId: string }) {
+  const [templates, responses, clients] = await Promise.all([
+    checkinService.getTemplatesForTrainer(trainerId),
+    checkinService.getResponsesForTrainer(trainerId),
+    getClientsForTrainer(trainerId),
   ]);
 
-  const patientList = patients.map((p) => ({
+  const clientList = clients.map((p) => ({
     id: p.id,
     firstName: p.firstName,
     lastName: p.lastName,
@@ -69,7 +69,7 @@ async function ClinicianView({ clinicianId }: { clinicianId: string }) {
             <h3 className="mt-4 text-base font-semibold">No templates yet</h3>
             <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
               Create a check-in template to start collecting weekly updates from
-              your patients.
+              your clients.
             </p>
             <Button
               size="sm"
@@ -119,7 +119,7 @@ async function ClinicianView({ clinicianId }: { clinicianId: string }) {
                     <AssignCheckInDialog
                       templateId={t.id}
                       templateName={t.name}
-                      patients={patientList}
+                      clients={clientList}
                     />
                   </div>
                 </CardContent>
@@ -142,7 +142,7 @@ async function ClinicianView({ clinicianId }: { clinicianId: string }) {
               No responses yet
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Patient responses will appear here once they complete their
+              Client responses will appear here once they complete their
               check-ins.
             </p>
           </div>
@@ -176,7 +176,7 @@ async function ClinicianView({ clinicianId }: { clinicianId: string }) {
 
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold leading-tight">
-                        {r.patient.firstName} {r.patient.lastName}
+                        {r.client.firstName} {r.client.lastName}
                       </p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {r.assignment.template.name} &middot;{" "}
@@ -211,12 +211,12 @@ async function ClinicianView({ clinicianId }: { clinicianId: string }) {
   );
 }
 
-// ─── Patient view ────────────────────────────────────────────────────────────
+// ─── Client view ────────────────────────────────────────────────────────────
 
-async function PatientView({ patientId }: { patientId: string }) {
+async function ClientView({ clientId }: { clientId: string }) {
   const [pending, allAssignments] = await Promise.all([
-    checkinService.getPendingCheckInsForPatient(patientId),
-    checkinService.getCheckInAssignmentsForPatient(patientId),
+    checkinService.getPendingCheckInsForClient(clientId),
+    checkinService.getCheckInAssignmentsForClient(clientId),
   ]);
 
   const pendingIds = new Set(pending.map((p) => p.id));
@@ -351,12 +351,12 @@ export default async function CheckInsPage() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Check-ins</h2>
           <p className="text-muted-foreground">
-            {user.role === "CLINICIAN"
-              ? "Manage weekly check-in templates and review patient responses."
+            {user.role === "TRAINER"
+              ? "Manage weekly check-in templates and review client responses."
               : "Complete your scheduled check-ins and track your progress."}
           </p>
         </div>
-        {user.role === "CLINICIAN" && (
+        {user.role === "TRAINER" && (
           <Button
             className="gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
             asChild
@@ -369,10 +369,10 @@ export default async function CheckInsPage() {
         )}
       </div>
 
-      {user.role === "CLINICIAN" ? (
-        <ClinicianView clinicianId={user.id} />
+      {user.role === "TRAINER" ? (
+        <TrainerView trainerId={user.id} />
       ) : (
-        <PatientView patientId={user.id} />
+        <ClientView clientId={user.id} />
       )}
     </div>
   );

@@ -44,7 +44,7 @@ export type SelectExerciseInput = z.infer<typeof selectExerciseSchema>;
 export const selectExerciseTool = {
   name: "select_exercise",
   description:
-    "Select an exercise from the available exercise library to include in the patient's workout plan. Call this tool once for each exercise you want to add.",
+    "Select an exercise from the available exercise library to include in the client's workout plan. Call this tool once for each exercise you want to add.",
   input_schema: {
     type: "object" as const,
     properties: {

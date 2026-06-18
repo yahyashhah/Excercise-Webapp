@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
 
-export async function startSession(planId: string, patientId: string) {
+export async function startSession(planId: string, clientId: string) {
   return prisma.workoutSession.create({
-    data: { planId, patientId },
+    data: { planId, clientId },
     include: {
       plan: {
         include: {
@@ -64,9 +64,9 @@ export async function abandonSession(sessionId: string) {
   });
 }
 
-export async function getSessionsForPatient(patientId: string) {
+export async function getSessionsForClient(clientId: string) {
   return prisma.workoutSession.findMany({
-    where: { patientId },
+    where: { clientId },
     include: {
       plan: true,
       exercises: {
@@ -93,13 +93,13 @@ export async function getSessionsForPlan(planId: string) {
   });
 }
 
-export async function getWeeklyCompliance(patientId: string) {
+export async function getWeeklyCompliance(clientId: string) {
   const weekAgo = new Date();
   weekAgo.setDate(weekAgo.getDate() - 7);
 
   const completedSessions = await prisma.workoutSession.count({
     where: {
-      patientId,
+      clientId,
       status: "COMPLETED",
       completedAt: { gte: weekAgo },
     },
@@ -107,7 +107,7 @@ export async function getWeeklyCompliance(patientId: string) {
 
   // Get the target days per week from active plans
   const activePlans = await prisma.workoutPlan.findMany({
-    where: { patientId, status: "ACTIVE" },
+    where: { clientId, status: "ACTIVE" },
     select: { daysPerWeek: true },
   });
 
@@ -120,22 +120,22 @@ export async function getWeeklyCompliance(patientId: string) {
   };
 }
 
-export async function getAdherenceStats(patientId: string) {
+export async function getAdherenceStats(clientId: string) {
   const totalSessions = await prisma.workoutSession.count({
-    where: { patientId },
+    where: { clientId },
   });
 
   const completedSessions = await prisma.workoutSession.count({
-    where: { patientId, status: "COMPLETED" },
+    where: { clientId, status: "COMPLETED" },
   });
 
   const abandonedSessions = await prisma.workoutSession.count({
-    where: { patientId, status: "ABANDONED" },
+    where: { clientId, status: "ABANDONED" },
   });
 
   const sessionsWithPain = await prisma.workoutSession.findMany({
     where: {
-      patientId,
+      clientId,
       status: "COMPLETED",
       overallPainLevel: { not: null },
     },

@@ -11,7 +11,7 @@ export async function startSessionAction(planId: string) {
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "PATIENT") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "CLIENT") return { success: false as const, error: "Forbidden" };
 
   try {
     const session = await adherenceService.startSession(planId, dbUser.id);
@@ -36,9 +36,9 @@ export async function completeSessionExerciseAction(
   // Verify the session belongs to this user
   const session = await prisma.workoutSession.findUnique({
     where: { id: sessionId },
-    select: { patientId: true },
+    select: { clientId: true },
   });
-  if (!session || session.patientId !== dbUser.id) {
+  if (!session || session.clientId !== dbUser.id) {
     return { success: false as const, error: "Forbidden" };
   }
 
@@ -64,9 +64,9 @@ export async function completeSessionAction(
   // Verify the session belongs to this user
   const session = await prisma.workoutSession.findUnique({
     where: { id: sessionId },
-    select: { patientId: true },
+    select: { clientId: true },
   });
-  if (!session || session.patientId !== dbUser.id) {
+  if (!session || session.clientId !== dbUser.id) {
     return { success: false as const, error: "Forbidden" };
   }
 
@@ -91,9 +91,9 @@ export async function abandonSessionAction(sessionId: string) {
   // Verify the session belongs to this user
   const session = await prisma.workoutSession.findUnique({
     where: { id: sessionId },
-    select: { patientId: true },
+    select: { clientId: true },
   });
-  if (!session || session.patientId !== dbUser.id) {
+  if (!session || session.clientId !== dbUser.id) {
     return { success: false as const, error: "Forbidden" };
   }
 

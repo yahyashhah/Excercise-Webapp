@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 
 interface Props {
-  patients: { id: string; firstName: string; lastName: string }[];
+  clients: { id: string; firstName: string; lastName: string }[];
 }
 
 type PreviewState = {
@@ -66,7 +66,7 @@ type PreviewState = {
     preferredWeekdays: string[];
     circuits: { name: string; focusType: string; exerciseCount: number }[];
     subjective?: string;
-    clinicianPrompt?: string;
+    trainerPrompt?: string;
     additionalNotes?: string;
   };
 };
@@ -82,13 +82,13 @@ function isAllowedFile(file: File) {
   return ACCEPTED_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
-export function ProgramBriefUpload({ patients }: Props) {
+export function ProgramBriefUpload({ clients }: Props) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [assignPatientId, setAssignPatientId] = useState("");
+  const [assignClientId, setAssignClientId] = useState("");
   const [assignStartDate, setAssignStartDate] = useState(
     format(new Date(), "yyyy-MM-dd")
   );
@@ -144,7 +144,7 @@ export function ProgramBriefUpload({ patients }: Props) {
 
   async function handleSave(isTemplate: boolean) {
     if (!preview) return;
-    if (!isTemplate && !assignPatientId) {
+    if (!isTemplate && !assignClientId) {
       toast.error("Select a client to assign");
       return;
     }
@@ -155,7 +155,7 @@ export function ProgramBriefUpload({ patients }: Props) {
         aiPlan: preview.aiPlan,
         params: preview.params,
         isTemplate,
-        patientId: isTemplate ? null : assignPatientId,
+        clientId: isTemplate ? null : assignClientId,
         startDate: isTemplate ? undefined : assignStartDate,
       });
 
@@ -314,14 +314,14 @@ export function ProgramBriefUpload({ patients }: Props) {
                 <div className="space-y-2">
                   <Label>Assign to Client (optional)</Label>
                   <Select
-                    value={assignPatientId}
-                    onValueChange={(v) => setAssignPatientId(v ?? "")}
+                    value={assignClientId}
+                    onValueChange={(v) => setAssignClientId(v ?? "")}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select a client" />
                     </SelectTrigger>
                     <SelectContent>
-                      {patients.map((p) => (
+                      {clients.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
                           {p.firstName} {p.lastName}
                         </SelectItem>

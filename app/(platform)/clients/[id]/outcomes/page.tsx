@@ -12,12 +12,12 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
-export default async function PatientOutcomesPage({ params }: Props) {
+export default async function ClientOutcomesPage({ params }: Props) {
   const { id } = await params;
-  await requireRole("CLINICIAN");
+  await requireRole("TRAINER");
 
-  const patient = await prisma.user.findUnique({ where: { id } });
-  if (!patient) notFound();
+  const client = await prisma.user.findUnique({ where: { id } });
+  if (!client) notFound();
 
   const assessments = await getAssessments(id);
 
@@ -33,13 +33,13 @@ export default async function PatientOutcomesPage({ params }: Props) {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href={`/patients/${id}`}>
+          <Link href={`/clients/${id}`}>
             <ArrowLeft className="mr-1 h-4 w-4" />
             Back
           </Link>
         </Button>
         <h2 className="text-xl font-bold text-slate-900">
-          Outcomes: {patient.firstName} {patient.lastName}
+          Outcomes: {client.firstName} {client.lastName}
         </h2>
       </div>
 

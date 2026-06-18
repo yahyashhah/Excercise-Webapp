@@ -47,16 +47,16 @@ import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
 
 interface ProgramDetailViewProps {
   program: Record<string, unknown>;
-  isClinician: boolean;
-  patients: { id: string; firstName: string; lastName: string }[];
+  isTrainer: boolean;
+  clients: { id: string; firstName: string; lastName: string }[];
   sessions: Record<string, unknown>[];
   showAssignDialog?: boolean;
 }
 
 export function ProgramDetailView({
   program,
-  isClinician,
-  patients,
+  isTrainer,
+  clients,
   sessions,
   showAssignDialog = false,
 }: ProgramDetailViewProps) {
@@ -126,9 +126,9 @@ export function ProgramDetailView({
   }, {});
   const weekNumbers = Object.keys(weekGroups).map(Number).sort((a, b) => a - b);
 
-  const patient = program.patient as Record<string, string> | null;
-  const patientId = program.patientId as string | null;
-  // Use the clinician-curated program equipment list when available;
+  const client = program.client as Record<string, string> | null;
+  const clientId = program.clientId as string | null;
+  // Use the trainer-curated program equipment list when available;
   // fall back to auto-detecting from exercises if the list is empty.
   const savedEquipment = (program.equipmentRequired as string[] | undefined) ?? [];
   const equipmentNeeded = savedEquipment.length > 0
@@ -162,9 +162,9 @@ export function ProgramDetailView({
             {(program.isTemplate as boolean) && (
               <Badge variant="outline">Template</Badge>
             )}
-            {patient && (
+            {client && (
               <span className="text-sm text-muted-foreground">
-                Assigned to {patient.firstName} {patient.lastName}
+                Assigned to {client.firstName} {client.lastName}
               </span>
             )}
             {!!program.startDate && (
@@ -180,7 +180,7 @@ export function ProgramDetailView({
             </p>
           )}
         </div>
-        {isClinician && (
+        {isTrainer && (
           <div className="flex items-center gap-2">
             <Button variant="outline" asChild>
               <Link href={`/programs/${program.id}/edit`}>
@@ -201,7 +201,7 @@ export function ProgramDetailView({
             >
               <Copy className="mr-2 h-4 w-4" /> Duplicate
             </Button>
-            {!patientId && (
+            {!clientId && (
               <Button onClick={() => setAssignOpen(true)}>
                 <UserPlus className="mr-2 h-4 w-4" /> Assign
               </Button>
@@ -442,7 +442,7 @@ export function ProgramDetailView({
           <ProgramScheduleView
             rawWorkouts={workouts}
             rawSessions={sessions}
-            isClinician={isClinician}
+            isTrainer={isTrainer}
           />
         </TabsContent>
       </Tabs>
@@ -450,7 +450,7 @@ export function ProgramDetailView({
       {/* Assign Dialog */}
       <AssignProgramDialog
         programId={program.id as string}
-        patients={patients}
+        clients={clients}
         open={assignOpen}
         onOpenChange={setAssignOpen}
       />

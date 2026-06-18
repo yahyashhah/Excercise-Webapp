@@ -32,9 +32,9 @@ export async function getExercises(filters: ExerciseFilters = {}) {
       }),
       // UNIVERSAL: explicit match only — run backfillExerciseSources() once to fix pre-migration docs
       ...(filters.source === "UNIVERSAL" && { source: "UNIVERSAL" as const }),
-      // CLINIC: always filter by source; use impossible sentinel when no orgId to return 0 results
-      ...(filters.source === "CLINIC" && {
-        source: "CLINIC" as const,
+      // ORGANIZATION: always filter by source; use impossible sentinel when no orgId to return 0 results
+      ...(filters.source === "ORGANIZATION" && {
+        source: "ORGANIZATION" as const,
         ...(filters.organizationId ? { organizationId: filters.organizationId } : { organizationId: "__none__" }),
       }),
     },
@@ -60,10 +60,10 @@ export async function getExercises(filters: ExerciseFilters = {}) {
 export async function getExercisesForPicker(organizationId?: string) {
   const orClauses: Prisma.ExerciseWhereInput[] = [
     { source: "UNIVERSAL" },
-    { source: "CLINIC", isPublic: true },
+    { source: "ORGANIZATION", isPublic: true },
   ];
   if (organizationId) {
-    orClauses.push({ source: "CLINIC", organizationId });
+    orClauses.push({ source: "ORGANIZATION", organizationId });
   }
 
   return prisma.exercise.findMany({
@@ -156,8 +156,8 @@ export async function createExercise(data: {
 }
 
 /**
- * Flips isPublic for a CLINIC exercise.
- * Callers MUST verify: exercise.source === 'CLINIC' && exercise.organizationId === callerOrgId
+ * Flips isPublic for a ORGANIZATION exercise.
+ * Callers MUST verify: exercise.source === 'ORGANIZATION' && exercise.organizationId === callerOrgId
  * before calling this — the service performs no ownership check.
  */
 export async function toggleExercisePublic(exerciseId: string, isPublic: boolean) {

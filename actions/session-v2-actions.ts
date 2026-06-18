@@ -8,9 +8,9 @@ import { createNotification, NOTIFICATION_TYPES } from "@/lib/services/notificat
 import { getResend } from "@/lib/email/resend";
 import { SessionCompletedEmail } from "@/lib/email/templates/session-completed";
 
-async function notifyClinicianOnCompletion(
+async function notifyTrainerOnCompletion(
   sessionId: string,
-  patient: { id: string; firstName: string; lastName: string }
+  client: { id: string; firstName: string; lastName: string }
 ) {
   const session = await prisma.workoutSessionV2.findUnique({
     where: { id: sessionId },
@@ -19,7 +19,7 @@ async function notifyClinicianOnCompletion(
         include: {
           program: {
             include: {
-              clinician: {
+              trainer: {
                 select: { id: true, firstName: true, lastName: true, email: true },
               },
             },
@@ -29,35 +29,35 @@ async function notifyClinicianOnCompletion(
     },
   });
 
-  if (!session?.workout.program.clinician) return;
+  if (!session?.workout.program.trainer) return;
 
-  const { clinician } = session.workout.program;
-  const patientName = `${patient.firstName} ${patient.lastName}`;
+  const { trainer } = session.workout.program;
+  const clientName = `${client.firstName} ${client.lastName}`;
   const workoutName = session.workout.name;
   const programName = session.workout.program.name;
   const programId = session.workout.program.id;
   const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://inmotusrx.vercel.app";
-  const patientLink = `${appBaseUrl}/programs/${programId}`;
+  const clientLink = `${appBaseUrl}/programs/${programId}`;
 
   await createNotification({
-    userId: clinician.id,
+    userId: trainer.id,
     type: NOTIFICATION_TYPES.SESSION_COMPLETED,
     title: "Session Completed",
-    body: `${patientName} completed "${workoutName}".`,
-    link: patientLink,
-    metadata: { patientId: patient.id, patientName, workoutName, programId },
+    body: `${clientName} completed "${workoutName}".`,
+    link: clientLink,
+    metadata: { clientId: client.id, clientName, workoutName, programId },
   });
 
   await getResend().emails.send({
     from: process.env.RESEND_FROM_EMAIL ?? "noreply@inmotusrx.com",
-    to: clinician.email,
-    subject: `${patientName} completed a session`,
+    to: trainer.email,
+    subject: `${clientName} completed a session`,
     react: React.createElement(SessionCompletedEmail, {
-      clinicianName: `${clinician.firstName} ${clinician.lastName}`,
-      patientName,
+      trainerName: `${trainer.firstName} ${trainer.lastName}`,
+      clientName,
       workoutName,
       programName,
-      patientLink,
+      clientLink,
     }),
   });
 }
@@ -71,7 +71,7 @@ export async function startSessionV2Action(sessionId: string) {
 
   try {
     const session = await prisma.workoutSessionV2.update({
-      where: { id: sessionId, patientId: dbUser.id },
+      where: { id: sessionId, clientId: dbUser.id },
       data: { status: "IN_PROGRESS", startedAt: new Date() }
     });
     revalidatePath("/dashboard");
@@ -103,7 +103,7 @@ export async function updateSetLogV2Action(
     if (!dbUser) return { success: false, error: "User not found" };
 
     const session = await prisma.workoutSessionV2.findUnique({
-      where: { id: sessionId, patientId: dbUser.id }
+      where: { id: sessionId, clientId: dbUser.id }
     });
     if (!session) return { success: false, error: "Session not found" };
 
@@ -209,13 +209,13 @@ export async function completeSessionV2Action(
     if (!dbUser) return { success: false, error: "User not found" };
 
     await prisma.workoutSessionV2.update({
-      where: { id: sessionId, patientId: dbUser.id },
+      where: { id: sessionId, clientId: dbUser.id },
       data: { status: "COMPLETED", completedAt: new Date(), overallRPE, overallNotes },
     });
 
-    // Fire clinician notification — non-blocking, failures must not break completion
+    // Fire trainer notification — non-blocking, failures must not break completion
     try {
-      await notifyClinicianOnCompletion(sessionId, {
+      await notifyTrainerOnCompletion(sessionId, {
         id: dbUser.id,
         firstName: dbUser.firstName,
         lastName: dbUser.lastName,
@@ -247,7 +247,7 @@ export async function markExerciseDoneAction(
     if (!dbUser) return { success: false as const, error: "User not found" };
 
     const session = await prisma.workoutSessionV2.findUnique({
-      where: { id: sessionId, patientId: dbUser.id },
+      where: { id: sessionId, clientId: dbUser.id },
       select: { status: true },
     });
     if (!session) return { success: false as const, error: "Session not found" };

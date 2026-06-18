@@ -34,13 +34,13 @@ interface BodyMetric {
 interface MetricsTabProps {
   metrics: BodyMetric[];
   metricTypes: string[];
-  patientId: string;
+  clientId: string;
 }
 
 export function MetricsTab({
   metrics,
   metricTypes,
-  patientId,
+  clientId,
 }: MetricsTabProps) {
   const [selectedType, setSelectedType] = useState<string>(
     metricTypes[0] ?? ""
@@ -75,7 +75,7 @@ export function MetricsTab({
         </div>
 
         <AddBodyMetricDialog
-          patientId={patientId}
+          clientId={clientId}
           open={dialogOpen}
           onOpenChange={setDialogOpen}
         />
@@ -151,7 +151,7 @@ export function MetricsTab({
       )}
 
       <AddBodyMetricDialog
-        patientId={patientId}
+        clientId={clientId}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />

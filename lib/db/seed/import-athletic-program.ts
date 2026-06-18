@@ -1602,18 +1602,18 @@ async function clearExistingTemplate(templateName: string) {
   await prisma.program.delete({ where: { id: existing.id } });
 }
 
-async function getClinicianId(): Promise<string> {
-  const clinician = await prisma.user.findFirst({
-    where: { role: "CLINICIAN" },
+async function getTrainerId(): Promise<string> {
+  const trainer = await prisma.user.findFirst({
+    where: { role: "TRAINER" },
     orderBy: { createdAt: "asc" },
     select: { id: true },
   });
 
-  if (!clinician) {
-    throw new Error("No clinician user found. Seed a clinician account first.");
+  if (!trainer) {
+    throw new Error("No trainer user found. Seed a trainer account first.");
   }
 
-  return clinician.id;
+  return trainer.id;
 }
 
 async function main() {
@@ -1627,7 +1627,7 @@ async function main() {
 
   const templateName = "Athletic Performance Template";
   await clearExistingTemplate(templateName);
-  const clinicianId = await getClinicianId();
+  const trainerId = await getTrainerId();
 
   console.log("Creating program template...");
 
@@ -1640,7 +1640,7 @@ async function main() {
       daysPerWeek: 6,
       tags: ["power", "speed", "strength", "plyometrics"],
       status: "DRAFT",
-      clinicianId,
+      trainerId,
     },
   });
 

@@ -868,7 +868,7 @@ export const exercisesV3: SeedExercise[] = [
   },
   {
     name: "Segmental Lumbar Roll",
-    description: "Gentle lumbar mobility for post-surgical and acute low back pain patients needing movement.",
+    description: "Gentle lumbar mobility for post-surgical and acute low back pain clients needing movement.",
     bodyRegion: "CORE" as BodyRegion,
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhase: "WARMUP" as ExercisePhase,

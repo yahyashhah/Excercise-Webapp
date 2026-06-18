@@ -24,10 +24,10 @@ export default async function OnboardingPage() {
         </div>
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight text-white">
-            Set up your clinic and start managing patients today.
+            Set up your organization and start managing clients today.
           </h1>
           <p className="mt-4 max-w-md text-lg text-slate-300">
-            Create personalized programs in minutes, track patient adherence, and
+            Create personalized programs in minutes, track client adherence, and
             monitor outcomes -- all in one platform.
           </p>
         </div>

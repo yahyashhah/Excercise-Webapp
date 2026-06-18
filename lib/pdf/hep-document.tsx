@@ -39,9 +39,9 @@ interface HEPDocumentProps {
   createdDate: string;
   daysPerWeek?: number | null;
   durationMinutes?: number | null;
-  clinicName?: string;
-  clinicTagline?: string;
-  clinicLogoBuffer?: Buffer | null;
+  organizationName?: string;
+  organizationTagline?: string;
+  organizationLogoBuffer?: Buffer | null;
   exercisesByDay: Map<number, PlanExerciseData[]>;
   imageMap: Map<string, Buffer>;
   placeholderBuffer: Buffer;
@@ -54,9 +54,9 @@ export function HEPDocument({
   createdDate,
   daysPerWeek,
   durationMinutes,
-  clinicName,
-  clinicTagline,
-  clinicLogoBuffer,
+  organizationName,
+  organizationTagline,
+  organizationLogoBuffer,
   exercisesByDay,
   imageMap,
   placeholderBuffer,
@@ -69,9 +69,9 @@ export function HEPDocument({
     <Document>
       <Page size="A4" style={styles.page}>
         <PdfHeader
-          clinicName={clinicName}
-          tagline={clinicTagline}
-          logoBuffer={clinicLogoBuffer}
+          organizationName={organizationName}
+          tagline={organizationTagline}
+          logoBuffer={organizationLogoBuffer}
           pageNumber={1}
         />
         <PdfPlanInfo

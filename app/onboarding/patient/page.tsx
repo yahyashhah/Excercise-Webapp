@@ -2,10 +2,10 @@ import { auth } from "@clerk/nextjs/server";
 import { SignUp } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { PatientOnboardingForm } from "@/components/onboarding/patient-onboarding-form";
+import { ClientOnboardingForm } from "@/components/onboarding/client-onboarding-form";
 import { Activity } from "lucide-react";
 
-export default async function PatientOnboardingPage() {
+export default async function ClientOnboardingPage() {
   const { userId } = await auth();
 
   // Unauthenticated: render Clerk's SignUp so it can consume the __clerk_ticket
@@ -13,7 +13,7 @@ export default async function PatientOnboardingPage() {
   if (!userId) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
-        <SignUp routing="hash" forceRedirectUrl="/onboarding/patient" />
+        <SignUp routing="hash" forceRedirectUrl="/onboarding/client" />
       </div>
     );
   }
@@ -35,7 +35,7 @@ export default async function PatientOnboardingPage() {
             Welcome to your rehabilitation program.
           </h1>
           <p className="mt-4 max-w-md text-lg text-slate-300">
-            Complete your profile so your clinician can personalize your exercise program.
+            Complete your profile so your trainer can personalize your exercise program.
           </p>
         </div>
         <p className="text-sm text-slate-400">
@@ -51,7 +51,7 @@ export default async function PatientOnboardingPage() {
           <span className="text-xl font-bold">INMOTUS RX</span>
         </div>
         <div className="w-full max-w-lg">
-          <PatientOnboardingForm />
+          <ClientOnboardingForm />
         </div>
       </div>
     </div>

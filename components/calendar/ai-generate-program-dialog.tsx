@@ -42,7 +42,7 @@ const CIRCUIT_FOCUS_OPTIONS = [
 interface AiGenerateProgramDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  patientId: string;
+  clientId: string;
   initialDate: Date;
   onSuccess: () => void;
 }
@@ -50,7 +50,7 @@ interface AiGenerateProgramDialogProps {
 export function AiGenerateProgramDialog({
   open,
   onOpenChange,
-  patientId,
+  clientId,
   initialDate,
   onSuccess,
 }: AiGenerateProgramDialogProps) {
@@ -80,7 +80,7 @@ export function AiGenerateProgramDialog({
     { id: "3", name: "Cool Down", focusType: "COOLDOWN", exerciseCount: 3, rounds: 1, restBetweenRounds: null },
   ]);
   const [subjective, setSubjective] = useState("");
-  const [clinicianPrompt, setClinicianPrompt] = useState("");
+  const [trainerPrompt, setTrainerPrompt] = useState("");
   const [notes, setNotes] = useState("");
 
   function toggleGoal(goal: string) {
@@ -150,7 +150,7 @@ export function AiGenerateProgramDialog({
 
     setLoading(true);
     const result = await generateProgramAction({
-      patientId,
+      clientId,
       programGoals: selectedGoals,
       durationMinutes: duration,
       daysPerWeek,
@@ -166,7 +166,7 @@ export function AiGenerateProgramDialog({
       startDate: format(initialDate, "yyyy-MM-dd"),
       additionalNotes: notes || undefined,
       subjective: subjective || undefined,
-      clinicianPrompt: clinicianPrompt || undefined,
+      trainerPrompt: trainerPrompt || undefined,
     });
     setLoading(false);
 
@@ -429,7 +429,7 @@ export function AiGenerateProgramDialog({
               />
             </div>
 
-            {/* Clinician prompt */}
+            {/* Trainer prompt */}
             <div className="space-y-2">
               <Label>
                 Program Instructions{" "}
@@ -438,8 +438,8 @@ export function AiGenerateProgramDialog({
               <Textarea
                 rows={2}
                 placeholder='e.g. "Act as a DPT and create a 1-week PT progression for this subjective."'
-                value={clinicianPrompt}
-                onChange={(e) => setClinicianPrompt(e.target.value)}
+                value={trainerPrompt}
+                onChange={(e) => setTrainerPrompt(e.target.value)}
               />
             </div>
 

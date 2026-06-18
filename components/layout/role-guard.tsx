@@ -1,6 +1,6 @@
 interface RoleGuardProps {
-  allowedRoles: ("CLINICIAN" | "PATIENT")[];
-  userRole: "CLINICIAN" | "PATIENT";
+  allowedRoles: ("TRAINER" | "CLIENT")[];
+  userRole: "TRAINER" | "CLIENT";
   children: React.ReactNode;
   fallback?: React.ReactNode;
 }

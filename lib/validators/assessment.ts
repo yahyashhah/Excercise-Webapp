@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const createAssessmentSchema = z.object({
-  patientId: z.string().min(1, "Patient is required"),
+  clientId: z.string().min(1, "Client is required"),
   assessmentType: z.string().min(1, "Assessment type is required"),
   value: z.number().min(0, "Value must be positive"),
   unit: z.string().min(1, "Unit is required"),

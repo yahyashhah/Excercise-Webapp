@@ -55,9 +55,9 @@ interface ProgramListItem {
   tags: string[];
   updatedAt: Date;
   createdAt: Date;
-  patientId?: string | null;
-  clinician: { id: string; firstName: string; lastName: string } | null;
-  patient: { id: string; firstName: string; lastName: string } | null;
+  clientId?: string | null;
+  trainer: { id: string; firstName: string; lastName: string } | null;
+  client: { id: string; firstName: string; lastName: string } | null;
   _count: { workouts: number };
 }
 
@@ -104,7 +104,7 @@ function ProgramCard({
               {program.name}
             </h3>
           </Link>
-          {role === "CLINICIAN" && (
+          {role === "TRAINER" && (
             <DropdownMenu>
               <DropdownMenuTrigger className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100">
                 <MoreVertical className="h-4 w-4" />
@@ -116,7 +116,7 @@ function ProgramCard({
                 <DropdownMenuItem onClick={() => onDuplicate(program.id)}>
                   <Copy className="mr-2 h-4 w-4" /> Duplicate
                 </DropdownMenuItem>
-                {!program.patientId && (
+                {!program.clientId && (
                   <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}?assign=true`)}>
                     <UserPlus className="mr-2 h-4 w-4" /> Assign Client
                   </DropdownMenuItem>
@@ -158,8 +158,8 @@ function ProgramCard({
           <div className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">
-              {program.patient
-                ? `${program.patient.firstName} ${program.patient.lastName}`
+              {program.client
+                ? `${program.client.firstName} ${program.client.lastName}`
                 : "Unassigned"}
             </span>
           </div>
@@ -260,7 +260,7 @@ export function ProgramListClient({
   const [typeFilter, setTypeFilter] = useState<"all" | "clinical" | "global">("all");
 
   const activeTab =
-    role === "CLINICIAN"
+    role === "TRAINER"
       ? searchParams.get("tab") === "templates"
         ? "templates"
         : "programs"
@@ -343,7 +343,7 @@ export function ProgramListClient({
 
   return (
     <div className="space-y-6">
-      {role === "CLINICIAN" && (
+      {role === "TRAINER" && (
         <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="grid w-full max-w-xs grid-cols-2">
             <TabsTrigger value="programs">Programs</TabsTrigger>
@@ -352,7 +352,7 @@ export function ProgramListClient({
         </Tabs>
       )}
       {/* Type filter — only shown in Templates tab */}
-      {activeTab === "templates" && role === "CLINICIAN" && (
+      {activeTab === "templates" && role === "TRAINER" && (
         <div className="flex items-center gap-2">
           {(["all", "clinical", "global"] as const).map((f) => (
             <button
@@ -398,7 +398,7 @@ export function ProgramListClient({
           )}
         </div>
 
-        {role === "CLINICIAN" && (
+        {role === "TRAINER" && (
           <div className="flex shrink-0 items-center gap-2">
             <Button variant="outline" className="gap-2" asChild>
               <Link href="/programs/upload">
@@ -429,11 +429,11 @@ export function ProgramListClient({
             <Library className="mx-auto h-12 w-12 text-muted-foreground/40" />
             <h3 className="mt-4 font-semibold">No programs found</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              {role === "CLINICIAN"
+              {role === "TRAINER"
                 ? "Generate an AI program or create one manually to get started."
                 : "No programs have been assigned to you yet."}
             </p>
-            {role === "CLINICIAN" && (
+            {role === "TRAINER" && (
               <div className="mt-4 flex justify-center gap-2">
                 <Button variant="outline" size="sm" asChild>
                   <Link href="/programs/generate">
@@ -483,7 +483,7 @@ export function ProgramListClient({
                 ? "Your administrator hasn't added any global programs yet."
                 : "Create a template or duplicate a program to build your library."}
             </p>
-            {typeFilter !== "global" && role === "CLINICIAN" && (
+            {typeFilter !== "global" && role === "TRAINER" && (
               <div className="mt-4 flex justify-center gap-2">
                 <Button variant="outline" size="sm" asChild>
                   <Link href="/programs/generate">

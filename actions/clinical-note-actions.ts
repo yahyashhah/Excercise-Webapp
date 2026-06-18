@@ -20,10 +20,10 @@ export interface ClinicalNoteFormData {
 // ---------------------------------------------------------------------------
 
 export async function createClinicalNoteAction(
-  patientId: string,
+  clientId: string,
   data: ClinicalNoteFormData
 ) {
-  const clinician = await requireRole("CLINICIAN");
+  const trainer = await requireRole("TRAINER");
 
   if (!data.appointmentDate) {
     return { success: false as const, error: "Appointment date is required" };
@@ -31,8 +31,8 @@ export async function createClinicalNoteAction(
 
   try {
     const note = await noteService.createNote({
-      patientId,
-      clinicianId: clinician.id,
+      clientId,
+      trainerId: trainer.id,
       sessionId: data.sessionId,
       appointmentDate: new Date(data.appointmentDate),
       subjective: data.subjective,
@@ -41,7 +41,7 @@ export async function createClinicalNoteAction(
       plan: data.plan,
       privateNotes: data.privateNotes,
     });
-    revalidatePath(`/patients/${patientId}/progress`);
+    revalidatePath(`/clients/${clientId}/progress`);
     return { success: true as const, data: note };
   } catch (error) {
     console.error("Failed to create clinical note:", error);
@@ -55,10 +55,10 @@ export async function createClinicalNoteAction(
 
 export async function updateClinicalNoteAction(
   noteId: string,
-  patientId: string,
+  clientId: string,
   data: ClinicalNoteFormData
 ) {
-  const clinician = await requireRole("CLINICIAN");
+  const trainer = await requireRole("TRAINER");
 
   try {
     const updateData: UpdateClinicalNoteData = {
@@ -73,8 +73,8 @@ export async function updateClinicalNoteAction(
       sessionId: data.sessionId,
     };
 
-    const note = await noteService.updateNote(noteId, clinician.id, updateData);
-    revalidatePath(`/patients/${patientId}/progress`);
+    const note = await noteService.updateNote(noteId, trainer.id, updateData);
+    revalidatePath(`/clients/${clientId}/progress`);
     return { success: true as const, data: note };
   } catch (error) {
     console.error("Failed to update clinical note:", error);
@@ -88,13 +88,13 @@ export async function updateClinicalNoteAction(
 
 export async function deleteClinicalNoteAction(
   noteId: string,
-  patientId: string
+  clientId: string
 ) {
-  const clinician = await requireRole("CLINICIAN");
+  const trainer = await requireRole("TRAINER");
 
   try {
-    await noteService.deleteNote(noteId, clinician.id);
-    revalidatePath(`/patients/${patientId}/progress`);
+    await noteService.deleteNote(noteId, trainer.id);
+    revalidatePath(`/clients/${clientId}/progress`);
     return { success: true as const };
   } catch (error) {
     console.error("Failed to delete clinical note:", error);

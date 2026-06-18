@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useTransition } from "react";
+import { useState, useCallback, useMemo, useTransition, createContext, useContext } from "react";
 import {
   Calendar,
   dateFnsLocalizer,
@@ -36,6 +36,8 @@ import {
   Loader2,
   Timer,
   Repeat,
+  MoreHorizontal,
+  Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { rescheduleSessionAction } from "@/actions/session-actions";
@@ -49,6 +51,29 @@ import {
 import { ExercisePickerDialog } from "@/components/programs/exercise-picker-dialog";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  deleteSession,
+  duplicateWorkoutToDateAction,
+} from "@/actions/calendar-workout-actions";
+
+const SchedulePillCtx = createContext<{ isTrainer: boolean; onRefresh: () => void }>({
+  isTrainer: false,
+  onRefresh: () => {},
+});
 
 // ─── Localizer (Monday first) ─────────────────────────────────────────────────
 const monLocale = {
@@ -294,30 +319,142 @@ function initEditBlocks(workout: WorkoutData): EditableBlock[] {
 const DnDCalendar = withDragAndDrop<ScheduleEvent>(Calendar);
 
 function EventPill({ event }: { event: ScheduleEvent }) {
+  const { isTrainer, onRefresh } = useContext(SchedulePillCtx);
   const cfg = STATUS_CONFIG[event.status] ?? STATUS_CONFIG.SCHEDULED;
   const exerciseCount = event.workout.blocks.reduce(
     (sum, b) => sum + b.exercises.length,
     0
   );
+  const [dupeOpen, setDupeOpen] = useState(false);
+  const [dupeDate, setDupeDate] = useState("");
+  const [dupeLoading, setDupeLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const showMenu = isTrainer && event.isSession && !!event.sessionId;
+
+  async function handleDelete() {
+    if (!event.sessionId || deleting) return;
+    setDeleting(true);
+    try {
+      const result = await deleteSession(event.sessionId);
+      if (result.success) {
+        toast.success("Workout deleted");
+        onRefresh();
+      } else {
+        toast.error(result.error ?? "Failed to delete");
+      }
+    } catch {
+      toast.error("Failed to delete");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function handleDuplicate() {
+    if (!event.sessionId || !dupeDate || dupeLoading) return;
+    setDupeLoading(true);
+    try {
+      const result = await duplicateWorkoutToDateAction(event.sessionId, dupeDate);
+      if (result.success) {
+        toast.success("Workout duplicated");
+        setDupeOpen(false);
+        onRefresh();
+      } else {
+        toast.error(result.error ?? "Failed to duplicate");
+      }
+    } catch {
+      toast.error("Failed to duplicate");
+    } finally {
+      setDupeLoading(false);
+    }
+  }
+
   return (
-    <div
-      className="h-full overflow-hidden rounded-[5px] transition-opacity hover:opacity-90 cursor-pointer"
-      style={{
-        backgroundColor: cfg.bg,
-        borderLeft: `3px solid ${cfg.border}`,
-        color: cfg.text,
-      }}
-    >
-      <div className="px-2 py-1">
-        <p className="truncate text-[11px] font-semibold leading-tight">
-          {event.title}
-        </p>
-        <p className="mt-0.5 text-[10px] opacity-70">
-          {exerciseCount} exercise{exerciseCount !== 1 ? "s" : ""}
-          {event.isSession && ` · ${cfg.label}`}
-        </p>
+    <>
+      <div
+        className="h-full overflow-hidden rounded-[5px] transition-opacity hover:opacity-90 cursor-pointer"
+        style={{
+          backgroundColor: cfg.bg,
+          borderLeft: `3px solid ${cfg.border}`,
+          color: cfg.text,
+        }}
+      >
+        <div className="px-2 py-1 flex items-start justify-between gap-1">
+          <div className="flex-1 min-w-0">
+            <p className="truncate text-[11px] font-semibold leading-tight">
+              {event.title}
+            </p>
+            <p className="mt-0.5 text-[10px] opacity-70">
+              {exerciseCount} exercise{exerciseCount !== 1 ? "s" : ""}
+              {event.isSession && ` · ${cfg.label}`}
+            </p>
+          </div>
+          {showMenu && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="shrink-0 flex h-5 w-5 items-center justify-center rounded opacity-60 hover:opacity-100 hover:bg-black/10 transition-opacity"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontal className="h-3 w-3" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-44"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <DropdownMenuItem onClick={() => setDupeOpen(true)}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Duplicate to date
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={deleting}
+                  onClick={handleDelete}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
-    </div>
+
+      <Dialog open={dupeOpen} onOpenChange={(open) => { setDupeOpen(open); if (!open) setDupeDate(""); }}>
+        <DialogContent
+          className="sm:max-w-sm"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DialogHeader>
+            <DialogTitle>Duplicate Workout</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <p className="text-sm text-muted-foreground">
+              Choose a date to copy <strong>{event.title}</strong> to.
+            </p>
+            <Input
+              type="date"
+              value={dupeDate}
+              onChange={(e) => setDupeDate(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDupeOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDuplicate}
+              disabled={!dupeDate || dupeLoading}
+            >
+              {dupeLoading ? "Duplicating…" : "Duplicate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -430,7 +567,7 @@ function CalToolbar({
 }
 
 /**
- * Read-only side panel shown to patients / non-clinicians. Mirrors the
+ * Read-only side panel shown to clients / non-trainers. Mirrors the
  * legacy detail view layout from the previous version of this file.
  */
 function ReadOnlyPanel({
@@ -571,7 +708,7 @@ function ReadOnlyPanel({
   );
 }
 
-// ─── Edit panel (clinician inline edit) ────────────────────────────────────────
+// ─── Edit panel (trainer inline edit) ────────────────────────────────────────
 
 interface EditPanelProps {
   event: ScheduleEvent;
@@ -965,7 +1102,7 @@ function ExerciseEditRow({
 interface Props {
   rawWorkouts: Record<string, unknown>[];
   rawSessions: Record<string, unknown>[];
-  isClinician: boolean;
+  isTrainer: boolean;
 }
 
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -973,7 +1110,7 @@ const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 export function ProgramScheduleView({
   rawWorkouts,
   rawSessions,
-  isClinician,
+  isTrainer,
 }: Props) {
   const router = useRouter();
 
@@ -1094,7 +1231,7 @@ export function ProgramScheduleView({
       event: ScheduleEvent;
       start: string | Date;
     }) => {
-      if (!isClinician) return;
+      if (!isTrainer) return;
 
       const droppedDate = new Date(start);
 
@@ -1158,7 +1295,7 @@ export function ProgramScheduleView({
         }
       }
     },
-    [hasSessions, isClinician, refMonday, sessions, workoutPositionOverrides, router]
+    [hasSessions, isTrainer, refMonday, sessions, workoutPositionOverrides, router]
   );
 
   const handleSelectEvent = useCallback((event: ScheduleEvent) => {
@@ -1331,7 +1468,7 @@ export function ProgramScheduleView({
       setPickerOpen(false);
 
       // Choose initial prescription based on the exercise's defaults so the
-      // newly-added row already has reasonable values the clinician can tune.
+      // newly-added row already has reasonable values the trainer can tune.
       const isDuration =
         (exercise.defaultHoldSeconds ?? 0) > 0 &&
         (exercise.defaultReps ?? 0) === 0;
@@ -1401,6 +1538,9 @@ export function ProgramScheduleView({
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
+    <SchedulePillCtx.Provider
+      value={{ isTrainer, onRefresh: () => startTransition(() => router.refresh()) }}
+    >
     <div className="space-y-4">
       {/* Template mode banner */}
       {!hasSessions && (
@@ -1409,7 +1549,7 @@ export function ProgramScheduleView({
           <span>
             <strong>Program structure view</strong> — workouts are shown at
             their scheduled day positions starting this week.{" "}
-            {isClinician
+            {isTrainer
               ? "Drag workouts to move them to a different day or week. Assign this program to a client to place sessions on real calendar dates."
               : "Assign this program to a client to place sessions on real calendar dates."}
           </span>
@@ -1430,7 +1570,7 @@ export function ProgramScheduleView({
                 <span className="text-xs text-muted-foreground">{c.label}</span>
               </div>
             ))}
-          {isClinician && (
+          {isTrainer && (
             <span className="text-xs text-muted-foreground ml-auto">
               Drag sessions to reschedule
             </span>
@@ -1449,8 +1589,8 @@ export function ProgramScheduleView({
             onView={setView}
             onNavigate={setCalDate}
             onSelectEvent={(event: ScheduleEvent) => handleSelectEvent(event)}
-            onEventDrop={isClinician ? (handleEventDrop as never) : undefined}
-            draggableAccessor={() => isClinician}
+            onEventDrop={isTrainer ? (handleEventDrop as never) : undefined}
+            draggableAccessor={() => isTrainer}
             resizable={false}
             popup
             style={{ height: 580 }}
@@ -1487,7 +1627,7 @@ export function ProgramScheduleView({
           />
         </div>
 
-        {selectedEvent && isClinician && (
+        {selectedEvent && isTrainer && (
           <EditPanel
             event={selectedEvent}
             editBlocks={editBlocks}
@@ -1504,7 +1644,7 @@ export function ProgramScheduleView({
           />
         )}
 
-        {selectedEvent && !isClinician && (
+        {selectedEvent && !isTrainer && (
           <ReadOnlyPanel event={selectedEvent} onClose={handleClose} />
         )}
       </div>
@@ -1516,5 +1656,6 @@ export function ProgramScheduleView({
         onSelect={handleAddExercise}
       />
     </div>
+    </SchedulePillCtx.Provider>
   );
 }

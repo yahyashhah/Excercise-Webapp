@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 export async function recordAssessment(data: {
-  patientId: string;
+  clientId: string;
   assessedById?: string;
   assessmentType: string;
   value: number;
@@ -11,10 +11,10 @@ export async function recordAssessment(data: {
   return prisma.assessment.create({ data });
 }
 
-export async function getAssessments(patientId: string, assessmentType?: string) {
+export async function getAssessments(clientId: string, assessmentType?: string) {
   return prisma.assessment.findMany({
     where: {
-      patientId,
+      clientId,
       ...(assessmentType && { assessmentType }),
     },
     include: { assessedByUser: true },
@@ -22,9 +22,9 @@ export async function getAssessments(patientId: string, assessmentType?: string)
   });
 }
 
-export async function getProgressTimeline(patientId: string, assessmentType: string) {
+export async function getProgressTimeline(clientId: string, assessmentType: string) {
   return prisma.assessment.findMany({
-    where: { patientId, assessmentType },
+    where: { clientId, assessmentType },
     orderBy: { createdAt: "asc" },
     select: {
       id: true,
@@ -36,9 +36,9 @@ export async function getProgressTimeline(patientId: string, assessmentType: str
   });
 }
 
-export async function getLatestAssessments(patientId: string) {
+export async function getLatestAssessments(clientId: string) {
   const assessmentTypes = await prisma.assessment.findMany({
-    where: { patientId },
+    where: { clientId },
     distinct: ["assessmentType"],
     select: { assessmentType: true },
   });
@@ -46,7 +46,7 @@ export async function getLatestAssessments(patientId: string) {
   const latest = await Promise.all(
     assessmentTypes.map(({ assessmentType }) =>
       prisma.assessment.findFirst({
-        where: { patientId, assessmentType },
+        where: { clientId, assessmentType },
         orderBy: { createdAt: "desc" },
       })
     )

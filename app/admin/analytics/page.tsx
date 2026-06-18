@@ -20,8 +20,8 @@ export default async function AdminAnalyticsPage() {
   ]);
 
   const roleDistribution = [
-    { name: "Clinicians", value: stats.clinicians, color: "#3b82f6" },
-    { name: "Patients",   value: stats.patients,   color: "#06b6d4" },
+    { name: "Trainers", value: stats.trainers, color: "#3b82f6" },
+    { name: "Clients",   value: stats.clients,   color: "#06b6d4" },
   ];
 
   const totalNewUsers    = userGrowth.reduce((s, d) => s + d.users, 0);

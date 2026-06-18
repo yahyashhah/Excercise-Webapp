@@ -18,17 +18,17 @@ import { assignClientToPlanAction } from "@/actions/workout-actions";
 
 interface AssignClientDialogProps {
   planId: string;
-  currentPatientId?: string | null;
+  currentClientId?: string | null;
   clients: { id: string; firstName: string; lastName: string; email: string }[];
 }
 
 export function AssignClientDialog({
   planId,
-  currentPatientId,
+  currentClientId,
   clients,
 }: AssignClientDialogProps) {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState(currentPatientId ?? "");
+  const [selected, setSelected] = useState(currentClientId ?? "");
   const [loading, setLoading] = useState(false);
 
   async function handleSave() {
@@ -47,7 +47,7 @@ export function AssignClientDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger className={buttonVariants({ variant: "outline", size: "sm" })}>
         <UserPlus className="mr-1.5 h-4 w-4" />
-        {currentPatientId ? "Change Client" : "Assign Client"}
+        {currentClientId ? "Change Client" : "Assign Client"}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -72,7 +72,7 @@ export function AssignClientDialog({
             ))}
           </select>
 
-          {currentPatientId && selected === currentPatientId && (
+          {currentClientId && selected === currentClientId && (
             <button
               type="button"
               onClick={() => setSelected("")}

@@ -20,7 +20,7 @@ export default async function SessionPage({
   const session = await prisma.workoutSessionV2.findUnique({
     where: { id },
     include: {
-      patient: {
+      client: {
         select: {
           firstName: true,
           lastName: true,
@@ -30,7 +30,7 @@ export default async function SessionPage({
         include: {
           program: {
             select: {
-              clinicianId: true,
+              trainerId: true,
             },
           },
           blocks: {
@@ -66,10 +66,10 @@ export default async function SessionPage({
   });
 
   if (!session) return notFound();
-  const isPatientOwner = session.patientId === user.id;
-  const isProgramClinician = session.workout.program.clinicianId === user.id;
+  const isClientOwner = session.clientId === user.id;
+  const isProgramTrainer = session.workout.program.trainerId === user.id;
 
-  if (!isPatientOwner && !isProgramClinician) return redirect("/dashboard");
+  if (!isClientOwner && !isProgramTrainer) return redirect("/dashboard");
 
   return (
     <div className="space-y-4">
