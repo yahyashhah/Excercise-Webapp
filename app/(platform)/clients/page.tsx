@@ -1,14 +1,14 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { requireRole } from "@/lib/current-user";
-import { getPatientsForClinician } from "@/lib/services/patient.service";
+import { getClientsForTrainer } from "@/lib/services/client.service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, ChevronRight, Mail } from "lucide-react";
-import { AddPatientDialog } from "@/components/patients/add-patient-dialog";
-import { PatientSearch } from "@/components/patients/patient-search";
+import { AddClientDialog } from "@/components/clients/add-client-dialog";
+import { ClientSearch } from "@/components/clients/client-search";
 
 interface Props {
   searchParams: Promise<{ q?: string }>;
@@ -29,17 +29,17 @@ function getAvatarGradient(name: string) {
   return avatarGradients[idx];
 }
 
-export default async function PatientsPage({ searchParams }: Props) {
-  const user = await requireRole("CLINICIAN");
+export default async function ClientsPage({ searchParams }: Props) {
+  const user = await requireRole("TRAINER");
   const { q } = await searchParams;
-  const allPatients = await getPatientsForClinician(user.id);
+  const allClients = await getClientsForTrainer(user.id);
 
-  const patients = q
-    ? allPatients.filter((p) => {
+  const clients = q
+    ? allClients.filter((p) => {
         const full = `${p.firstName} ${p.lastName} ${p.email}`.toLowerCase();
         return full.includes(q.toLowerCase());
       })
-    : allPatients;
+    : allClients;
 
   return (
     <div className="space-y-6">
@@ -48,19 +48,19 @@ export default async function PatientsPage({ searchParams }: Props) {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Clients</h2>
           <p className="text-muted-foreground">
-            {allPatients.length} client{allPatients.length !== 1 ? "s" : ""} in your clinic
+            {allClients.length} client{allClients.length !== 1 ? "s" : ""} in your organization
           </p>
         </div>
-        <AddPatientDialog />
+        <AddClientDialog />
       </div>
 
       {/* Search */}
       <Suspense fallback={<Skeleton className="h-10 w-full max-w-sm" />}>
-        <PatientSearch />
+        <ClientSearch />
       </Suspense>
 
       {/* Grid */}
-      {patients.length === 0 ? (
+      {clients.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-16 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
             <Users className="h-8 w-8 text-muted-foreground/50" />
@@ -71,21 +71,21 @@ export default async function PatientsPage({ searchParams }: Props) {
           <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
             {q
               ? `No results for "${q}". Try a different name or email.`
-              : "Click \"Invite Patient\" above to send an invitation. The patient will receive an email to join your clinic."}
+              : "Click \"Invite Client\" above to send an invitation. The client will receive an email to join your organization."}
           </p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {patients.map((patient) => {
-            const gradient = getAvatarGradient(patient.firstName);
-            const initials = `${patient.firstName[0]}${patient.lastName[0]}`;
+          {clients.map((client) => {
+            const gradient = getAvatarGradient(client.firstName);
+            const initials = `${client.firstName[0]}${client.lastName[0]}`;
 
             return (
-              <Link key={patient.id} href={`/patients/${patient.id}`}>
+              <Link key={client.id} href={`/clients/${client.id}`}>
                 <Card className="group border-0 shadow-sm ring-1 ring-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:ring-border">
                   <CardContent className="flex items-center gap-4 p-5">
                     <Avatar className="h-12 w-12 shrink-0 ring-2 ring-white shadow-md">
-                      <AvatarImage src={patient.imageUrl || undefined} />
+                      <AvatarImage src={client.imageUrl || undefined} />
                       <AvatarFallback
                         className={`bg-linear-to-br ${gradient} text-sm font-bold text-white`}
                       >
@@ -95,18 +95,18 @@ export default async function PatientsPage({ searchParams }: Props) {
 
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold leading-tight transition-colors group-hover:text-primary">
-                        {patient.firstName} {patient.lastName}
+                        {client.firstName} {client.lastName}
                       </p>
                       <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-muted-foreground">
                         <Mail className="h-3 w-3 shrink-0" />
-                        {patient.email}
+                        {client.email}
                       </p>
                       {/* Role badge */}
                       <Badge
                         variant="outline"
                         className="mt-2 h-5 border-border/60 px-1.5 text-[10px] font-medium text-muted-foreground"
                       >
-                        Patient
+                        Client
                       </Badge>
                     </div>
 

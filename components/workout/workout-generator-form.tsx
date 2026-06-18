@@ -21,17 +21,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { COMMON_EQUIPMENT as EQUIPMENT_OPTIONS, FITNESS_GOALS as FITNESS_GOAL_OPTIONS } from "@/lib/utils/constants";
 import { Loader2, Sparkles } from "lucide-react";
 import type { GeneratedWorkout } from "@/lib/ai/schemas/workout-output";
-import type { PatientProfile } from "@prisma/client";
+import type { ClientProfile } from "@prisma/client";
 
 interface WorkoutGeneratorFormProps {
-  patientId: string;
-  patientProfile?: PatientProfile | null;
+  clientId: string;
+  clientProfile?: ClientProfile | null;
   onGenerated: (workout: GeneratedWorkout) => void;
 }
 
 export function WorkoutGeneratorForm({
-  patientId,
-  patientProfile,
+  clientId,
+  clientProfile,
   onGenerated,
 }: WorkoutGeneratorFormProps) {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -40,14 +40,14 @@ export function WorkoutGeneratorForm({
   const form = useForm<WorkoutGenerationInput>({
     resolver: zodResolver(workoutGenerationSchema) as never,
     defaultValues: {
-      patientId,
-      limitations: patientProfile?.limitations ?? "",
-      comorbidities: patientProfile?.comorbidities ?? "",
-      functionalChallenges: patientProfile?.functionalChallenges ?? "",
-      availableEquipment: patientProfile?.availableEquipment ?? [],
-      durationMinutes: patientProfile?.preferredDurationMinutes ?? 25,
-      daysPerWeek: patientProfile?.preferredDaysPerWeek ?? 3,
-      fitnessGoals: patientProfile?.fitnessGoals ?? [],
+      clientId,
+      limitations: clientProfile?.limitations ?? "",
+      comorbidities: clientProfile?.comorbidities ?? "",
+      functionalChallenges: clientProfile?.functionalChallenges ?? "",
+      availableEquipment: clientProfile?.availableEquipment ?? [],
+      durationMinutes: clientProfile?.preferredDurationMinutes ?? 25,
+      daysPerWeek: clientProfile?.preferredDaysPerWeek ?? 3,
+      fitnessGoals: clientProfile?.fitnessGoals ?? [],
     },
   });
 
@@ -82,7 +82,7 @@ export function WorkoutGeneratorForm({
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Patient Profile</CardTitle>
+            <CardTitle>Client Profile</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField

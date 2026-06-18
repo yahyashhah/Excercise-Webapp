@@ -23,11 +23,11 @@ interface ExerciseCardProps {
   imageUrl?: string | null;
   videoUrl?: string | null;
   isActive?: boolean;
-  isClinician?: boolean;
+  isTrainer?: boolean;
   source?: string;
   isPublic?: boolean;
   organizationId?: string | null;
-  clinicOrganizationId?: string | null;
+  organizationOrganizationId?: string | null;
 }
 
 const difficultyConfig: Record<string, { label: string; className: string }> = {
@@ -46,17 +46,17 @@ const phaseConfig: Record<string, { label: string; className: string }> = {
 
 export function ExerciseCard({
   id, name, bodyRegion, difficultyLevel, exercisePhase, equipmentRequired,
-  description, imageUrl, videoUrl, isActive, isClinician,
-  source, isPublic: initialIsPublic, organizationId, clinicOrganizationId,
+  description, imageUrl, videoUrl, isActive, isTrainer,
+  source, isPublic: initialIsPublic, organizationId, organizationOrganizationId,
 }: ExerciseCardProps) {
   const [isPublic, setIsPublic] = useState(initialIsPublic ?? true);
   const [isPending, startTransition] = useTransition();
 
-  const isMyClinicExercise =
-    source === "CLINIC" &&
+  const isMyOrganizationExercise =
+    source === "ORGANIZATION" &&
     !!organizationId &&
-    !!clinicOrganizationId &&
-    organizationId === clinicOrganizationId;
+    !!organizationOrganizationId &&
+    organizationId === organizationOrganizationId;
 
   const difficulty = difficultyConfig[difficultyLevel] ?? {
     label: formatDifficulty(difficultyLevel),
@@ -141,7 +141,7 @@ export function ExerciseCard({
           </div>
         )}
 
-        {isClinician && (
+        {isTrainer && (
           <div className="mt-3 flex gap-1.5">
             <Button
               variant="outline"
@@ -153,7 +153,7 @@ export function ExerciseCard({
                 <Edit className="h-3 w-3" />Edit
               </Link>
             </Button>
-            {isMyClinicExercise && (
+            {isMyOrganizationExercise && (
               <Button
                 type="button"
                 variant="outline"

@@ -12,12 +12,15 @@ export async function POST(req: Request) {
   }
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } })
-  if (!dbUser || dbUser.role !== 'CLINICIAN') {
+  if (!dbUser || dbUser.role !== 'TRAINER') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   try {
     const body = await req.json()
+    if (!Array.isArray(body.programGoals) || body.programGoals.length === 0) {
+      return NextResponse.json({ error: 'programGoals is required' }, { status: 400 })
+    }
     const plan = await generateClinicalPlan(body)
     return NextResponse.json({ success: true, data: plan })
   } catch (error) {

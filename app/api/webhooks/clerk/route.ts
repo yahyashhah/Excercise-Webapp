@@ -86,7 +86,7 @@ export async function POST(req: Request) {
           firstName: clerkUser.firstName ?? "",
           lastName: clerkUser.lastName ?? "",
           imageUrl: clerkUser.imageUrl,
-          role: "PATIENT",
+          role: "CLIENT",
           clerkOrgId: orgId,
           onboarded: false,
         },

@@ -23,9 +23,9 @@ function computeNextDueDate(startDate: Date, frequency: string): Date {
 
 // ─── Template queries ────────────────────────────────────────────────────────
 
-export async function getTemplatesForClinician(clinicianId: string) {
+export async function getTemplatesForTrainer(trainerId: string) {
   const templates = await prisma.checkInTemplate.findMany({
-    where: { clinicianId },
+    where: { trainerId },
     include: {
       _count: { select: { questions: true, assignments: true } },
       assignments: {
@@ -81,12 +81,12 @@ export interface CreateTemplateInput {
 }
 
 export async function createTemplate(
-  clinicianId: string,
+  trainerId: string,
   data: CreateTemplateInput
 ) {
   return prisma.checkInTemplate.create({
     data: {
-      clinicianId,
+      trainerId,
       name: data.name,
       description: data.description,
       frequency: data.frequency,
@@ -106,10 +106,10 @@ export async function createTemplate(
 
 // ─── Assignment ──────────────────────────────────────────────────────────────
 
-export async function assignTemplateToPatient(
+export async function assignTemplateToClient(
   templateId: string,
-  patientId: string,
-  clinicianId: string
+  clientId: string,
+  trainerId: string
 ) {
   const template = await prisma.checkInTemplate.findUnique({
     where: { id: templateId },
@@ -121,17 +121,17 @@ export async function assignTemplateToPatient(
   const startDate = new Date();
   const nextDueDate = computeNextDueDate(startDate, template.frequency);
 
-  // Deactivate any existing assignment for the same template + patient
+  // Deactivate any existing assignment for the same template + client
   await prisma.checkInAssignment.updateMany({
-    where: { templateId, patientId, isActive: true },
+    where: { templateId, clientId, isActive: true },
     data: { isActive: false },
   });
 
   return prisma.checkInAssignment.create({
     data: {
       templateId,
-      patientId,
-      clinicianId,
+      clientId,
+      trainerId,
       startDate,
       nextDueDate,
       isActive: true,
@@ -139,16 +139,16 @@ export async function assignTemplateToPatient(
   });
 }
 
-// ─── Patient check-in queries ────────────────────────────────────────────────
+// ─── Client check-in queries ────────────────────────────────────────────────
 
-export async function getPendingCheckInsForPatient(patientId: string) {
+export async function getPendingCheckInsForClient(clientId: string) {
   // Due = nextDueDate <= now + 1 day (give a 24h window)
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() + 1);
 
   return prisma.checkInAssignment.findMany({
     where: {
-      patientId,
+      clientId,
       isActive: true,
       nextDueDate: { lte: cutoff },
     },
@@ -161,9 +161,9 @@ export async function getPendingCheckInsForPatient(patientId: string) {
   });
 }
 
-export async function getCheckInAssignmentsForPatient(patientId: string) {
+export async function getCheckInAssignmentsForClient(clientId: string) {
   return prisma.checkInAssignment.findMany({
-    where: { patientId, isActive: true },
+    where: { clientId, isActive: true },
     include: {
       template: {
         select: { id: true, name: true, frequency: true },
@@ -182,7 +182,7 @@ export async function getCheckInAssignmentsForPatient(patientId: string) {
 
 export async function submitCheckInResponse(
   assignmentId: string,
-  patientId: string,
+  clientId: string,
   answers: Record<string, unknown>
 ) {
   const assignment = await prisma.checkInAssignment.findUnique({
@@ -191,13 +191,13 @@ export async function submitCheckInResponse(
   });
 
   if (!assignment) throw new Error("Assignment not found");
-  if (assignment.patientId !== patientId) throw new Error("Forbidden");
+  if (assignment.clientId !== clientId) throw new Error("Forbidden");
 
   const [response] = await Promise.all([
     prisma.checkInResponse.create({
       data: {
         assignmentId,
-        patientId,
+        clientId,
         answers: answers as Prisma.InputJsonValue,
         submittedAt: new Date(),
       },
@@ -216,21 +216,21 @@ export async function submitCheckInResponse(
   return response;
 }
 
-// ─── Clinician review queries ────────────────────────────────────────────────
+// ─── Trainer review queries ────────────────────────────────────────────────
 
-export async function getResponsesForClinician(
-  clinicianId: string,
-  patientId?: string
+export async function getResponsesForTrainer(
+  trainerId: string,
+  clientId?: string
 ) {
   return prisma.checkInResponse.findMany({
     where: {
       assignment: {
-        clinicianId,
-        ...(patientId && { patientId }),
+        trainerId,
+        ...(clientId && { clientId }),
       },
     },
     include: {
-      patient: { select: { id: true, firstName: true, lastName: true } },
+      client: { select: { id: true, firstName: true, lastName: true } },
       assignment: {
         include: {
           template: { select: { id: true, name: true, frequency: true } },
@@ -246,7 +246,7 @@ export async function getResponseById(responseId: string) {
   return prisma.checkInResponse.findUnique({
     where: { id: responseId },
     include: {
-      patient: { select: { id: true, firstName: true, lastName: true } },
+      client: { select: { id: true, firstName: true, lastName: true } },
       assignment: {
         include: {
           template: {
@@ -261,16 +261,16 @@ export async function getResponseById(responseId: string) {
 export async function addCoachNotes(
   responseId: string,
   coachNotes: string,
-  clinicianId: string
+  trainerId: string
 ) {
-  // Verify ownership via the assignment clinicianId
+  // Verify ownership via the assignment trainerId
   const response = await prisma.checkInResponse.findUnique({
     where: { id: responseId },
-    include: { assignment: { select: { clinicianId: true } } },
+    include: { assignment: { select: { trainerId: true } } },
   });
 
   if (!response) throw new Error("Response not found");
-  if (response.assignment.clinicianId !== clinicianId)
+  if (response.assignment.trainerId !== trainerId)
     throw new Error("Forbidden");
 
   return prisma.checkInResponse.update({
@@ -285,15 +285,15 @@ export async function addCoachNotes(
 
 export async function markResponseReviewed(
   responseId: string,
-  clinicianId: string
+  trainerId: string
 ) {
   const response = await prisma.checkInResponse.findUnique({
     where: { id: responseId },
-    include: { assignment: { select: { clinicianId: true } } },
+    include: { assignment: { select: { trainerId: true } } },
   });
 
   if (!response) throw new Error("Response not found");
-  if (response.assignment.clinicianId !== clinicianId)
+  if (response.assignment.trainerId !== trainerId)
     throw new Error("Forbidden");
 
   return prisma.checkInResponse.update({
@@ -302,10 +302,10 @@ export async function markResponseReviewed(
   });
 }
 
-export async function getUnreviewedCount(clinicianId: string): Promise<number> {
+export async function getUnreviewedCount(trainerId: string): Promise<number> {
   return prisma.checkInResponse.count({
     where: {
-      assignment: { clinicianId },
+      assignment: { trainerId },
       isReviewed: false,
     },
   });

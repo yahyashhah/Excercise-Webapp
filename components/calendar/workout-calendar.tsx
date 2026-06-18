@@ -13,12 +13,12 @@ import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 // CSS Overrides to match our theme could be placed in a corresponding CSS file or globals.css
 // But we'll rely on basic functionality first.
 
-import { getPatientWorkoutSessions, updateSessionDate } from "@/actions/calendar-actions";
+import { getClientWorkoutSessions, updateSessionDate } from "@/actions/calendar-actions";
 import { Loader2 } from "lucide-react";
 
 interface WorkoutSessionEvent extends CalendarEvent {
   id: string;
-  patientId: string;
+  clientId: string;
   sourceResource?: any;
 }
 
@@ -37,12 +37,12 @@ const localizer = dateFnsLocalizer({
 const DnDCalendar = withDragAndDrop<WorkoutSessionEvent>(Calendar);
 
 export default function WorkoutCalendar({ 
-  patientId, 
-  isClinician = false,
+  clientId, 
+  isTrainer = false,
   initialSessions
 }: { 
-  patientId: string, 
-  isClinician?: boolean,
+  clientId: string, 
+  isTrainer?: boolean,
   initialSessions?: any[]
 }) {
   const [events, setEvents] = useState<WorkoutSessionEvent[]>([]);
@@ -55,7 +55,7 @@ export default function WorkoutCalendar({
       .filter((session: any) => session.scheduledDate)
       .map((session: any) => ({
         id: session.id,
-        patientId: session.patientId,
+        clientId: session.clientId,
         title: session.plan?.title || "Workout Session",
         start: new Date(session.scheduledDate as Date),
         end: new Date(new Date(session.scheduledDate as Date).getTime() + 60 * 60 * 1000), // Append hour
@@ -67,7 +67,7 @@ export default function WorkoutCalendar({
   const fetchEvents = async () => {
     setLoading(true);
     try {
-      const response = await getPatientWorkoutSessions(patientId);
+      const response = await getClientWorkoutSessions(clientId);
       if (response.success && response.sessions) {
         setEvents(mapSessionsToEvents(response.sessions));
       } else {
@@ -87,11 +87,11 @@ export default function WorkoutCalendar({
     } else {
       fetchEvents();
     }
-  }, [patientId, initialSessions]);
+  }, [clientId, initialSessions]);
 
   const onEventDrop: withDragAndDropProps<WorkoutSessionEvent>["onEventDrop"] = async ({ event, start, end, isAllDay: droppedOnAllDaySlot }) => {
-    if (!isClinician) {
-      toast.error("Only clinicians can reschedule from the calendar view.");
+    if (!isTrainer) {
+      toast.error("Only trainers can reschedule from the calendar view.");
       return;
     }
 
@@ -138,7 +138,7 @@ export default function WorkoutCalendar({
         selectable
         style={{ height: "100%" }}
         className="font-sans text-sm"
-        draggableAccessor={() => isClinician}
+        draggableAccessor={() => isTrainer}
         tooltipAccessor={(event) => (event.title ? String(event.title) : "")}
         eventPropGetter={(event) => {
            let backgroundColor = "hsl(var(--primary))";

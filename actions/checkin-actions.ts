@@ -5,10 +5,10 @@ import { revalidatePath } from "next/cache";
 import * as checkinService from "@/lib/services/checkin.service";
 import type { CreateTemplateInput } from "@/lib/services/checkin.service";
 
-// ─── Clinician actions ────────────────────────────────────────────────────────
+// ─── Trainer actions ────────────────────────────────────────────────────────
 
 export async function createCheckInTemplateAction(data: CreateTemplateInput) {
-  const user = await requireRole("CLINICIAN");
+  const user = await requireRole("TRAINER");
 
   if (!data.name?.trim()) {
     return { success: false as const, error: "Template name is required" };
@@ -35,22 +35,22 @@ export async function createCheckInTemplateAction(data: CreateTemplateInput) {
 
 export async function assignCheckInAction(
   templateId: string,
-  patientId: string
+  clientId: string
 ) {
-  const user = await requireRole("CLINICIAN");
+  const user = await requireRole("TRAINER");
 
-  if (!templateId || !patientId) {
-    return { success: false as const, error: "Template and patient are required" };
+  if (!templateId || !clientId) {
+    return { success: false as const, error: "Template and client are required" };
   }
 
   try {
-    const assignment = await checkinService.assignTemplateToPatient(
+    const assignment = await checkinService.assignTemplateToClient(
       templateId,
-      patientId,
+      clientId,
       user.id
     );
     revalidatePath("/check-ins");
-    revalidatePath(`/patients/${patientId}`);
+    revalidatePath(`/clients/${clientId}`);
     return { success: true as const, data: assignment };
   } catch (error) {
     console.error("Failed to assign check-in:", error);
@@ -59,7 +59,7 @@ export async function assignCheckInAction(
 }
 
 export async function addCoachNotesAction(responseId: string, notes: string) {
-  const user = await requireRole("CLINICIAN");
+  const user = await requireRole("TRAINER");
 
   if (!notes?.trim()) {
     return { success: false as const, error: "Notes cannot be empty" };
@@ -81,7 +81,7 @@ export async function addCoachNotesAction(responseId: string, notes: string) {
 }
 
 export async function markReviewedAction(responseId: string) {
-  const user = await requireRole("CLINICIAN");
+  const user = await requireRole("TRAINER");
 
   try {
     const response = await checkinService.markResponseReviewed(
@@ -97,7 +97,7 @@ export async function markReviewedAction(responseId: string) {
   }
 }
 
-// ─── Patient actions ──────────────────────────────────────────────────────────
+// ─── Client actions ──────────────────────────────────────────────────────────
 
 export async function submitCheckInResponseAction(
   assignmentId: string,
@@ -105,7 +105,7 @@ export async function submitCheckInResponseAction(
 ) {
   const user = await getCurrentUser();
 
-  if (user.role !== "PATIENT") {
+  if (user.role !== "CLIENT") {
     return { success: false as const, error: "Unauthorized" };
   }
 

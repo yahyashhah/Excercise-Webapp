@@ -24,14 +24,14 @@ interface Props {
 
 export default async function ExercisesPage({ searchParams }: Props) {
   const [user, { orgId: sessionOrgId }] = await Promise.all([
-    requireRole("CLINICIAN"),
+    requireRole("TRAINER"),
     auth(),
   ]);
   const params = await searchParams;
-  const activeSource = params.source === "CLINIC" ? "CLINIC" : "UNIVERSAL";
+  const activeSource = params.source === "ORGANIZATION" ? "ORGANIZATION" : "UNIVERSAL";
 
   // Prefer live session orgId — dbUser.clerkOrgId may be null for accounts created before orgs were set up
-  const clinicOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
+  const organizationOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
 
   const exercises = await getExercises({
     search: params.search,
@@ -40,7 +40,7 @@ export default async function ExercisesPage({ searchParams }: Props) {
     exercisePhase: params.exercisePhase as ExercisePhase | undefined,
     equipment: params.equipment,
     source: activeSource as ExerciseSource,
-    organizationId: activeSource === "CLINIC" ? clinicOrgId : undefined,
+    organizationId: activeSource === "ORGANIZATION" ? organizationOrgId : undefined,
   });
 
   const tabUrl = (source: string) => {
@@ -78,7 +78,7 @@ export default async function ExercisesPage({ searchParams }: Props) {
       </div>
 
       <div className="flex gap-1 border-b">
-        {(["UNIVERSAL", "CLINIC"] as const).map((src) => (
+        {(["UNIVERSAL", "ORGANIZATION"] as const).map((src) => (
           <Link
             key={src}
             href={tabUrl(src)}
@@ -89,7 +89,7 @@ export default async function ExercisesPage({ searchParams }: Props) {
                 : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
-            {src === "UNIVERSAL" ? "Universal" : "My Clinic"}
+            {src === "UNIVERSAL" ? "Universal" : "My Organization"}
           </Link>
         ))}
       </div>
@@ -103,8 +103,8 @@ export default async function ExercisesPage({ searchParams }: Props) {
           <Dumbbell className="mx-auto h-12 w-12 text-muted-foreground/40" />
           <h3 className="mt-4 font-semibold">No exercises found</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            {activeSource === "CLINIC"
-              ? "Your clinic hasn't added any exercises yet."
+            {activeSource === "ORGANIZATION"
+              ? "Your organization hasn't added any exercises yet."
               : "Try adjusting your filters, or add a new exercise to the library."}
           </p>
         </div>
@@ -123,11 +123,11 @@ export default async function ExercisesPage({ searchParams }: Props) {
               imageUrl={exercise.imageUrl}
               videoUrl={exercise.videoUrl}
               isActive={exercise.isActive}
-              isClinician
+              isTrainer
               source={exercise.source}
               isPublic={exercise.isPublic}
               organizationId={exercise.organizationId}
-              clinicOrganizationId={clinicOrgId}
+              organizationOrganizationId={organizationOrgId}
             />
           ))}
         </div>

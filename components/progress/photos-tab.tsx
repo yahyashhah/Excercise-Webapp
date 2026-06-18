@@ -18,7 +18,7 @@ interface ProgressPhoto {
 
 interface PhotosTabProps {
   photos: ProgressPhoto[];
-  patientId: string;
+  clientId: string;
 }
 
 const ANGLE_COLORS: Record<string, string> = {
@@ -38,7 +38,7 @@ function groupByMonth(photos: ProgressPhoto[]): Map<string, ProgressPhoto[]> {
   return map;
 }
 
-export function PhotosTab({ photos, patientId: _patientId }: PhotosTabProps) {
+export function PhotosTab({ photos, clientId: _clientId }: PhotosTabProps) {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [localPhotos, setLocalPhotos] = useState<ProgressPhoto[]>(photos);
 
@@ -61,7 +61,7 @@ export function PhotosTab({ photos, patientId: _patientId }: PhotosTabProps) {
           No progress photos yet
         </p>
         <p className="text-sm text-muted-foreground/70">
-          Photos will appear here once the patient uploads them.
+          Photos will appear here once the client uploads them.
         </p>
       </div>
     );

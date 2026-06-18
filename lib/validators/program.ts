@@ -69,7 +69,7 @@ export const updateProgramSchema = createProgramSchema.partial().extend({
 
 export const assignProgramSchema = z.object({
   programId: z.string().min(1),
-  patientId: z.string().min(1),
+  clientId: z.string().min(1),
   startDate: z.string().datetime(),
 });
 
@@ -77,7 +77,7 @@ export const programFilterSchema = z.object({
   search: z.string().optional(),
   status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "COMPLETED", "ARCHIVED"]).optional(),
   isTemplate: z.boolean().optional(),
-  patientId: z.string().optional(),
+  clientId: z.string().optional(),
 });
 
 // --- Inferred types ---

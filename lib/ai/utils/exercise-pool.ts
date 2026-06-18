@@ -6,12 +6,12 @@ interface ExerciseWithContraindications {
 
 export function filterByContraindications<T extends ExerciseWithContraindications>(
   exercises: T[],
-  patientLimitations: string[]
+  clientLimitations: string[]
 ): T[] {
-  if (patientLimitations.length === 0) return exercises
+  if (clientLimitations.length === 0) return exercises
   return exercises.filter(exercise => {
     const contraLower = exercise.contraindications.map(c => c.toLowerCase())
-    return !patientLimitations.some(limitation =>
+    return !clientLimitations.some(limitation =>
       contraLower.some(
         contra =>
           contra.includes(limitation.toLowerCase()) ||
@@ -46,4 +46,23 @@ export function buildWeekPoolWhereClause(
   }
 
   return clause
+}
+
+interface ExerciseWithEquipment {
+  id: string
+  equipmentRequired: string[]
+}
+
+export function filterByEquipment<T extends ExerciseWithEquipment>(
+  exercises: T[],
+  availableEquipment: string[]
+): T[] {
+  if (availableEquipment.length === 0) return exercises
+  return exercises.filter(exercise => {
+    const required = exercise.equipmentRequired.filter(
+      e => e && e.toLowerCase() !== 'none'
+    )
+    if (required.length === 0) return true
+    return required.every(e => availableEquipment.includes(e))
+  })
 }

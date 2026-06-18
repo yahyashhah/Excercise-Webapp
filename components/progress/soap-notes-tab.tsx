@@ -31,7 +31,7 @@ interface ClinicalNote {
 
 interface SoapNotesTabProps {
   notes: ClinicalNote[];
-  patientId: string;
+  clientId: string;
 }
 
 const SECTION_STYLES = {
@@ -140,7 +140,7 @@ function NoteCard({
   );
 }
 
-export function SoapNotesTab({ notes: initialNotes, patientId }: SoapNotesTabProps) {
+export function SoapNotesTab({ notes: initialNotes, clientId }: SoapNotesTabProps) {
   const [notes, setNotes] = useState<ClinicalNote[]>(initialNotes);
   const [showNewForm, setShowNewForm] = useState(false);
   const [editingNote, setEditingNote] = useState<ClinicalNote | null>(null);
@@ -150,7 +150,7 @@ export function SoapNotesTab({ notes: initialNotes, patientId }: SoapNotesTabPro
   async function handleDeleteConfirm() {
     if (!deletingNoteId) return;
     setIsDeleting(true);
-    const result = await deleteClinicalNoteAction(deletingNoteId, patientId);
+    const result = await deleteClinicalNoteAction(deletingNoteId, clientId);
     if (result.success) {
       setNotes((prev) => prev.filter((n) => n.id !== deletingNoteId));
     }
@@ -179,7 +179,7 @@ export function SoapNotesTab({ notes: initialNotes, patientId }: SoapNotesTabPro
         <div className="rounded-xl border-0 shadow-sm ring-1 ring-border/50 bg-card p-5">
           <h3 className="font-semibold text-sm mb-4">New SOAP Note</h3>
           <ClinicalNoteForm
-            patientId={patientId}
+            clientId={clientId}
             onSuccess={() => setShowNewForm(false)}
             onCancel={() => setShowNewForm(false)}
           />
@@ -191,7 +191,7 @@ export function SoapNotesTab({ notes: initialNotes, patientId }: SoapNotesTabPro
         <div className="rounded-xl border-0 shadow-sm ring-1 ring-border/50 bg-card p-5">
           <h3 className="font-semibold text-sm mb-4">Edit SOAP Note</h3>
           <ClinicalNoteForm
-            patientId={patientId}
+            clientId={clientId}
             existingNote={editingNote}
             onSuccess={() => setEditingNote(null)}
             onCancel={() => setEditingNote(null)}
@@ -238,7 +238,7 @@ export function SoapNotesTab({ notes: initialNotes, patientId }: SoapNotesTabPro
             <AlertDialogTitle>Delete SOAP Note</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. The clinical note will be permanently
-              removed from the patient record.
+              removed from the client record.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -14,14 +14,14 @@ import { Loader2 } from "lucide-react";
 
 interface Props {
   role: string;
-  selfPatientId?: string;
-  patients: { id: string; firstName: string; lastName: string }[];
+  selfClientId?: string;
+  clients: { id: string; firstName: string; lastName: string }[];
 }
 
-export function NewAssessmentForm({ role, selfPatientId, patients }: Props) {
+export function NewAssessmentForm({ role, selfClientId, clients }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [patientId, setPatientId] = useState(selfPatientId ?? "");
+  const [clientId, setClientId] = useState(selfClientId ?? "");
   const [assessmentType, setAssessmentType] = useState("");
   const [value, setValue] = useState("");
   const [notes, setNotes] = useState("");
@@ -31,8 +31,8 @@ export function NewAssessmentForm({ role, selfPatientId, patients }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (role === "CLINICIAN" && !patientId) {
-      toast.error("Please select a patient");
+    if (role === "TRAINER" && !clientId) {
+      toast.error("Please select a client");
       return;
     }
     if (!assessmentType) {
@@ -46,7 +46,7 @@ export function NewAssessmentForm({ role, selfPatientId, patients }: Props) {
 
     setLoading(true);
     const result = await createAssessmentAction({
-      patientId: role === "PATIENT" ? undefined : patientId,
+      clientId: role === "CLIENT" ? undefined : clientId,
       assessmentType,
       value: parseFloat(value),
       unit: selectedType?.unit ?? "",
@@ -68,31 +68,31 @@ export function NewAssessmentForm({ role, selfPatientId, patients }: Props) {
         <CardHeader>
           <CardTitle>Record Assessment</CardTitle>
           <CardDescription>
-            {role === "PATIENT"
+            {role === "CLIENT"
               ? "Track your own measurements and outcomes."
-              : "Record a clinical measurement for one of your patients."}
+              : "Record a clinical measurement for one of your clients."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* Patient selector — clinicians only */}
-          {role === "CLINICIAN" && (
+          {/* Client selector — trainers only */}
+          {role === "TRAINER" && (
             <div className="space-y-2">
               <Label>
-                Patient <span className="text-destructive">*</span>
+                Client <span className="text-destructive">*</span>
               </Label>
-              {patients.length === 0 ? (
+              {clients.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No linked patients. Add patients from the Patients page first.
+                  No linked clients. Add clients from the Clients page first.
                 </p>
               ) : (
                 <select
                   className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={patientId}
-                  onChange={(e) => setPatientId(e.target.value)}
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
                   required
                 >
-                  <option value="">Select a patient</option>
-                  {patients.map((p) => (
+                  <option value="">Select a client</option>
+                  {clients.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.firstName} {p.lastName}
                     </option>

@@ -16,14 +16,14 @@ import type { GeneratedWorkout } from "@/lib/ai/schemas/workout-output";
 interface AIStreamPreviewProps {
   workout: GeneratedWorkout | null;
   isGenerating: boolean;
-  patientId: string;
+  clientId: string;
   onRegenerate: () => void;
 }
 
 export function AIStreamPreview({
   workout,
   isGenerating,
-  patientId,
+  clientId,
   onRegenerate,
 }: AIStreamPreviewProps) {
   const router = useRouter();
@@ -59,7 +59,7 @@ export function AIStreamPreview({
     setIsSaving(true);
     try {
       const result = await saveWorkoutPlan({
-        patientId,
+        clientId,
         title: workout.title,
         description: workout.description,
         durationMinutes: workout.durationMinutes,

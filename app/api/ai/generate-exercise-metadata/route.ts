@@ -9,14 +9,14 @@ import { extractYouTubeId } from "@/lib/utils/video";
 
 const metadataFields = {
   description: z.string().describe("2-3 sentence clinical description of the exercise and its purpose in a rehabilitation or senior fitness context"),
-  instructions: z.string().describe("Clear step-by-step instructions for the patient, numbered list format, safety-first"),
+  instructions: z.string().describe("Clear step-by-step instructions for the client, numbered list format, safety-first"),
   bodyRegion: z.enum(["LOWER_BODY", "UPPER_BODY", "CORE", "FULL_BODY", "BALANCE", "FLEXIBILITY"]).describe("Primary body region targeted"),
   difficultyLevel: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]).describe("Appropriate difficulty level for a senior/rehab population — default to BEGINNER unless clearly advanced"),
   exercisePhase: z.enum(["WARMUP", "ACTIVATION", "STRENGTHENING", "MOBILITY", "COOLDOWN"]).describe("Workout phase this exercise best fits"),
   musclesTargeted: z.array(z.string()).describe("Primary muscles worked, e.g. ['Quadriceps', 'Glutes']"),
   equipmentRequired: z.array(z.enum(["None", "Resistance Band", "Dumbbells", "Yoga Mat", "Stability Ball", "Foam Roller", "Chair", "Wall", "Towel", "Step/Stair"])).describe("Equipment needed from the standard list"),
   contraindications: z.array(z.string()).describe("Medical conditions where this exercise should be avoided, e.g. ['Acute knee injury', 'Total knee replacement < 6 weeks']"),
-  commonMistakes: z.string().describe("2-3 common form errors patients make and concise corrections"),
+  commonMistakes: z.string().describe("2-3 common form errors clients make and concise corrections"),
   defaultSets: z.number().int().min(1).max(10).describe("Recommended sets"),
   defaultReps: z.number().int().min(1).max(60).describe("Recommended reps per set"),
 };
@@ -31,7 +31,7 @@ const youtubeSchema = z.object({
 });
 
 const SYSTEM_PROMPT = `You are an expert physical therapist specializing in senior rehabilitation and geriatric fitness.
-Patients are typically older adults (60+) recovering from injury or surgery, or managing chronic conditions.
+Clients are typically older adults (60+) recovering from injury or surgery, or managing chronic conditions.
 All metadata must be conservative, evidence-based, and safe for this population.`;
 
 export async function POST(req: Request) {
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
-    if (!dbUser || dbUser.role !== "CLINICIAN") {
+    if (!dbUser || dbUser.role !== "TRAINER") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
 
 ${contextParts.join("\n\n")}
 
-Based on all available information above, create a clean exercise name and full clinical metadata appropriate for senior rehabilitation patients. Prioritise the transcript and description for accurate instructions and clinical details — use the title primarily for the exercise name.`,
+Based on all available information above, create a clean exercise name and full clinical metadata appropriate for senior rehabilitation clients. Prioritise the transcript and description for accurate instructions and clinical details — use the title primarily for the exercise name.`,
       });
 
       return NextResponse.json({
@@ -138,7 +138,7 @@ Based on all available information above, create a clean exercise name and full 
 
 Exercise name: "${name}"
 
-Provide practical, evidence-based metadata a physical therapist would give their senior patients.`,
+Provide practical, evidence-based metadata a physical therapist would give their senior clients.`,
     });
 
     return NextResponse.json({ success: true, data: object });

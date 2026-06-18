@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface SidebarProps {
-  role: "CLINICIAN" | "PATIENT";
+  role: "TRAINER" | "CLIENT";
   currentPath: string;
   unreadMessageCount: number;
   userName: string;
@@ -33,9 +33,9 @@ interface SidebarProps {
   isAdmin?: boolean;
 }
 
-const clinicianLinks = [
+const trainerLinks = [
   { href: "/dashboard",   label: "Dashboard",   icon: LayoutDashboard },
-  { href: "/patients",    label: "Clients",      icon: Users },
+  { href: "/clients",    label: "Clients",      icon: Users },
   { href: "/programs",    label: "Programs",     icon: Library },
   { href: "/exercises",   label: "Exercises",    icon: Dumbbell },
   // { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
@@ -44,7 +44,7 @@ const clinicianLinks = [
   // { href: "/assessments", label: "Assessments",  icon: BarChart3 },
 ];
 
-const patientLinks = [
+const clientLinks = [
   { href: "/dashboard",   label: "Dashboard",    icon: LayoutDashboard },
   { href: "/programs",    label: "My Programs",  icon: ClipboardList },
   // { href: "/habits",      label: "Habits",       icon: Flame },
@@ -63,7 +63,7 @@ export function Sidebar({
   isAdmin = false,
 }: SidebarProps) {
   const pathname = usePathname();
-  const links = role === "CLINICIAN" ? clinicianLinks : patientLinks;
+  const links = role === "TRAINER" ? trainerLinks : clientLinks;
 
   const navItem = (href: string, label: string, Icon: React.ElementType, badge?: React.ReactNode) => {
     const isActive =
@@ -109,7 +109,7 @@ export function Sidebar({
             INMOTUS RX
           </span>
           <p className="text-[10px] font-medium text-sidebar-foreground/40 uppercase tracking-widest">
-            {role === "CLINICIAN" ? "Clinician Portal" : "Patient Portal"}
+            {role === "TRAINER" ? "Trainer Portal" : "Client Portal"}
           </p>
         </div>
       </div>

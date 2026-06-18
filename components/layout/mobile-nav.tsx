@@ -26,14 +26,14 @@ interface MobileNavProps {
 }
 
 const navItems = [
-  { label: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard, roles: ["clinician", "patient"] },
-  { label: "Exercises", href: ROUTES.EXERCISES, icon: Dumbbell, roles: ["clinician", "patient"] },
-  { label: "Programs", href: "/programs", icon: Library, roles: ["clinician"] },
-  { label: "Workout Plans", href: ROUTES.WORKOUT_PLANS, icon: ClipboardList, roles: ["clinician", "patient"] },
-  { label: "Clients", href: ROUTES.PATIENTS, icon: Users, roles: ["clinician"] },
-  { label: "Messages", href: ROUTES.MESSAGES, icon: MessageSquare, roles: ["clinician", "patient"] },
-  // { label: "Assessments", href: ROUTES.ASSESSMENTS, icon: BarChart3, roles: ["clinician", "patient"] },
-  { label: "Settings", href: ROUTES.SETTINGS, icon: Settings, roles: ["clinician", "patient"] },
+  { label: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard, roles: ["trainer", "client"] },
+  { label: "Exercises", href: ROUTES.EXERCISES, icon: Dumbbell, roles: ["trainer", "client"] },
+  { label: "Programs", href: "/programs", icon: Library, roles: ["trainer"] },
+  { label: "Workout Plans", href: ROUTES.WORKOUT_PLANS, icon: ClipboardList, roles: ["trainer", "client"] },
+  { label: "Clients", href: ROUTES.CLIENTS, icon: Users, roles: ["trainer"] },
+  { label: "Messages", href: ROUTES.MESSAGES, icon: MessageSquare, roles: ["trainer", "client"] },
+  // { label: "Assessments", href: ROUTES.ASSESSMENTS, icon: BarChart3, roles: ["trainer", "client"] },
+  { label: "Settings", href: ROUTES.SETTINGS, icon: Settings, roles: ["trainer", "client"] },
 ];
 
 export function MobileNav({ open, onOpenChange, unreadCount }: MobileNavProps) {

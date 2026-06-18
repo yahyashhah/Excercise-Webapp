@@ -23,7 +23,7 @@ import {
 import { Search, Play, X, Plus, ArrowLeft, Globe, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
-import { createClinicExerciseAction, toggleExercisePublicAction } from "@/actions/exercise-actions";
+import { createOrganizationExerciseAction, toggleExercisePublicAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
 
 interface Exercise {
@@ -47,7 +47,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   exercises: Exercise[];
   onSelect: (exercise: Exercise) => void;
-  clinicOrganizationId?: string | null;
+  organizationOrganizationId?: string | null;
 }
 
 const PHASES = [
@@ -128,7 +128,7 @@ function FilterBar({ search, setSearch, phase, setPhase, bodyRegion, setRegion }
 
 interface ExerciseListProps {
   list: Exercise[];
-  showClinicControls?: boolean;
+  showOrganizationControls?: boolean;
   phase: string;
   setPhase: (v: string) => void;
   setRegion: (v: string) => void;
@@ -140,7 +140,7 @@ interface ExerciseListProps {
 
 function ExerciseList({
   list,
-  showClinicControls,
+  showOrganizationControls,
   phase,
   setPhase,
   setRegion,
@@ -170,7 +170,7 @@ function ExerciseList({
                       <Play className="h-2.5 w-2.5" /> Video
                     </span>
                   )}
-                  {showClinicControls && ex.source === "CLINIC" && (
+                  {showOrganizationControls && ex.source === "ORGANIZATION" && (
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onTogglePublic(ex, !ex.isPublic); }}
@@ -228,7 +228,7 @@ export function ExercisePickerDialog({
   onOpenChange,
   exercises,
   onSelect,
-  clinicOrganizationId,
+  organizationOrganizationId,
 }: Props) {
   const [search, setSearch]     = useState("");
   const [phase, setPhase]       = useState<string>("all");
@@ -258,16 +258,16 @@ export function ExercisePickerDialog({
 
   const universalExercises = useMemo(
     () => allExercises.filter(
-      (ex) => ex.source === "UNIVERSAL" || (ex.source === "CLINIC" && ex.isPublic)
+      (ex) => ex.source === "UNIVERSAL" || (ex.source === "ORGANIZATION" && ex.isPublic)
     ),
     [allExercises]
   );
 
-  const myClinicExercises = useMemo(
+  const myOrganizationExercises = useMemo(
     () => allExercises.filter(
-      (ex) => ex.source === "CLINIC" && ex.organizationId === clinicOrganizationId
+      (ex) => ex.source === "ORGANIZATION" && ex.organizationId === organizationOrganizationId
     ),
-    [allExercises, clinicOrganizationId]
+    [allExercises, organizationOrganizationId]
   );
 
   function applyFilters(list: Exercise[]) {
@@ -281,7 +281,7 @@ export function ExercisePickerDialog({
   }
 
   const filteredUniversal = useMemo(() => applyFilters(universalExercises), [universalExercises, search, phase, bodyRegion]);
-  const filteredMyClinic  = useMemo(() => applyFilters(myClinicExercises),  [myClinicExercises,  search, phase, bodyRegion]);
+  const filteredMyOrganization  = useMemo(() => applyFilters(myOrganizationExercises),  [myOrganizationExercises,  search, phase, bodyRegion]);
 
   function handleClose() {
     setView("list");
@@ -312,7 +312,7 @@ export function ExercisePickerDialog({
     }
 
     startTransition(async () => {
-      const result = await createClinicExerciseAction({
+      const result = await createOrganizationExerciseAction({
         name: createForm.name,
         description: createForm.description || undefined,
         bodyRegion: createForm.bodyRegion,
@@ -332,7 +332,7 @@ export function ExercisePickerDialog({
           videoUrl: result.data.videoUrl ?? null,
           videoProvider: result.data.videoProvider ?? null,
           description: result.data.description ?? null,
-          source: "CLINIC",
+          source: "ORGANIZATION",
           organizationId: result.data.organizationId ?? null,
           isPublic: result.data.isPublic,
         };
@@ -364,7 +364,7 @@ export function ExercisePickerDialog({
               ) : (
                 <DialogTitle>Add Exercise</DialogTitle>
               )}
-              {view === "list" && clinicOrganizationId && (
+              {view === "list" && organizationOrganizationId && (
                 <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setView("create")}>
                   <Plus className="h-3.5 w-3.5" />
                   Create New
@@ -453,8 +453,8 @@ export function ExercisePickerDialog({
 
                 <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
                   <div>
-                    <p className="text-sm font-medium">Visible to all clinics</p>
-                    <p className="text-xs text-muted-foreground">When on, this exercise appears in the Universal tab for all clinics</p>
+                    <p className="text-sm font-medium">Visible to all organizations</p>
+                    <p className="text-xs text-muted-foreground">When on, this exercise appears in the Universal tab for all organizations</p>
                   </div>
                   <button
                     type="button"
@@ -491,11 +491,11 @@ export function ExercisePickerDialog({
                 bodyRegion={bodyRegion}
                 setRegion={setRegion}
               />
-              {clinicOrganizationId ? (
+              {organizationOrganizationId ? (
                 <Tabs defaultValue="universal" className="flex flex-col flex-1 overflow-hidden">
                   <TabsList className="shrink-0 mx-4 mt-2 mb-1 h-8 text-xs">
                     <TabsTrigger value="universal" className="flex-1 text-xs h-6">Universal</TabsTrigger>
-                    <TabsTrigger value="my-clinic" className="flex-1 text-xs h-6">My Clinic</TabsTrigger>
+                    <TabsTrigger value="my-organization" className="flex-1 text-xs h-6">My Organization</TabsTrigger>
                   </TabsList>
                   <TabsContent value="universal" className="flex-1 overflow-hidden flex flex-col mt-0">
                     <ExerciseList
@@ -509,10 +509,10 @@ export function ExercisePickerDialog({
                       onTogglePublic={handleTogglePublic}
                     />
                   </TabsContent>
-                  <TabsContent value="my-clinic" className="flex-1 overflow-hidden flex flex-col mt-0">
+                  <TabsContent value="my-organization" className="flex-1 overflow-hidden flex flex-col mt-0">
                     <ExerciseList
-                      list={filteredMyClinic}
-                      showClinicControls
+                      list={filteredMyOrganization}
+                      showOrganizationControls
                       phase={phase}
                       setPhase={setPhase}
                       setRegion={setRegion}

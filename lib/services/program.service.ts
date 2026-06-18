@@ -7,19 +7,19 @@ import type {
 
 // --- Include presets ---
 const programListInclude = {
-  clinician: { select: { id: true, firstName: true, lastName: true } },
-  patient: { select: { id: true, firstName: true, lastName: true } },
+  trainer: { select: { id: true, firstName: true, lastName: true } },
+  client: { select: { id: true, firstName: true, lastName: true } },
   _count: { select: { workouts: true } },
 } satisfies Prisma.ProgramInclude;
 
 const programDetailInclude = {
-  clinician: { select: { id: true, firstName: true, lastName: true } },
-  patient: {
+  trainer: { select: { id: true, firstName: true, lastName: true } },
+  client: {
     select: {
       id: true,
       firstName: true,
       lastName: true,
-      patientProfile: true,
+      clientProfile: true,
     },
   },
   workouts: {
@@ -45,7 +45,7 @@ const programDetailInclude = {
 // --- CRUD ---
 
 export async function createProgram(
-  clinicianId: string,
+  trainerId: string,
   data: CreateProgramInput
 ) {
   const { workouts, startDate, ...rest } = data;
@@ -53,7 +53,7 @@ export async function createProgram(
   return prisma.program.create({
     data: {
       ...rest,
-      clinicianId,
+      trainerId,
       startDate: startDate ? new Date(startDate) : undefined,
       workouts: {
         create: workouts.map((w) => ({
@@ -110,15 +110,15 @@ export async function getProgramById(id: string) {
 }
 
 export async function getPrograms(
-  clinicianId: string,
+  trainerId: string,
   filters: ProgramFilterInput = {}
 ) {
   const where: Prisma.ProgramWhereInput = {
-    clinicianId,
+    trainerId,
     isGlobal: false,
     ...(filters.status && { status: filters.status as PlanStatus }),
     ...(filters.isTemplate !== undefined && { isTemplate: filters.isTemplate }),
-    ...(filters.patientId && { patientId: filters.patientId }),
+    ...(filters.clientId && { clientId: filters.clientId }),
     ...(filters.search && {
       name: { contains: filters.search, mode: "insensitive" as const },
     }),
@@ -214,7 +214,7 @@ export async function deleteProgram(id: string) {
 
 export async function duplicateProgram(
   id: string,
-  clinicianId: string,
+  trainerId: string,
   asTemplate = false
 ) {
   const source = await getProgramById(id);
@@ -259,7 +259,7 @@ export async function duplicateProgram(
     })),
   }));
 
-  return createProgram(clinicianId, {
+  return createProgram(trainerId, {
     name: `${source.name} (Copy)`,
     description: source.description,
     isTemplate: asTemplate,
@@ -274,13 +274,13 @@ export async function duplicateProgram(
 
 export async function assignProgram(
   programId: string,
-  patientId: string,
+  clientId: string,
   startDate: Date
 ) {
   // Narrow select: only pull the workout fields needed to compute session dates
   const program = await prisma.program.update({
     where: { id: programId },
-    data: { patientId, startDate, status: "ACTIVE" },
+    data: { clientId, startDate, status: "ACTIVE" },
     select: {
       id: true,
       workouts: { select: { id: true, dayIndex: true, weekIndex: true } },
@@ -292,7 +292,7 @@ export async function assignProgram(
       data: program.workouts.map((w) => {
         const d = new Date(startDate);
         d.setDate(d.getDate() + w.weekIndex * 7 + w.dayIndex);
-        return { workoutId: w.id, patientId, scheduledDate: d, status: "SCHEDULED" as const };
+        return { workoutId: w.id, clientId, scheduledDate: d, status: "SCHEDULED" as const };
       }),
     });
   }
@@ -300,17 +300,17 @@ export async function assignProgram(
   return program;
 }
 
-export async function getProgramsForPatient(patientId: string) {
+export async function getProgramsForClient(clientId: string) {
   return prisma.program.findMany({
-    where: { patientId, status: { in: ["ACTIVE", "PAUSED"] } },
+    where: { clientId, status: { in: ["ACTIVE", "PAUSED"] } },
     include: programListInclude,
     orderBy: { updatedAt: "desc" },
   });
 }
 
-export async function getTemplates(clinicianId: string) {
+export async function getTemplates(trainerId: string) {
   return prisma.program.findMany({
-    where: { clinicianId, isTemplate: true, status: { not: "ARCHIVED" } },
+    where: { trainerId, isTemplate: true, status: { not: "ARCHIVED" } },
     include: programListInclude,
     orderBy: { updatedAt: "desc" },
   });
@@ -333,7 +333,7 @@ export async function createGlobalProgram(data: CreateProgramInput) {
     data: {
       ...rest,
       isGlobal: true,
-      clinicianId: null,
+      trainerId: null,
       startDate: startDate ? new Date(startDate) : undefined,
       workouts: {
         create: workouts.map((w) => ({
@@ -474,12 +474,12 @@ export async function deleteGlobalProgram(id: string) {
   });
 }
 
-export async function copyGlobalProgramToClinic(
+export async function copyGlobalProgramToOrganization(
   globalProgramId: string,
-  clinicianId: string
+  trainerId: string
 ) {
   const source = await getProgramById(globalProgramId);
   if (!source) throw new Error("Program not found");
   if (!source.isGlobal) throw new Error("Program is not a global program");
-  return duplicateProgram(globalProgramId, clinicianId, false);
+  return duplicateProgram(globalProgramId, trainerId, false);
 }

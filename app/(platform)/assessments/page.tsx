@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/current-user";
 import { getAssessments } from "@/lib/services/outcome.service";
-import { getPatientIdsForClinician } from "@/lib/services/patient.service";
+import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,12 +31,12 @@ export default async function AssessmentsPage() {
   const user = await getCurrentUser();
 
   let assessments;
-  if (user.role === "CLINICIAN") {
-    const patientIds = await getPatientIdsForClinician(user.id);
+  if (user.role === "TRAINER") {
+    const clientIds = await getClientIdsForTrainer(user.id);
     assessments = await prisma.assessment.findMany({
-      where: { patientId: { in: patientIds } },
+      where: { clientId: { in: clientIds } },
       include: {
-        patient: { select: { firstName: true, lastName: true } },
+        client: { select: { firstName: true, lastName: true } },
       },
       orderBy: { createdAt: "desc" },
       take: 50,
@@ -75,7 +75,7 @@ export default async function AssessmentsPage() {
           </div>
           <h3 className="mt-5 text-lg font-semibold">No assessments yet</h3>
           <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-            Record measurements over time to track patient progress and outcomes.
+            Record measurements over time to track client progress and outcomes.
           </p>
           <Button
             className="mt-5 gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
@@ -110,9 +110,9 @@ export default async function AssessmentsPage() {
                     <p className="font-semibold leading-tight">
                       {formatAssessmentType(a.assessmentType)}
                     </p>
-                    {"patient" in a && a.patient && (
+                    {"client" in a && a.client && (
                       <p className="mt-0.5 text-sm font-medium text-primary">
-                        {a.patient.firstName} {a.patient.lastName}
+                        {a.client.firstName} {a.client.lastName}
                       </p>
                     )}
                     {a.notes && (

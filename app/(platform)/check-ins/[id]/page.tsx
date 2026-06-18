@@ -11,14 +11,14 @@ export default async function ResponseReviewPage({ params }: Props) {
   const { id } = await params;
   const user = await getCurrentUser();
 
-  // This page is clinician-only
-  if (user.role !== "CLINICIAN") redirect("/check-ins");
+  // This page is trainer-only
+  if (user.role !== "TRAINER") redirect("/check-ins");
 
   const response = await checkinService.getResponseById(id);
   if (!response) notFound();
 
-  // Verify the clinician owns this response's assignment
-  if (response.assignment.clinicianId !== user.id) redirect("/check-ins");
+  // Verify the trainer owns this response's assignment
+  if (response.assignment.trainerId !== user.id) redirect("/check-ins");
 
   const questions = response.assignment.template.questions;
 
@@ -36,7 +36,7 @@ export default async function ResponseReviewPage({ params }: Props) {
         isReviewed: response.isReviewed,
         reviewedAt: response.reviewedAt?.toISOString() ?? null,
         coachNotes: response.coachNotes ?? "",
-        patientName: `${response.patient.firstName} ${response.patient.lastName}`,
+        clientName: `${response.client.firstName} ${response.client.lastName}`,
         templateName: response.assignment.template.name,
         frequency: response.assignment.template.frequency,
       }}

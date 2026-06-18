@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, createContext, useContext } from "react";
 import {
   Calendar,
   dateFnsLocalizer,
@@ -20,15 +20,41 @@ import {
 import { enUS } from "date-fns/locale";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Plus, Dumbbell, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, Dumbbell, ChevronLeft, ChevronRight, Sparkles, MoreHorizontal, Copy } from "lucide-react";
 import { rescheduleSessionAction } from "@/actions/session-actions";
-import { createAdHocWorkout } from "@/actions/calendar-workout-actions";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  createAdHocWorkout,
+  deleteSession,
+  duplicateWorkoutToDateAction,
+} from "@/actions/calendar-workout-actions";
 import { WorkoutEditorPanel } from "@/components/calendar/workout-editor-panel";
 import { AssignProgramDialog } from "@/components/calendar/assign-program-dialog";
 import { AiGenerateProgramDialog } from "@/components/calendar/ai-generate-program-dialog";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useClipboard } from "@/lib/clipboard-context";
+
+// ---------------------------------------------------------------------------
+// Context
+// ---------------------------------------------------------------------------
+const CalendarPillCtx = createContext<{ onRefresh: () => void }>({
+  onRefresh: () => {},
+});
 
 // ---------------------------------------------------------------------------
 // Localizer
@@ -86,11 +112,11 @@ type PanelState =
   | { mode: "editing"; sessionId: string };
 
 interface ClientCalendarProps {
-  patientId: string;
-  clinicianId: string;
+  clientId: string;
+  trainerId: string;
   initialSessions: SessionSummary[];
   exerciseLibrary: ExerciseSummary[];
-  clinicOrganizationId?: string;
+  organizationOrganizationId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -116,25 +142,136 @@ const DnDCalendar = withDragAndDrop<SessionEvent>(Calendar);
 // Event pill component
 // ---------------------------------------------------------------------------
 function EventComponent({ event }: { event: SessionEvent }) {
+  const { onRefresh } = useContext(CalendarPillCtx);
   const c = statusConfig[event.status] ?? statusConfig.SCHEDULED;
+  const [dupeOpen, setDupeOpen] = useState(false);
+  const [dupeDate, setDupeDate] = useState("");
+  const [dupeLoading, setDupeLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      const result = await deleteSession(event.id);
+      if (result.success) {
+        toast.success("Workout deleted");
+        onRefresh();
+      } else {
+        toast.error(result.error ?? "Failed to delete");
+      }
+    } catch {
+      toast.error("Failed to delete");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function handleDuplicate() {
+    if (!dupeDate || dupeLoading) return;
+    setDupeLoading(true);
+    try {
+      const result = await duplicateWorkoutToDateAction(event.id, dupeDate);
+      if (result.success) {
+        toast.success("Workout duplicated");
+        setDupeOpen(false);
+        onRefresh();
+      } else {
+        toast.error(result.error ?? "Failed to duplicate");
+      }
+    } catch {
+      toast.error("Failed to duplicate");
+    } finally {
+      setDupeLoading(false);
+    }
+  }
+
   return (
-    <div
-      className="h-full overflow-hidden rounded-[5px] transition-opacity hover:opacity-90"
-      style={{
-        backgroundColor: c.bg,
-        borderLeft: `3px solid ${c.border}`,
-        color: c.text,
-      }}
-    >
-      <div className="px-2 py-1">
-        <p className="truncate text-[11px] font-semibold leading-tight">
-          {event.workoutName}
-        </p>
-        <p className="mt-0.5 text-[10px] opacity-60">
-          {event.exerciseCount} ex
-        </p>
+    <>
+      <div
+        className="h-full overflow-hidden rounded-[5px] transition-opacity hover:opacity-90"
+        style={{
+          backgroundColor: c.bg,
+          borderLeft: `3px solid ${c.border}`,
+          color: c.text,
+        }}
+      >
+        <div className="px-2 py-1 flex items-start justify-between gap-1">
+          <div className="flex-1 min-w-0">
+            <p className="truncate text-[11px] font-semibold leading-tight">
+              {event.workoutName}
+            </p>
+            <p className="mt-0.5 text-[10px] opacity-60">
+              {event.exerciseCount} ex
+            </p>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="shrink-0 flex h-5 w-5 items-center justify-center rounded opacity-60 hover:opacity-100 hover:bg-black/10 transition-opacity"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="h-3 w-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-44"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <DropdownMenuItem onClick={() => setDupeOpen(true)}>
+                <Copy className="mr-2 h-4 w-4" />
+                Duplicate to date
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={deleting}
+                onClick={handleDelete}
+              >
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-    </div>
+
+      <Dialog
+        open={dupeOpen}
+        onOpenChange={(open) => { setDupeOpen(open); if (!open) setDupeDate(""); }}
+      >
+        <DialogContent
+          className="sm:max-w-sm"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DialogHeader>
+            <DialogTitle>Duplicate Workout</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <p className="text-sm text-muted-foreground">
+              Choose a date to copy <strong>{event.workoutName}</strong> to.
+            </p>
+            <Input
+              type="date"
+              value={dupeDate}
+              onChange={(e) => setDupeDate(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDupeOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDuplicate}
+              disabled={!dupeDate || dupeLoading}
+            >
+              {dupeLoading ? "Duplicating…" : "Duplicate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -237,11 +374,11 @@ function CustomToolbar({
 // Main component
 // ---------------------------------------------------------------------------
 export function ClientCalendar({
-  patientId,
-  clinicianId,
+  clientId,
+  trainerId,
   initialSessions,
   exerciseLibrary,
-  clinicOrganizationId,
+  organizationOrganizationId,
 }: ClientCalendarProps) {
   const router = useRouter();
   const { clipboard } = useClipboard();
@@ -321,6 +458,7 @@ export function ClientCalendar({
   }, []);
 
   return (
+    <CalendarPillCtx.Provider value={{ onRefresh: handleRefresh }}>
     <div className="space-y-4">
       {/* Top bar: legend + assign program */}
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -337,7 +475,7 @@ export function ClientCalendar({
           ))}
         </div>
 
-        <AssignProgramDialog patientId={patientId} onSuccess={handleRefresh}>
+        <AssignProgramDialog clientId={clientId} onSuccess={handleRefresh}>
           <Button variant="outline" size="sm" className="h-8 gap-1.5 font-medium">
             <Dumbbell className="h-3.5 w-3.5" />
             Assign Program
@@ -391,8 +529,8 @@ export function ClientCalendar({
         panelState={panelState}
         onClose={handlePanelClose}
         exerciseLibrary={exerciseLibrary}
-        clinicOrganizationId={clinicOrganizationId}
-        patientId={patientId}
+        organizationOrganizationId={organizationOrganizationId}
+        clientId={clientId}
         onWorkoutCreated={handleRefresh}
         onWorkoutDeleted={handleRefresh}
         onWorkoutUpdated={handleRefresh}
@@ -405,11 +543,12 @@ export function ClientCalendar({
         <AiGenerateProgramDialog
           open={aiDialogDate !== null}
           onOpenChange={(open) => { if (!open) setAiDialogDate(null); }}
-          patientId={patientId}
+          clientId={clientId}
           initialDate={aiDialogDate}
           onSuccess={handleRefresh}
         />
       )}
     </div>
+    </CalendarPillCtx.Provider>
   );
 }

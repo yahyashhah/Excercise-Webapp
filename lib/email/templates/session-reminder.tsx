@@ -1,12 +1,12 @@
 import * as React from "react";
 
 interface SessionReminderEmailProps {
-  patientName: string;
+  clientName: string;
   sessionDate: string;
   sessionTime: string;
   workoutName: string;
   sessionLink: string;
-  clinicName?: string;
+  organizationName?: string;
 }
 
 /**
@@ -14,12 +14,12 @@ interface SessionReminderEmailProps {
  * Rendered server-side by Resend and sent as HTML email.
  */
 export function SessionReminderEmail({
-  patientName,
+  clientName,
   sessionDate,
   sessionTime,
   workoutName,
   sessionLink,
-  clinicName = "INMOTUS RX",
+  organizationName = "INMOTUS RX",
 }: SessionReminderEmailProps) {
   return (
     <html lang="en">
@@ -49,7 +49,7 @@ export function SessionReminderEmail({
                     {/* Header bar */}
                     <tr>
                       <td style={styles.headerBar}>
-                        <p style={styles.brandName}>{clinicName}</p>
+                        <p style={styles.brandName}>{organizationName}</p>
                       </td>
                     </tr>
 
@@ -57,7 +57,7 @@ export function SessionReminderEmail({
                     <tr>
                       <td style={styles.bodyPad}>
                         <p style={styles.greeting}>
-                          Hi {patientName},
+                          Hi {clientName},
                         </p>
                         <p style={styles.intro}>
                           This is a friendly reminder that you have a workout
@@ -112,12 +112,12 @@ export function SessionReminderEmail({
                     <tr>
                       <td style={styles.footer}>
                         <p style={styles.footerText}>
-                          &copy; {new Date().getFullYear()} {clinicName}. All
+                          &copy; {new Date().getFullYear()} {organizationName}. All
                           rights reserved.
                         </p>
                         <p style={styles.footerText}>
                           You received this email because you have a session
-                          scheduled on the {clinicName} platform.
+                          scheduled on the {organizationName} platform.
                         </p>
                       </td>
                     </tr>

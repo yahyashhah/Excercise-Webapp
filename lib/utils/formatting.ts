@@ -53,8 +53,8 @@ export function formatSessionStatus(status: string): string {
 
 export function formatUserRole(role: string): string {
   const map: Record<string, string> = {
-    CLINICIAN: "Clinician",
-    PATIENT: "Patient",
+    TRAINER: "Trainer",
+    CLIENT: "Client",
   };
   return map[role] || role;
 }

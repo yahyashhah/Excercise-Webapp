@@ -1,16 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BODY_REGIONS, DIFFICULTY_LEVELS } from "@/lib/utils/constants";
+import { DIFFICULTY_LEVELS, FITNESS_GOALS } from "@/lib/utils/constants";
 import { generateProgramAction } from "@/actions/program-actions";
 import { toast } from "sonner";
-import { ChevronDown, ChevronUp, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, ChevronsUpDown, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { getDistinctEquipmentAction } from "@/actions/program-actions";
 import { PlanReviewStep } from "@/components/programs/plan-review-step";
 import type { ClinicalPlan } from "@/lib/ai/types/program-generation";
 
@@ -35,7 +45,7 @@ const CIRCUIT_FOCUS_OPTIONS = [
   { value: "CARDIO", label: "Cardio" },
 ];
 
-interface PatientSummary {
+interface ClientSummary {
   id: string;
   firstName: string;
   lastName: string;
@@ -46,8 +56,10 @@ interface PatientSummary {
 }
 
 export type GenerateExercisesHandler = (params: {
-  patientId: string | null;
-  focusAreas: string[];
+  clientId: string | null;
+  programGoals: string[];
+  availableEquipment: string[];
+  startDate?: string | null;
   durationMinutes: number;
   daysPerWeek: number;
   durationWeeks: number;
@@ -58,15 +70,15 @@ export type GenerateExercisesHandler = (params: {
 }) => Promise<{ success: boolean; error?: string; data?: string }>;
 
 interface GenerateProgramFormProps {
-  patients: PatientSummary[];
-  initialPatientId?: string;
+  clients: ClientSummary[];
+  initialClientId?: string;
   onGenerateExercises?: GenerateExercisesHandler;
   redirectTo?: string;
 }
 
 type GenerateState = 'CONFIGURE' | 'PLANNING' | 'REVIEWING' | 'GENERATING';
 
-export function GenerateProgramForm({ patients, initialPatientId, onGenerateExercises, redirectTo }: GenerateProgramFormProps) {
+export function GenerateProgramForm({ clients, initialClientId, onGenerateExercises, redirectTo }: GenerateProgramFormProps) {
   const weekDays = [
     "Monday",
     "Tuesday",
@@ -81,8 +93,12 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
   const [generateState, setGenerateState] = useState<GenerateState>('CONFIGURE');
   const [clinicalPlan, setClinicalPlan] = useState<ClinicalPlan | null>(null);
   const [durationWeeks, setDurationWeeks] = useState(4);
-  const [selectedPatient, setSelectedPatient] = useState(initialPatientId ?? "");
-  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
+  const [selectedClient, setSelectedClient] = useState(initialClientId ?? "");
+  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
+  const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
+  const [equipmentOptions, setEquipmentOptions] = useState<string[]>([]);
+  const [equipmentOpen, setEquipmentOpen] = useState(false);
+  const [startDate, setStartDate] = useState("");
   const [difficulty, setDifficulty] = useState("BEGINNER");
   const [duration, setDuration] = useState(25);
   const [daysPerWeek, setDaysPerWeek] = useState(3);
@@ -97,9 +113,21 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
     { id: "3", name: "Cool Down", focusType: "COOLDOWN", exerciseCount: 3, rounds: 1, restBetweenRounds: null },
   ]);
 
-  function toggleArea(area: string) {
-    setSelectedAreas((prev) =>
-      prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area]
+  useEffect(() => {
+    getDistinctEquipmentAction().then(res => {
+      if (res.success) setEquipmentOptions(res.data);
+    });
+  }, []);
+
+  function toggleGoal(goal: string) {
+    setSelectedGoals(prev =>
+      prev.includes(goal) ? prev.filter(g => g !== goal) : [...prev, goal]
+    );
+  }
+
+  function toggleEquipment(item: string) {
+    setSelectedEquipment(prev =>
+      prev.includes(item) ? prev.filter(e => e !== item) : [...prev, item]
     );
   }
 
@@ -148,8 +176,12 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
 
   async function handleRequestPlan(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (selectedAreas.length === 0) {
-      toast.error('Please select at least one focus area');
+    if (selectedGoals.length === 0) {
+      toast.error('Please select at least one program goal');
+      return;
+    }
+    if (selectedClient && !startDate) {
+      toast.error('Please select a start date for this client');
       return;
     }
     if (selectedWeekdays.length === 0) {
@@ -170,8 +202,9 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          patientId: selectedPatient || null,
-          focusAreas: selectedAreas,
+          clientId: selectedClient || null,
+          programGoals: selectedGoals,
+          availableEquipment: selectedEquipment,
           durationWeeks,
           daysPerWeek,
           difficultyLevel: difficulty,
@@ -180,7 +213,7 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
           })),
           preferredWeekdays: selectedWeekdays,
           subjective: (formData.get('subjective') as string) || undefined,
-          clinicianPrompt: (formData.get('clinicianPrompt') as string) || undefined,
+          trainerPrompt: (formData.get('trainerPrompt') as string) || undefined,
           additionalNotes: (formData.get('notes') as string) || undefined,
         }),
       });
@@ -199,8 +232,10 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
     setGenerateState('GENERATING');
 
     const genParams = {
-      patientId: selectedPatient || null,
-      focusAreas: selectedAreas,
+      clientId: selectedClient || null,
+      programGoals: selectedGoals,
+      availableEquipment: selectedEquipment,
+      startDate: selectedClient ? startDate : null,
       durationMinutes: duration,
       daysPerWeek,
       durationWeeks,
@@ -271,18 +306,18 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Patient selector — hidden when no patients available (e.g. admin context) */}
-              {patients.length > 0 && (
+              {/* Client selector — hidden when no clients available (e.g. admin context) */}
+              {clients.length > 0 && (
                 <>
                   <div className="space-y-2">
                     <Label>Client <span className="text-muted-foreground font-normal">(optional)</span></Label>
                     <select
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      value={selectedPatient}
-                      onChange={(e) => setSelectedPatient(e.target.value)}
+                      value={selectedClient}
+                      onChange={(e) => setSelectedClient(e.target.value)}
                     >
                       <option value="">No client — general program template</option>
-                      {patients.map((p) => (
+                      {clients.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.firstName} {p.lastName}
                         </option>
@@ -290,9 +325,9 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
                     </select>
                   </div>
 
-                  {/* Patient profile inline summary */}
-                  {selectedPatient && (() => {
-                    const p = patients.find(pt => pt.id === selectedPatient)
+                  {/* Client profile inline summary */}
+                  {selectedClient && (() => {
+                    const p = clients.find(pt => pt.id === selectedClient)
                     if (!p) return null
                     return (
                       <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm space-y-0.5">
@@ -310,6 +345,22 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
                     )
                   })()}
                 </>
+              )}
+
+              {/* Start Date — shown only when a client is selected */}
+              {selectedClient && (
+                <div className="space-y-2">
+                  <Label htmlFor="startDate">
+                    Program Start Date <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={startDate}
+                    onChange={e => setStartDate(e.target.value)}
+                    min={new Date().toISOString().split("T")[0]}
+                  />
+                </div>
               )}
 
               {/* Session Duration + Days Per Week */}
@@ -372,22 +423,92 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
                 </div>
               </div>
 
-              {/* Focus Areas */}
+              {/* Program Goals */}
               <div className="space-y-2">
-                <Label>Focus Areas *</Label>
+                <Label>Program Goals *</Label>
                 <div className="flex flex-wrap gap-2">
-                  {BODY_REGIONS.map((r) => (
+                  {FITNESS_GOALS.map((goal) => (
                     <Button
-                      key={r.value}
+                      key={goal}
                       type="button"
-                      variant={selectedAreas.includes(r.value) ? "default" : "outline"}
+                      variant={selectedGoals.includes(goal) ? "default" : "outline"}
                       size="sm"
-                      onClick={() => toggleArea(r.value)}
+                      onClick={() => toggleGoal(goal)}
                     >
-                      {r.label}
+                      {goal}
                     </Button>
                   ))}
                 </div>
+              </div>
+
+              {/* Equipment */}
+              <div className="space-y-2">
+                <Label>Available Equipment</Label>
+                <p className="text-xs text-muted-foreground">
+                  Only exercises using these items (plus bodyweight) will be selected. Leave empty to allow any equipment.
+                </p>
+                <Popover open={equipmentOpen} onOpenChange={setEquipmentOpen}>
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between font-normal"
+                      />
+                    }
+                  >
+                    {selectedEquipment.length === 0
+                      ? "Select equipment..."
+                      : `${selectedEquipment.length} item${selectedEquipment.length === 1 ? "" : "s"} selected`}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search equipment..." />
+                      <CommandList>
+                        <CommandEmpty>No equipment found.</CommandEmpty>
+                        <CommandGroup>
+                          {equipmentOptions.map(item => (
+                            <CommandItem
+                              key={item}
+                              value={item}
+                              onSelect={() => {
+                                toggleEquipment(item);
+                              }}
+                            >
+                              <Check
+                                className={`mr-2 h-4 w-4 ${
+                                  selectedEquipment.includes(item) ? "opacity-100" : "opacity-0"
+                                }`}
+                              />
+                              {item}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedEquipment.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {selectedEquipment.map(item => (
+                      <span
+                        key={item}
+                        className="inline-flex items-center gap-1 rounded-full border bg-secondary px-2.5 py-0.5 text-xs font-medium"
+                      >
+                        {item}
+                        <button
+                          type="button"
+                          onClick={() => toggleEquipment(item)}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Difficulty Level */}
@@ -574,12 +695,12 @@ export function GenerateProgramForm({ patients, initialPatientId, onGenerateExer
                 />
               </div>
 
-              {/* Clinician prompt */}
+              {/* Trainer prompt */}
               <div className="space-y-2">
-                <Label htmlFor="clinicianPrompt">Program Instructions (Optional)</Label>
+                <Label htmlFor="trainerPrompt">Program Instructions (Optional)</Label>
                 <Textarea
-                  id="clinicianPrompt"
-                  name="clinicianPrompt"
+                  id="trainerPrompt"
+                  name="trainerPrompt"
                   rows={3}
                   placeholder='Example: "Act as a DPT and create a 1-week, 3-day PT progression for this subjective."'
                 />

@@ -2,18 +2,18 @@ import * as React from 'react'
 
 interface ShareProgramEmailProps {
   programName: string
-  patientName: string | null
+  clientName: string | null
   senderName: string
   pdfLink: string
-  clinicName?: string
+  organizationName?: string
 }
 
 export function ShareProgramEmail({
   programName,
-  patientName,
+  clientName,
   senderName,
   pdfLink,
-  clinicName = 'INMOTUS RX',
+  organizationName = 'INMOTUS RX',
 }: ShareProgramEmailProps) {
   return (
     <html lang="en">
@@ -31,13 +31,13 @@ export function ShareProgramEmail({
                   <tbody>
                     <tr>
                       <td style={styles.headerBar}>
-                        <p style={styles.brandName}>{clinicName}</p>
+                        <p style={styles.brandName}>{organizationName}</p>
                       </td>
                     </tr>
                     <tr>
                       <td style={styles.bodyPad}>
                         <p style={styles.greeting}>
-                          {patientName ? `Hi ${patientName},` : 'Hello,'}
+                          {clientName ? `Hi ${clientName},` : 'Hello,'}
                         </p>
                         <p style={styles.intro}>
                           {senderName} has shared your exercise plan with you.
@@ -72,7 +72,7 @@ export function ShareProgramEmail({
                     <tr>
                       <td style={styles.footer}>
                         <p style={styles.footerText}>
-                          &copy; {new Date().getFullYear()} {clinicName}. All rights reserved.
+                          &copy; {new Date().getFullYear()} {organizationName}. All rights reserved.
                         </p>
                       </td>
                     </tr>

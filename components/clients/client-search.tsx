@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { useTransition } from "react";
 
-export function PatientSearch() {
+export function ClientSearch() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
@@ -19,7 +19,7 @@ export function PatientSearch() {
       } else {
         params.delete("q");
       }
-      router.replace(`/patients?${params.toString()}`);
+      router.replace(`/clients?${params.toString()}`);
     });
   }
 

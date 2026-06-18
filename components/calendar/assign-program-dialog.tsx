@@ -21,15 +21,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getProgramsAction, getProgramAction } from "@/actions/program-actions";
-import { scheduleProgramForPatientAction } from "@/actions/calendar-actions";
+import { scheduleProgramForClientAction } from "@/actions/calendar-actions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function AssignProgramDialog({
-  patientId,
+  clientId,
   children,
   onSuccess,
 }: {
-  patientId: string;
+  clientId: string;
   children: React.ReactNode;
   onSuccess?: () => void;
 }) {
@@ -115,9 +115,9 @@ export function AssignProgramDialog({
 
     setLoading(true);
     try {
-      const res = await scheduleProgramForPatientAction({
+      const res = await scheduleProgramForClientAction({
         programId: selectedProgramId,
-        patientId,
+        clientId,
         startDate: scheduleMode === "auto" ? startDate : new Date().toISOString().split("T")[0],
         preferredWeekdays: scheduleMode === "auto" ? selectedWeekdays : undefined,
         customWorkoutDates: scheduleMode === "manual" ? customDates : undefined,

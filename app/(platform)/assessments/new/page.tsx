@@ -1,21 +1,21 @@
 import { getCurrentUser } from "@/lib/current-user";
-import { getPatientsForClinician } from "@/lib/services/patient.service";
+import { getClientsForTrainer } from "@/lib/services/client.service";
 import { NewAssessmentForm } from "@/components/outcomes/new-assessment-form";
 
 export default async function NewAssessmentPage() {
   const user = await getCurrentUser();
 
-  let patients: { id: string; firstName: string; lastName: string }[] = [];
-  if (user.role === "CLINICIAN") {
-    patients = await getPatientsForClinician(user.id);
+  let clients: { id: string; firstName: string; lastName: string }[] = [];
+  if (user.role === "TRAINER") {
+    clients = await getClientsForTrainer(user.id);
   }
 
   return (
     <div className="mx-auto max-w-lg">
       <NewAssessmentForm
         role={user.role}
-        selfPatientId={user.role === "PATIENT" ? user.id : undefined}
-        patients={patients}
+        selfClientId={user.role === "CLIENT" ? user.id : undefined}
+        clients={clients}
       />
     </div>
   );

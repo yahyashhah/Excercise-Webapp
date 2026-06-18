@@ -11,11 +11,11 @@ export default async function PlatformLayout({ children }: { children: React.Rea
 
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!user) {
-    if (orgId) redirect("/onboarding/patient");
+    if (orgId) redirect("/onboarding/client");
     redirect("/onboarding");
   }
   if (!user.onboarded) {
-    if (user.role === "PATIENT") redirect("/onboarding/patient");
+    if (user.role === "CLIENT") redirect("/onboarding/client");
     redirect("/onboarding");
   }
 

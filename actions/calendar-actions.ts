@@ -5,18 +5,18 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/current-user";
 import { SessionStatus } from "@prisma/client";
 
-export async function getPatientWorkoutSessions(patientId: string) {
+export async function getClientWorkoutSessions(clientId: string) {
   try {
     const user = await getCurrentUser();
     if (!user) {
       throw new Error("Unauthorized");
     }
 
-    // Optional: add a check to make sure the user has access to this patient
+    // Optional: add a check to make sure the user has access to this client
 
     const sessions = await db.workoutSession.findMany({
       where: {
-        patientId,
+        clientId,
       },
       include: {
         plan: {
@@ -32,7 +32,7 @@ export async function getPatientWorkoutSessions(patientId: string) {
 
     return { success: true, sessions };
   } catch (error) {
-    console.error("Error fetching patient workout sessions:", error);
+    console.error("Error fetching client workout sessions:", error);
     return { success: false, error: "Failed to fetch workout sessions" };
   }
 }
@@ -47,18 +47,18 @@ export async function updateSessionDate(sessionId: string, newDate: Date) {
     // Verify session exists and user has permission
     const session = await db.workoutSession.findUnique({
       where: { id: sessionId },
-      select: { patientId: true, plan: { select: { createdById: true } } }
+      select: { clientId: true, plan: { select: { createdById: true } } }
     });
 
     if (!session) {
       return { success: false, error: "Session not found" };
     }
 
-    if (user.role === "PATIENT" && session.patientId !== user.id) {
+    if (user.role === "CLIENT" && session.clientId !== user.id) {
        return { success: false, error: "Unauthorized" };
     }
     
-    // Clinician authorization would go here as well
+    // Trainer authorization would go here as well
 
     const updatedSession = await db.workoutSession.update({
       where: { id: sessionId },
@@ -73,7 +73,7 @@ export async function updateSessionDate(sessionId: string, newDate: Date) {
     });
 
     revalidatePath(`/dashboard`);
-    revalidatePath(`/patients/${session.patientId}`);
+    revalidatePath(`/clients/${session.clientId}`);
     
     return { success: true, session: updatedSession };
   } catch (error) {
@@ -81,22 +81,22 @@ export async function updateSessionDate(sessionId: string, newDate: Date) {
     return { success: false, error: "Failed to update session date" };
   }
 }
-export async function scheduleProgramForPatientAction({
+export async function scheduleProgramForClientAction({
   programId,
-  patientId,
+  clientId,
   startDate,
   preferredWeekdays,
   customWorkoutDates,
 }: {
   programId: string;
-  patientId: string;
+  clientId: string;
   startDate: string;
   preferredWeekdays?: string[];
   customWorkoutDates?: Record<string, string>;
 }) {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== "CLINICIAN") {
+    if (!user || user.role !== "TRAINER") {
       return { success: false, error: "Unauthorized or Forbidden" };
     }
 
@@ -195,8 +195,8 @@ export async function scheduleProgramForPatientAction({
         description: sourceProgram.description,
         isTemplate: false,
         sourceTemplateId: sourceProgram.id,
-        clinicianId: user.id,
-        patientId: patientId,
+        trainerId: user.id,
+        clientId: clientId,
         status: "ACTIVE",
         durationWeeks: sourceProgram.durationWeeks,
         daysPerWeek: sourceProgram.daysPerWeek,
@@ -250,7 +250,7 @@ export async function scheduleProgramForPatientAction({
               sessions: {
                 create: [
                   {
-                    patientId: patientId,
+                    clientId: clientId,
                     scheduledDate: workoutDate,
                     status: "SCHEDULED",
                   },
@@ -263,7 +263,7 @@ export async function scheduleProgramForPatientAction({
     });
 
     revalidatePath("/dashboard");
-    revalidatePath(`/patients/${patientId}`);
+    revalidatePath(`/clients/${clientId}`);
     revalidatePath("/programs");
 
     return { success: true, programId: newProgram.id };

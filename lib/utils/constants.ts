@@ -16,10 +16,10 @@ export const ROUTES = {
   WORKOUT_PLAN_EDIT: (id: string) => `/workout-plans/${id}/edit`,
   WORKOUT_PLAN_SESSION: (id: string) => `/workout-plans/${id}/session`,
   WORKOUT_PLAN_GENERATE: "/workout-plans/generate",
-  PATIENTS: "/patients",
-  PATIENT_DETAIL: (id: string) => `/patients/${id}`,
-  PATIENT_ADHERENCE: (id: string) => `/patients/${id}/adherence`,
-  PATIENT_OUTCOMES: (id: string) => `/patients/${id}/outcomes`,
+  CLIENTS: "/clients",
+  CLIENT_DETAIL: (id: string) => `/clients/${id}`,
+  CLIENT_ADHERENCE: (id: string) => `/clients/${id}/adherence`,
+  CLIENT_OUTCOMES: (id: string) => `/clients/${id}/outcomes`,
   MESSAGES: "/messages",
   MESSAGE_THREAD: (id: string) => `/messages/${id}`,
   ASSESSMENTS: "/assessments",
@@ -58,8 +58,8 @@ export const FEEDBACK_RATINGS = [
 ] as const;
 
 export const USER_ROLES = [
-  { value: "CLINICIAN", label: "Clinician" },
-  { value: "PATIENT", label: "Patient" },
+  { value: "TRAINER", label: "Trainer" },
+  { value: "CLIENT", label: "Client" },
 ] as const;
 
 export const COMMON_EQUIPMENT = [

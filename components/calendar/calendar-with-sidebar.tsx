@@ -45,7 +45,7 @@ interface SessionEvent {
   start: Date;
   end: Date;
   status: string;
-  patientName?: string;
+  clientName?: string;
   programName?: string;
   exerciseCount?: number;
   resource: Record<string, unknown>;
@@ -53,7 +53,7 @@ interface SessionEvent {
 
 interface Props {
   sessions: Record<string, unknown>[];
-  isClinician: boolean;
+  isTrainer: boolean;
   onSessionClick?: (sessionId: string) => void;
 }
 
@@ -171,14 +171,14 @@ function CustomToolbar({
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
-export function CalendarWithSidebar({ sessions, isClinician, onSessionClick }: Props) {
+export function CalendarWithSidebar({ sessions, isTrainer, onSessionClick }: Props) {
   const [view, setView] = useState<View>(Views.MONTH);
   const [date, setDate] = useState(new Date());
 
   const events: SessionEvent[] = sessions.map((s) => {
     const workout = s.workout as Record<string, unknown> | undefined;
     const program = workout?.program as Record<string, unknown> | undefined;
-    const patient = s.patient as Record<string, unknown> | undefined;
+    const client = s.client as Record<string, unknown> | undefined;
     const blocks = (workout?.blocks as Record<string, unknown>[] | undefined) ?? [];
     const exerciseCount = blocks.reduce((acc, b) => {
       const exs = b.exercises as unknown[] | undefined;
@@ -191,8 +191,8 @@ export function CalendarWithSidebar({ sessions, isClinician, onSessionClick }: P
       start: new Date(s.scheduledDate as string),
       end: new Date(new Date(s.scheduledDate as string).getTime() + 60 * 60 * 1000),
       status: s.status as string,
-      patientName: patient
-        ? `${patient.firstName} ${patient.lastName}`
+      clientName: client
+        ? `${client.firstName} ${client.lastName}`
         : undefined,
       programName: program?.name as string | undefined,
       exerciseCount,
@@ -202,8 +202,8 @@ export function CalendarWithSidebar({ sessions, isClinician, onSessionClick }: P
 
   const handleEventDrop = useCallback(
     async ({ event, start }: { event: SessionEvent; start: string | Date }) => {
-      if (!isClinician) {
-        toast.error("Only clinicians can reschedule sessions");
+      if (!isTrainer) {
+        toast.error("Only trainers can reschedule sessions");
         return;
       }
       const result = await rescheduleSessionAction(
@@ -216,7 +216,7 @@ export function CalendarWithSidebar({ sessions, isClinician, onSessionClick }: P
         toast.error(result.error);
       }
     },
-    [isClinician]
+    [isTrainer]
   );
 
   return (
@@ -246,7 +246,7 @@ export function CalendarWithSidebar({ sessions, isClinician, onSessionClick }: P
           onEventDrop={handleEventDrop as never}
           onSelectEvent={(event: SessionEvent) => onSessionClick?.(event.id)}
           resizable={false}
-          draggableAccessor={() => isClinician}
+          draggableAccessor={() => isTrainer}
           popup
           style={{ height: 620 }}
           components={{
@@ -271,7 +271,7 @@ export function CalendarWithSidebar({ sessions, isClinician, onSessionClick }: P
           tooltipAccessor={(event: SessionEvent) => {
             let tip = event.title;
             if (event.programName) tip += ` · ${event.programName}`;
-            if (event.patientName) tip += ` · ${event.patientName}`;
+            if (event.clientName) tip += ` · ${event.clientName}`;
             return `${tip} · ${statusConfig[event.status]?.label ?? event.status}`;
           }}
         />

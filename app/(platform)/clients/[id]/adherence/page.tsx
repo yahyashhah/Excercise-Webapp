@@ -21,16 +21,16 @@ const statusColors: Record<string, string> = {
   SKIPPED:     "bg-slate-100 text-slate-600",
 };
 
-export default async function PatientAdherencePage({ params }: Props) {
+export default async function ClientAdherencePage({ params }: Props) {
   const { id } = await params;
-  await requireRole("CLINICIAN");
+  await requireRole("TRAINER");
 
-  const patient = await prisma.user.findUnique({ where: { id } });
-  if (!patient) notFound();
+  const client = await prisma.user.findUnique({ where: { id } });
+  if (!client) notFound();
 
   const sessions = await prisma.workoutSessionV2.findMany({
     where: {
-      patientId: id,
+      clientId: id,
       scheduledDate: { lte: new Date() },
     },
     include: {
@@ -65,13 +65,13 @@ export default async function PatientAdherencePage({ params }: Props) {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href={`/patients/${id}`}>
+          <Link href={`/clients/${id}`}>
             <ArrowLeft className="mr-1 h-4 w-4" />
             Back
           </Link>
         </Button>
         <h2 className="text-xl font-bold">
-          Sessions — {patient.firstName} {patient.lastName}
+          Sessions — {client.firstName} {client.lastName}
         </h2>
       </div>
 
@@ -129,7 +129,7 @@ export default async function PatientAdherencePage({ params }: Props) {
               {sessions.map((session) => (
                 <Link
                   key={session.id}
-                  href={`/patients/${id}/sessions/${session.id}`}
+                  href={`/clients/${id}/sessions/${session.id}`}
                   className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted/50"
                 >
                   <div className="min-w-0">

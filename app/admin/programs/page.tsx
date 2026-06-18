@@ -68,8 +68,8 @@ export default async function AdminProgramsPage({ searchParams }: PageProps) {
               <tr className="border-b border-border">
                 <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Program</th>
                 <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Status</th>
-                <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hidden md:table-cell">Clinician</th>
-                <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hidden lg:table-cell">Patient</th>
+                <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hidden md:table-cell">Trainer</th>
+                <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hidden lg:table-cell">Client</th>
                 <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hidden xl:table-cell">Duration</th>
                 <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Created</th>
               </tr>
@@ -96,20 +96,20 @@ export default async function AdminProgramsPage({ searchParams }: PageProps) {
                     </Badge>
                   </td>
                   <td className="px-5 py-3 hidden md:table-cell">
-                    {prog.clinician ? (
+                    {prog.trainer ? (
                       <>
-                        <p className="text-xs font-medium text-foreground">{prog.clinician.firstName} {prog.clinician.lastName}</p>
-                        <p className="text-[10px] text-muted-foreground">{prog.clinician.email}</p>
+                        <p className="text-xs font-medium text-foreground">{prog.trainer.firstName} {prog.trainer.lastName}</p>
+                        <p className="text-[10px] text-muted-foreground">{prog.trainer.email}</p>
                       </>
                     ) : (
                       <span className="text-xs text-muted-foreground">Global</span>
                     )}
                   </td>
                   <td className="px-5 py-3 hidden lg:table-cell">
-                    {prog.patient ? (
+                    {prog.client ? (
                       <div>
-                        <p className="text-xs font-medium text-foreground">{prog.patient.firstName} {prog.patient.lastName}</p>
-                        <p className="text-[10px] text-muted-foreground">{prog.patient.email}</p>
+                        <p className="text-xs font-medium text-foreground">{prog.client.firstName} {prog.client.lastName}</p>
+                        <p className="text-[10px] text-muted-foreground">{prog.client.email}</p>
                       </div>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">

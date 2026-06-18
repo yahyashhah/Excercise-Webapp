@@ -33,7 +33,7 @@ interface ResponseData {
   isReviewed: boolean;
   reviewedAt: string | null;
   coachNotes: string;
-  patientName: string;
+  clientName: string;
   templateName: string;
   frequency: string;
 }
@@ -196,7 +196,7 @@ export function ReviewClient({ response, questions, answers }: Props) {
           <div className="mt-1 flex items-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <User className="h-3.5 w-3.5" />
-              {response.patientName}
+              {response.clientName}
             </span>
             <span>Submitted {formatDateTime(response.submittedAt)}</span>
           </div>
@@ -235,7 +235,7 @@ export function ReviewClient({ response, questions, answers }: Props) {
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            placeholder="Add your notes, observations, or recommendations for the patient..."
+            placeholder="Add your notes, observations, or recommendations for the client..."
             rows={5}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

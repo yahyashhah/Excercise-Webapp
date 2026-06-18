@@ -9,8 +9,8 @@ export interface ProgressionSuggestion {
   reason: string;
 }
 
-export async function evaluatePatient(
-  patientId: string,
+export async function evaluateClient(
+  clientId: string,
   planId: string
 ): Promise<ProgressionSuggestion[]> {
   const suggestions: ProgressionSuggestion[] = [];
@@ -26,12 +26,12 @@ export async function evaluatePatient(
         },
       },
       feedback: {
-        where: { patientId },
+        where: { clientId },
         orderBy: { createdAt: "desc" },
         take: 5,
       },
       sessionItems: {
-        where: { session: { patientId, status: "COMPLETED" } },
+        where: { session: { clientId, status: "COMPLETED" } },
         orderBy: { completedAt: "desc" },
         take: 5,
       },
@@ -55,7 +55,7 @@ export async function evaluatePatient(
           suggestedExerciseName: regression.nextExercise.name,
           suggestedExerciseId: regression.nextExerciseId,
           direction: "REGRESSION",
-          reason: `Patient reported pain ${painfulCount} times in recent sessions`,
+          reason: `Client reported pain ${painfulCount} times in recent sessions`,
         });
       }
       continue;
@@ -76,7 +76,7 @@ export async function evaluatePatient(
           suggestedExerciseName: progression.nextExercise.name,
           suggestedExerciseId: progression.nextExerciseId,
           direction: "PROGRESSION",
-          reason: `Patient consistently reporting exercises feel good with full completion`,
+          reason: `Client consistently reporting exercises feel good with full completion`,
         });
       }
     }

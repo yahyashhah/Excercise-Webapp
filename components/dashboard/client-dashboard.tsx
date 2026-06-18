@@ -14,9 +14,9 @@ import {
   Calendar,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils/formatting";
-import { PatientSessionCalendar } from "./patient-session-calendar";
+import { ClientSessionCalendar } from "./client-session-calendar";
 
-interface PatientDashboardProps {
+interface ClientDashboardProps {
   upcomingSessions: {
     id: string;
     scheduledDate: Date;
@@ -37,13 +37,13 @@ interface PatientDashboardProps {
   unreadMessages: number;
 }
 
-export function PatientDashboard({
+export function ClientDashboard({
   upcomingSessions,
   calendarSessions,
   weeklyCompliance,
   recentAssessments,
   unreadMessages,
-}: PatientDashboardProps) {
+}: ClientDashboardProps) {
   const totalWeekSessions = weeklyCompliance + upcomingSessions.length;
   const compliancePercent = totalWeekSessions > 0
     ? Math.min(Math.round((weeklyCompliance / totalWeekSessions) * 100), 100)
@@ -175,7 +175,7 @@ export function PatientDashboard({
       </Card>
 
       {/* Schedule calendar */}
-      <PatientSessionCalendar sessions={calendarSessions} />
+      <ClientSessionCalendar sessions={calendarSessions} />
 
       {/* Recent Assessments */}
       {recentAssessments.length > 0 && (

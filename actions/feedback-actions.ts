@@ -17,7 +17,7 @@ export async function submitFeedbackAction(input: {
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "PATIENT") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "CLIENT") return { success: false as const, error: "Forbidden" };
 
   const parsed = submitFeedbackSchema.safeParse(input);
   if (!parsed.success) {
@@ -27,7 +27,7 @@ export async function submitFeedbackAction(input: {
   try {
     const feedback = await feedbackService.submitFeedback({
       planExerciseId: parsed.data.planExerciseId,
-      patientId: dbUser.id,
+      clientId: dbUser.id,
       rating: parsed.data.rating as FeedbackRating,
       comment: parsed.data.comment,
     });
@@ -42,14 +42,14 @@ export async function submitFeedbackAction(input: {
 
 export async function respondToFeedbackAction(input: {
   feedbackId: string;
-  clinicianResponse: string;
+  trainerResponse: string;
 }) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
   const parsed = respondToFeedbackSchema.safeParse(input);
   if (!parsed.success) {
@@ -57,7 +57,7 @@ export async function respondToFeedbackAction(input: {
   }
 
   try {
-    await feedbackService.respondToFeedback(parsed.data.feedbackId, parsed.data.clinicianResponse);
+    await feedbackService.respondToFeedback(parsed.data.feedbackId, parsed.data.trainerResponse);
     revalidatePath("/dashboard");
     return { success: true as const };
   } catch (error) {

@@ -82,7 +82,7 @@ export function NewMessageDialog({ contacts }: NewMessageDialogProps) {
             <Label>To</Label>
             {contacts.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No contacts available. Patients need to be linked first.
+                No contacts available. Clients need to be linked first.
               </p>
             ) : (
               <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-input p-1">

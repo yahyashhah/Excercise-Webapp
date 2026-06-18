@@ -50,7 +50,7 @@ export default async function ExerciseDetailPage({ params }: Props) {
                 )}
               </div>
             </div>
-            {user.role === "CLINICIAN" && (
+            {user.role === "TRAINER" && (
               <Button variant="outline" size="sm" asChild>
                 <Link href={`/exercises/${exercise.id}/edit`}>
                   <Edit className="mr-1 h-4 w-4" />

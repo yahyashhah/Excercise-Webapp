@@ -1,9 +1,9 @@
 ﻿import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
-import { ClinicianDashboard } from "@/components/dashboard/clinician-dashboard";
-import { PatientDashboard } from "@/components/dashboard/patient-dashboard";
+import { TrainerDashboard } from "@/components/dashboard/trainer-dashboard";
+import { ClientDashboard } from "@/components/dashboard/client-dashboard";
 import * as sessionService from "@/lib/services/session.service";
-import { getPatientIdsForClinician } from "@/lib/services/patient.service";
+import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import { startOfWeek, endOfWeek, startOfDay } from "date-fns";
 
 export default async function DashboardPage() {
@@ -13,9 +13,9 @@ export default async function DashboardPage() {
   const weekStart = startOfWeek(now);
   const weekEnd = endOfWeek(now);
 
-  if (user.role === "CLINICIAN") {
+  if (user.role === "TRAINER") {
     const [
-      patientIds,
+      clientIds,
       activePlans,
       pendingFeedback,
       unreadMessages,
@@ -23,13 +23,13 @@ export default async function DashboardPage() {
       activePrograms,
       upcomingSessions,
     ] = await Promise.all([
-      getPatientIdsForClinician(user.id),
+      getClientIdsForTrainer(user.id),
       prisma.workoutPlan.count({
         where: { createdById: user.id, status: "ACTIVE" },
       }),
       prisma.exerciseFeedback.count({
         where: {
-          clinicianResponse: null,
+          trainerResponse: null,
           planExercise: { plan: { createdById: user.id } },
         },
       }),
@@ -40,48 +40,48 @@ export default async function DashboardPage() {
         where: { planExercise: { plan: { createdById: user.id } } },
         include: {
           planExercise: { include: { exercise: true } },
-          patient: true,
+          client: true,
         },
         orderBy: { createdAt: "desc" },
         take: 5,
       }),
       prisma.program.count({
-        where: { clinicianId: user.id, status: "ACTIVE" },
+        where: { trainerId: user.id, status: "ACTIVE" },
       }),
-      sessionService.getSessionsForClinician(user.id, {
+      sessionService.getSessionsForTrainer(user.id, {
         from: weekStart,
         to: weekEnd,
       }),
     ]);
 
     return (
-      <ClinicianDashboard
-        patientCount={patientIds.length}
+      <TrainerDashboard
+        clientCount={clientIds.length}
         activePlans={activePlans}
         pendingFeedback={pendingFeedback}
         unreadMessages={unreadMessages}
         recentFeedback={recentFeedback}
-        lowAdherencePatients={[]}
+        lowAdherenceClients={[]}
         activePrograms={activePrograms}
         upcomingSessions={upcomingSessions}
       />
     );
   }
 
-  // Patient dashboard
+  // Client dashboard
   const calendarStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const calendarEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59);
 
   const [recentAssessments, unreadMessages, calendarSessions, completedThisWeek] = await Promise.all([
     prisma.assessment.findMany({
-      where: { patientId: user.id },
+      where: { clientId: user.id },
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
     prisma.message.count({ where: { recipientId: user.id, isRead: false } }),
     prisma.workoutSessionV2.findMany({
       where: {
-        patientId: user.id,
+        clientId: user.id,
         scheduledDate: { gte: calendarStart, lte: calendarEnd },
       },
       select: {
@@ -103,7 +103,7 @@ export default async function DashboardPage() {
     }),
     prisma.workoutSessionV2.count({
       where: {
-        patientId: user.id,
+        clientId: user.id,
         status: "COMPLETED",
         completedAt: { gte: weekStart, lte: weekEnd },
       },
@@ -116,7 +116,7 @@ export default async function DashboardPage() {
   );
 
   return (
-    <PatientDashboard
+    <ClientDashboard
       upcomingSessions={upcomingSessions as any}
       calendarSessions={calendarSessions as any}
       weeklyCompliance={completedThisWeek}

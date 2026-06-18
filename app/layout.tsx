@@ -22,7 +22,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: { default: "INMOTUS RX", template: "%s | INMOTUS RX" },
   description:
-    "Personalized AI-powered home exercise programs for clinicians and patients. Generate, assign, and track exercise programs in minutes.",
+    "Personalized AI-powered home exercise programs for trainers and clients. Generate, assign, and track exercise programs in minutes.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -7,18 +7,18 @@ import { revalidatePath } from "next/cache";
 // ---------------------------------------------------------------------------
 // Internal: authorization helpers
 //
-// These helpers centralize the "current user is a clinician AND owns the
+// These helpers centralize the "current user is a trainer AND owns the
 // program that contains this block / block-exercise" check. Every mutating
 // action below MUST run through one of these so we cannot accidentally let a
-// clinician edit another clinician's program.
+// trainer edit another trainer's program.
 // ---------------------------------------------------------------------------
 
-async function getClinicianAndVerifyBlockExercise(blockExerciseId: string) {
+async function getTrainerAndVerifyBlockExercise(blockExerciseId: string) {
   const { userId } = await auth();
   if (!userId) return null;
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!dbUser || dbUser.role !== "CLINICIAN") return null;
+  if (!dbUser || dbUser.role !== "TRAINER") return null;
 
   const be = await prisma.blockExerciseV2.findUnique({
     where: { id: blockExerciseId },
@@ -26,34 +26,34 @@ async function getClinicianAndVerifyBlockExercise(blockExerciseId: string) {
       block: {
         include: {
           workout: {
-            include: { program: { select: { id: true, clinicianId: true } } },
+            include: { program: { select: { id: true, trainerId: true } } },
           },
         },
       },
     },
   });
-  if (!be || be.block.workout.program.clinicianId !== dbUser.id) return null;
+  if (!be || be.block.workout.program.trainerId !== dbUser.id) return null;
 
   return { dbUser, be, programId: be.block.workout.program.id };
 }
 
-async function getClinicianAndVerifyBlock(blockId: string) {
+async function getTrainerAndVerifyBlock(blockId: string) {
   const { userId } = await auth();
   if (!userId) return null;
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!dbUser || dbUser.role !== "CLINICIAN") return null;
+  if (!dbUser || dbUser.role !== "TRAINER") return null;
 
   const block = await prisma.workoutBlockV2.findUnique({
     where: { id: blockId },
     include: {
       workout: {
-        include: { program: { select: { id: true, clinicianId: true } } },
+        include: { program: { select: { id: true, trainerId: true } } },
       },
       exercises: { select: { id: true, orderIndex: true } },
     },
   });
-  if (!block || block.workout.program.clinicianId !== dbUser.id) return null;
+  if (!block || block.workout.program.trainerId !== dbUser.id) return null;
 
   return { dbUser, block, programId: block.workout.program.id };
 }
@@ -78,7 +78,7 @@ export async function updateExercisePrescriptionAction(
     restSeconds?: number | null;
   }
 ) {
-  const ctx = await getClinicianAndVerifyBlockExercise(blockExerciseId);
+  const ctx = await getTrainerAndVerifyBlockExercise(blockExerciseId);
   if (!ctx) return { success: false as const, error: "Unauthorized" };
 
   // Clamp set count to a sane range to protect against accidental input
@@ -115,7 +115,7 @@ export async function updateExercisePrescriptionAction(
 // ---------------------------------------------------------------------------
 
 export async function removeBlockExerciseAction(blockExerciseId: string) {
-  const ctx = await getClinicianAndVerifyBlockExercise(blockExerciseId);
+  const ctx = await getTrainerAndVerifyBlockExercise(blockExerciseId);
   if (!ctx) return { success: false as const, error: "Unauthorized" };
 
   const blockId = ctx.be.blockId;
@@ -155,7 +155,7 @@ export async function addExerciseToBlockAction(
     targetWeight?: number | null;
   }
 ) {
-  const ctx = await getClinicianAndVerifyBlock(blockId);
+  const ctx = await getTrainerAndVerifyBlock(blockId);
   if (!ctx) return { success: false as const, error: "Unauthorized" };
 
   const nextOrderIndex = ctx.block.exercises.length;
@@ -184,7 +184,7 @@ export async function addExerciseToBlockAction(
 
 // ---------------------------------------------------------------------------
 // Move a workout to a different day/week within its program (structural mode
-// drag-and-drop). Only the owning clinician may do this.
+// drag-and-drop). Only the owning trainer may do this.
 // ---------------------------------------------------------------------------
 
 export async function moveWorkoutAction(
@@ -196,14 +196,14 @@ export async function moveWorkoutAction(
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!dbUser || dbUser.role !== "CLINICIAN")
+  if (!dbUser || dbUser.role !== "TRAINER")
     return { success: false as const, error: "Unauthorized" };
 
   const workout = await prisma.workout.findUnique({
     where: { id: workoutId },
-    include: { program: { select: { id: true, clinicianId: true } } },
+    include: { program: { select: { id: true, trainerId: true } } },
   });
-  if (!workout || workout.program.clinicianId !== dbUser.id)
+  if (!workout || workout.program.trainerId !== dbUser.id)
     return { success: false as const, error: "Unauthorized" };
 
   await prisma.workout.update({

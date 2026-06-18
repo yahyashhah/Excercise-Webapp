@@ -214,7 +214,7 @@ export function ExerciseEditForm({ exercise }: Props) {
               rows={5}
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
-              placeholder="Step-by-step instructions for the patient"
+              placeholder="Step-by-step instructions for the client"
             />
           </div>
 

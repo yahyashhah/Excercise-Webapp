@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { completeClinicianOnboarding } from "@/actions/onboarding-actions";
+import { completeTrainerOnboarding } from "@/actions/onboarding-actions";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
@@ -13,21 +13,21 @@ export function OnboardingForm() {
   const [loading, setLoading] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [clinicName, setClinicName] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
   const [phone, setPhone] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!firstName || !lastName || !clinicName) {
+    if (!firstName || !lastName || !organizationName) {
       toast.error("Please fill in all required fields");
       return;
     }
 
     setLoading(true);
-    const result = await completeClinicianOnboarding({
+    const result = await completeTrainerOnboarding({
       firstName,
       lastName,
-      clinicName,
+      organizationName,
       phone: phone || undefined,
     });
     setLoading(false);
@@ -40,7 +40,7 @@ export function OnboardingForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Set up your clinic</CardTitle>
+        <CardTitle>Set up your organization</CardTitle>
         <CardDescription>Tell us about yourself and your practice</CardDescription>
       </CardHeader>
       <CardContent>
@@ -67,11 +67,11 @@ export function OnboardingForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="clinicName">Clinic Name *</Label>
+            <Label htmlFor="organizationName">Organization Name *</Label>
             <Input
-              id="clinicName"
-              value={clinicName}
-              onChange={(e) => setClinicName(e.target.value)}
+              id="organizationName"
+              value={organizationName}
+              onChange={(e) => setOrganizationName(e.target.value)}
               placeholder="e.g., Summit Physical Therapy"
               required
             />
@@ -90,10 +90,10 @@ export function OnboardingForm() {
           <Button
             type="submit"
             className="w-full"
-            disabled={loading || !firstName || !lastName || !clinicName}
+            disabled={loading || !firstName || !lastName || !organizationName}
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Create Clinic & Go to Dashboard
+            Create Organization & Go to Dashboard
           </Button>
         </form>
       </CardContent>

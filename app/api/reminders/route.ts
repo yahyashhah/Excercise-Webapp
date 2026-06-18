@@ -11,7 +11,7 @@ import React from "react";
  *
  * Finds all WorkoutSessionV2 records scheduled within the next 24 hours
  * that have not yet received a reminder (identified by a SESSION_REMINDER
- * notification in the patient's notification record).
+ * notification in the client's notification record).
  *
  * Sends a reminder email via Resend and creates an in-app notification.
  *
@@ -40,7 +40,7 @@ export async function GET(request: Request) {
         status: "SCHEDULED",
       },
       include: {
-        patient: {
+        client: {
           select: {
             id: true,
             firstName: true,
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
     const existingReminders = await prisma.notification.findMany({
       where: {
         type: NOTIFICATION_TYPES.SESSION_REMINDER,
-        userId: { in: upcomingSessions.map((s) => s.patientId) },
+        userId: { in: upcomingSessions.map((s) => s.clientId) },
       },
       select: { metadata: true },
     });
@@ -87,8 +87,8 @@ export async function GET(request: Request) {
       // Skip if reminder already sent for this session
       if (alreadyRemindedSessionIds.has(session.id)) continue;
 
-      const { patient, workout } = session;
-      const patientName = `${patient.firstName} ${patient.lastName}`;
+      const { client, workout } = session;
+      const clientName = `${client.firstName} ${client.lastName}`;
       const sessionDate = format(new Date(session.scheduledDate), "EEEE, MMMM d, yyyy");
       const sessionTime = format(new Date(session.scheduledDate), "h:mm a");
       const sessionLink = `${appBaseUrl}/sessions`;
@@ -97,10 +97,10 @@ export async function GET(request: Request) {
       try {
         await getResend().emails.send({
           from: process.env.RESEND_FROM_EMAIL ?? "noreply@inmotusrx.com",
-          to: patient.email,
+          to: client.email,
           subject: `Reminder: Your session "${workout.name}" is tomorrow`,
           react: React.createElement(SessionReminderEmail, {
-            patientName,
+            clientName,
             sessionDate,
             sessionTime,
             workoutName: workout.name,
@@ -110,7 +110,7 @@ export async function GET(request: Request) {
       } catch (emailError) {
         // Log but don't fail the whole batch for one email error
         console.error(
-          `Failed to send reminder email to ${patient.email}:`,
+          `Failed to send reminder email to ${client.email}:`,
           emailError
         );
         continue;
@@ -118,7 +118,7 @@ export async function GET(request: Request) {
 
       // Create in-app notification with sessionId in metadata for deduplication
       await createNotification({
-        userId: patient.id,
+        userId: client.id,
         type: NOTIFICATION_TYPES.SESSION_REMINDER,
         title: "Session Reminder",
         body: `Your workout "${workout.name}" is scheduled for ${sessionDate} at ${sessionTime}.`,

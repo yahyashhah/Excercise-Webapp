@@ -765,7 +765,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
                                           </Button>
                                         </div>
                                       </div>
-                                      {/* Clinician notes for this exercise */}
+                                      {/* Trainer notes for this exercise */}
                                       <Textarea
                                         value={ex.notes ?? ""}
                                         onChange={(e) =>

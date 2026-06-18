@@ -47,16 +47,16 @@ import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
 
 interface ProgramDetailViewProps {
   program: Record<string, unknown>;
-  isClinician: boolean;
-  patients: { id: string; firstName: string; lastName: string }[];
+  isTrainer: boolean;
+  clients: { id: string; firstName: string; lastName: string }[];
   sessions: Record<string, unknown>[];
   showAssignDialog?: boolean;
 }
 
 export function ProgramDetailView({
   program,
-  isClinician,
-  patients,
+  isTrainer,
+  clients,
   sessions,
   showAssignDialog = false,
 }: ProgramDetailViewProps) {
@@ -108,9 +108,27 @@ export function ProgramDetailView({
     });
   }
 
-  const patient = program.patient as Record<string, string> | null;
-  const patientId = program.patientId as string | null;
-  // Use the clinician-curated program equipment list when available;
+  const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set([0]));
+
+  function toggleWeek(week: number) {
+    setExpandedWeeks((prev) => {
+      const next = new Set(prev);
+      next.has(week) ? next.delete(week) : next.add(week);
+      return next;
+    });
+  }
+
+  const weekGroups = workouts.reduce<Record<number, typeof workouts>>((acc, w) => {
+    const week = (w.weekIndex as number) ?? 0;
+    if (!acc[week]) acc[week] = [];
+    acc[week].push(w);
+    return acc;
+  }, {});
+  const weekNumbers = Object.keys(weekGroups).map(Number).sort((a, b) => a - b);
+
+  const client = program.client as Record<string, string> | null;
+  const clientId = program.clientId as string | null;
+  // Use the trainer-curated program equipment list when available;
   // fall back to auto-detecting from exercises if the list is empty.
   const savedEquipment = (program.equipmentRequired as string[] | undefined) ?? [];
   const equipmentNeeded = savedEquipment.length > 0
@@ -144,9 +162,9 @@ export function ProgramDetailView({
             {(program.isTemplate as boolean) && (
               <Badge variant="outline">Template</Badge>
             )}
-            {patient && (
+            {client && (
               <span className="text-sm text-muted-foreground">
-                Assigned to {patient.firstName} {patient.lastName}
+                Assigned to {client.firstName} {client.lastName}
               </span>
             )}
             {!!program.startDate && (
@@ -162,7 +180,7 @@ export function ProgramDetailView({
             </p>
           )}
         </div>
-        {isClinician && (
+        {isTrainer && (
           <div className="flex items-center gap-2">
             <Button variant="outline" asChild>
               <Link href={`/programs/${program.id}/edit`}>
@@ -183,7 +201,7 @@ export function ProgramDetailView({
             >
               <Copy className="mr-2 h-4 w-4" /> Duplicate
             </Button>
-            {!patientId && (
+            {!clientId && (
               <Button onClick={() => setAssignOpen(true)}>
                 <UserPlus className="mr-2 h-4 w-4" /> Assign
               </Button>
@@ -253,130 +271,178 @@ export function ProgramDetailView({
               </p>
             </Card>
           ) : (
-            workouts.map((workout) => {
-              const wId = workout.id as string;
-              const isExpanded = expandedWorkouts.has(wId);
-              const blocks =
-                (workout.blocks as Record<string, unknown>[]) || [];
-              return (
-                <Card key={wId}>
-                  <CardHeader
-                    className="cursor-pointer flex flex-row items-center gap-2"
-                    onClick={() => toggleWorkout(wId)}
-                  >
-                    {isExpanded ? (
-                      <ChevronDown className="h-5 w-5" />
-                    ) : (
-                      <ChevronRight className="h-5 w-5" />
-                    )}
-                    <CardTitle className="text-lg">
-                      {workout.name as string}
-                    </CardTitle>
-                    {!!workout.estimatedMinutes && (
-                      <span className="text-sm text-muted-foreground ml-auto">
-                        ~{workout.estimatedMinutes as number} min
+            <div className="space-y-3">
+              {weekNumbers.map((weekIdx) => {
+                const weekWorkouts = weekGroups[weekIdx].slice().sort(
+                  (a, b) => ((a.dayIndex as number) ?? 0) - ((b.dayIndex as number) ?? 0)
+                );
+                const isWeekExpanded = expandedWeeks.has(weekIdx);
+                const sessionCount = weekWorkouts.length;
+
+                return (
+                  <div key={weekIdx} className="rounded-xl border bg-card overflow-hidden">
+                    {/* Week header */}
+                    <button
+                      type="button"
+                      className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/40 transition-colors text-left"
+                      onClick={() => toggleWeek(weekIdx)}
+                    >
+                      {isWeekExpanded ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                      )}
+                      <span className="font-semibold text-base">Week {weekIdx + 1}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {sessionCount} session{sessionCount !== 1 ? "s" : ""}
                       </span>
-                    )}
-                  </CardHeader>
-                  {isExpanded && (
-                    <CardContent className="space-y-4">
-                      {blocks.map((block) => {
-                        const bExercises =
-                          (block.exercises as Record<string, unknown>[]) ||
-                          [];
-                        return (
-                          <div
-                            key={block.id as string}
-                            className="border rounded-lg p-4"
-                          >
-                            <div className="flex items-center gap-2 mb-3">
-                              <span className="font-semibold">
-                                {(block.name as string) || "Block"}
-                              </span>
-                              {(block.type as string) !== "NORMAL" && (
-                                <Badge variant="outline">
-                                  {block.type as string}
-                                </Badge>
-                              )}
-                              {(block.rounds as number) > 1 && (
-                                <Badge variant="secondary">
-                                  {block.rounds as number} rounds
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="space-y-3">
-                              {bExercises.map((be) => {
-                                const exercise =
-                                  be.exercise as Record<string, unknown>;
-                                const sets =
-                                  (be.sets as Record<string, unknown>[]) ||
-                                  [];
-                                return (
-                                  <div
-                                    key={be.id as string}
-                                    className="flex items-start gap-3 p-3 bg-muted/50 rounded-md"
-                                  >
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <button
-                                          type="button"
-                                          className="font-medium text-sm text-left hover:underline focus:outline-none"
-                                          onClick={() => setDetailExercise(exercise)}
-                                        >
-                                          {exercise?.name as string}
-                                        </button>
-                                        {!!(exercise?.videoUrl) && (
-                                          <button
-                                            type="button"
-                                            className="inline-flex items-center gap-0.5 text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-sm font-medium hover:bg-blue-100 transition-colors"
-                                            onClick={() => setDetailExercise(exercise)}
-                                          >
-                                            <Play className="h-2.5 w-2.5" /> Watch
-                                          </button>
-                                        )}
-                                      </div>
-                                      {!!(exercise?.description) && (
-                                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                                          {exercise.description as string}
-                                        </p>
-                                      )}
-                                      {!!be.notes && (
-                                        <p className="text-xs text-muted-foreground mt-0.5 italic">
-                                          {be.notes as string}
-                                        </p>
-                                      )}
-                                      {sets.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 mt-2">
-                                          <Badge variant="secondary" className="text-xs">
-                                            {summarizeSets(sets)}
-                                          </Badge>
-                                          {!!be.restSeconds && (
-                                            <Badge variant="outline" className="text-xs text-muted-foreground">
-                                              Rest {be.restSeconds as number}s
+                    </button>
+
+                    {/* Workouts for this week */}
+                    {isWeekExpanded && (
+                      <div className="border-t divide-y">
+                        {weekWorkouts.map((workout, dayPos) => {
+                          const wId = workout.id as string;
+                          const isExpanded = expandedWorkouts.has(wId);
+                          const blocks = (workout.blocks as Record<string, unknown>[]) || [];
+                          const scheduledDate = workout.scheduledDate as string | null | undefined;
+
+                          return (
+                            <div key={wId}>
+                              {/* Session row */}
+                              <button
+                                type="button"
+                                className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-muted/30 transition-colors text-left"
+                                onClick={() => toggleWorkout(wId)}
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                                )}
+                                <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                  <span className="text-xs font-medium text-muted-foreground bg-muted rounded-md px-2 py-0.5 shrink-0">
+                                    Day {dayPos + 1}
+                                  </span>
+                                  <span className="font-medium text-sm truncate">
+                                    {workout.name as string}
+                                  </span>
+                                  {scheduledDate && (
+                                    <span className="text-xs text-muted-foreground shrink-0">
+                                      {format(new Date(scheduledDate), "MMM d")}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0 ml-auto">
+                                  {!!workout.estimatedMinutes && (
+                                    <span className="text-xs text-muted-foreground">
+                                      ~{workout.estimatedMinutes as number} min
+                                    </span>
+                                  )}
+                                  <span className="text-xs text-muted-foreground">
+                                    {blocks.reduce((sum, b) => sum + ((b.exercises as unknown[]) || []).length, 0)} exercises
+                                  </span>
+                                </div>
+                              </button>
+
+                              {/* Expanded blocks */}
+                              {isExpanded && (
+                                <div className="px-5 pb-4 pt-1 space-y-3 bg-muted/20">
+                                  {blocks.map((block) => {
+                                    const bExercises = (block.exercises as Record<string, unknown>[]) || [];
+                                    return (
+                                      <div key={block.id as string} className="border rounded-lg p-4 bg-card">
+                                        <div className="flex items-center gap-2 mb-3">
+                                          <span className="font-semibold text-sm">
+                                            {(block.name as string) || "Block"}
+                                          </span>
+                                          {(block.type as string) !== "NORMAL" && (
+                                            <Badge variant="outline" className="text-xs">
+                                              {block.type as string}
+                                            </Badge>
+                                          )}
+                                          {(block.rounds as number) > 1 && (
+                                            <Badge variant="secondary" className="text-xs">
+                                              {block.rounds as number} rounds
                                             </Badge>
                                           )}
                                         </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                                        <div className="space-y-2">
+                                          {bExercises.map((be) => {
+                                            const exercise = be.exercise as Record<string, unknown>;
+                                            const sets = (be.sets as Record<string, unknown>[]) || [];
+                                            return (
+                                              <div
+                                                key={be.id as string}
+                                                className="flex items-start gap-3 p-3 bg-muted/50 rounded-md"
+                                              >
+                                                <div className="flex-1 min-w-0">
+                                                  <div className="flex items-center gap-2 flex-wrap">
+                                                    <button
+                                                      type="button"
+                                                      className="font-medium text-sm text-left hover:underline focus:outline-none"
+                                                      onClick={() => setDetailExercise(exercise)}
+                                                    >
+                                                      {exercise?.name as string}
+                                                    </button>
+                                                    {!!(exercise?.videoUrl) && (
+                                                      <button
+                                                        type="button"
+                                                        className="inline-flex items-center gap-0.5 text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-sm font-medium hover:bg-blue-100 transition-colors"
+                                                        onClick={() => setDetailExercise(exercise)}
+                                                      >
+                                                        <Play className="h-2.5 w-2.5" /> Watch
+                                                      </button>
+                                                    )}
+                                                  </div>
+                                                  {!!(exercise?.description) && (
+                                                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                                      {exercise.description as string}
+                                                    </p>
+                                                  )}
+                                                  {!!be.notes && (
+                                                    <p className="text-xs text-muted-foreground mt-0.5 italic">
+                                                      {be.notes as string}
+                                                    </p>
+                                                  )}
+                                                  {sets.length > 0 && (
+                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                      <Badge variant="secondary" className="text-xs">
+                                                        {summarizeSets(sets)}
+                                                      </Badge>
+                                                      {!!be.restSeconds && (
+                                                        <Badge variant="outline" className="text-xs text-muted-foreground">
+                                                          Rest {be.restSeconds as number}s
+                                                        </Badge>
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        );
-                      })}
-                    </CardContent>
-                  )}
-                </Card>
-              );
-            })
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </TabsContent>
         <TabsContent value="schedule" className="mt-4">
           <ProgramScheduleView
             rawWorkouts={workouts}
             rawSessions={sessions}
-            isClinician={isClinician}
+            isTrainer={isTrainer}
           />
         </TabsContent>
       </Tabs>
@@ -384,7 +450,7 @@ export function ProgramDetailView({
       {/* Assign Dialog */}
       <AssignProgramDialog
         programId={program.id as string}
-        patients={patients}
+        clients={clients}
         open={assignOpen}
         onOpenChange={setAssignOpen}
       />

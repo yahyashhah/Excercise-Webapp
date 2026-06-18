@@ -30,7 +30,7 @@ export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) 
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "CLINICIAN") return { success: false as const, error: "Forbidden" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
   if (!exercises.length) return { success: false as const, error: "No exercises provided" };
 

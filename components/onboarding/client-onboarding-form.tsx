@@ -7,11 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { COMMON_EQUIPMENT, FITNESS_GOALS } from "@/lib/utils/constants";
-import { completePatientOnboarding } from "@/actions/onboarding-actions";
+import { completeClientOnboarding } from "@/actions/onboarding-actions";
 import { toast } from "sonner";
 import { Loader2, ArrowRight, ArrowLeft } from "lucide-react";
 
-export function PatientOnboardingForm() {
+export function ClientOnboardingForm() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [firstName, setFirstName] = useState("");
@@ -49,7 +49,7 @@ export function PatientOnboardingForm() {
     }
 
     setLoading(true);
-    const result = await completePatientOnboarding({
+    const result = await completeClientOnboarding({
       firstName,
       lastName,
       phone: phone || undefined,
@@ -150,7 +150,7 @@ export function PatientOnboardingForm() {
           <CardHeader>
             <CardTitle>Clinical Profile</CardTitle>
             <CardDescription>
-              This helps your clinician personalize your exercise program
+              This helps your trainer personalize your exercise program
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

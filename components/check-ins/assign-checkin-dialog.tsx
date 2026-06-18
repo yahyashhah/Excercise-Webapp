@@ -24,7 +24,7 @@ import { UserPlus } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Patient {
+interface Client {
   id: string;
   firstName: string;
   lastName: string;
@@ -33,7 +33,7 @@ interface Patient {
 interface Props {
   templateId: string;
   templateName: string;
-  patients: Patient[];
+  clients: Client[];
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -41,26 +41,26 @@ interface Props {
 export function AssignCheckInDialog({
   templateId,
   templateName,
-  patients,
+  clients,
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [patientId, setPatientId] = useState("");
+  const [clientId, setClientId] = useState("");
   const [assigning, setAssigning] = useState(false);
 
   async function handleAssign() {
-    if (!patientId) {
-      toast.error("Please select a patient");
+    if (!clientId) {
+      toast.error("Please select a client");
       return;
     }
 
     setAssigning(true);
     try {
-      const result = await assignCheckInAction(templateId, patientId);
+      const result = await assignCheckInAction(templateId, clientId);
       if (result.success) {
         toast.success("Check-in assigned successfully");
         setOpen(false);
-        setPatientId("");
+        setClientId("");
         router.refresh();
       } else {
         toast.error(result.error);
@@ -79,13 +79,13 @@ export function AssignCheckInDialog({
         className="gap-2 w-full"
       >
         <UserPlus className="h-4 w-4" />
-        Assign to Patient
+        Assign to Client
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Check-in to Patient</DialogTitle>
+            <DialogTitle>Assign Check-in to Client</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
@@ -95,21 +95,21 @@ export function AssignCheckInDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="patient-select">Select Patient</Label>
-              {patients.length === 0 ? (
+              <Label htmlFor="client-select">Select Client</Label>
+              {clients.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No patients linked to your account yet.
+                  No clients linked to your account yet.
                 </p>
               ) : (
                 <Select
-                  value={patientId}
-                  onValueChange={(v) => setPatientId(v ?? "")}
+                  value={clientId}
+                  onValueChange={(v) => setClientId(v ?? "")}
                 >
-                  <SelectTrigger id="patient-select">
-                    <SelectValue placeholder="Choose a patient..." />
+                  <SelectTrigger id="client-select">
+                    <SelectValue placeholder="Choose a client..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {patients.map((p) => (
+                    {clients.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.firstName} {p.lastName}
                       </SelectItem>
@@ -125,14 +125,14 @@ export function AssignCheckInDialog({
               variant="outline"
               onClick={() => {
                 setOpen(false);
-                setPatientId("");
+                setClientId("");
               }}
             >
               Cancel
             </Button>
             <Button
               onClick={handleAssign}
-              disabled={assigning || !patientId || patients.length === 0}
+              disabled={assigning || !clientId || clients.length === 0}
               className="gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
             >
               <UserPlus className="h-4 w-4" />

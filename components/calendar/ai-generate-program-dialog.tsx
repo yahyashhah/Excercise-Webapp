@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { BODY_REGIONS, DIFFICULTY_LEVELS } from "@/lib/utils/constants";
+import { DIFFICULTY_LEVELS, FITNESS_GOALS } from "@/lib/utils/constants";
 import { generateProgramAction } from "@/actions/program-actions";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
@@ -42,7 +42,7 @@ const CIRCUIT_FOCUS_OPTIONS = [
 interface AiGenerateProgramDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  patientId: string;
+  clientId: string;
   initialDate: Date;
   onSuccess: () => void;
 }
@@ -50,7 +50,7 @@ interface AiGenerateProgramDialogProps {
 export function AiGenerateProgramDialog({
   open,
   onOpenChange,
-  patientId,
+  clientId,
   initialDate,
   onSuccess,
 }: AiGenerateProgramDialogProps) {
@@ -65,7 +65,7 @@ export function AiGenerateProgramDialog({
   ] as const;
 
   const [loading, setLoading] = useState(false);
-  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
+  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState("BEGINNER");
   const [duration, setDuration] = useState(25);
   const [daysPerWeek, setDaysPerWeek] = useState(3);
@@ -80,12 +80,12 @@ export function AiGenerateProgramDialog({
     { id: "3", name: "Cool Down", focusType: "COOLDOWN", exerciseCount: 3, rounds: 1, restBetweenRounds: null },
   ]);
   const [subjective, setSubjective] = useState("");
-  const [clinicianPrompt, setClinicianPrompt] = useState("");
+  const [trainerPrompt, setTrainerPrompt] = useState("");
   const [notes, setNotes] = useState("");
 
-  function toggleArea(area: string) {
-    setSelectedAreas((prev) =>
-      prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area]
+  function toggleGoal(goal: string) {
+    setSelectedGoals((prev) =>
+      prev.includes(goal) ? prev.filter((g) => g !== goal) : [...prev, goal]
     );
   }
 
@@ -135,8 +135,8 @@ export function AiGenerateProgramDialog({
   }
 
   async function handleGenerate() {
-    if (selectedAreas.length === 0) {
-      toast.error("Please select at least one focus area");
+    if (selectedGoals.length === 0) {
+      toast.error("Please select at least one program goal");
       return;
     }
     if (selectedWeekdays.length === 0) {
@@ -150,8 +150,8 @@ export function AiGenerateProgramDialog({
 
     setLoading(true);
     const result = await generateProgramAction({
-      patientId,
-      focusAreas: selectedAreas,
+      clientId,
+      programGoals: selectedGoals,
       durationMinutes: duration,
       daysPerWeek,
       circuits: circuits.map(({ name, focusType, exerciseCount, rounds, restBetweenRounds }) => ({
@@ -166,7 +166,7 @@ export function AiGenerateProgramDialog({
       startDate: format(initialDate, "yyyy-MM-dd"),
       additionalNotes: notes || undefined,
       subjective: subjective || undefined,
-      clinicianPrompt: clinicianPrompt || undefined,
+      trainerPrompt: trainerPrompt || undefined,
     });
     setLoading(false);
 
@@ -199,19 +199,19 @@ export function AiGenerateProgramDialog({
 
         <div className="flex-1 overflow-y-auto min-h-0">
           <div className="px-6 py-5 space-y-5">
-            {/* Focus Areas */}
+            {/* Program Goals */}
             <div className="space-y-2">
-              <Label>Focus Areas *</Label>
+              <Label>Program Goals *</Label>
               <div className="flex flex-wrap gap-2">
-                {BODY_REGIONS.map((r) => (
+                {FITNESS_GOALS.map((goal) => (
                   <Button
-                    key={r.value}
+                    key={goal}
                     type="button"
-                    variant={selectedAreas.includes(r.value) ? "default" : "outline"}
+                    variant={selectedGoals.includes(goal) ? "default" : "outline"}
                     size="sm"
-                    onClick={() => toggleArea(r.value)}
+                    onClick={() => toggleGoal(goal)}
                   >
-                    {r.label}
+                    {goal}
                   </Button>
                 ))}
               </div>
@@ -429,7 +429,7 @@ export function AiGenerateProgramDialog({
               />
             </div>
 
-            {/* Clinician prompt */}
+            {/* Trainer prompt */}
             <div className="space-y-2">
               <Label>
                 Program Instructions{" "}
@@ -438,8 +438,8 @@ export function AiGenerateProgramDialog({
               <Textarea
                 rows={2}
                 placeholder='e.g. "Act as a DPT and create a 1-week PT progression for this subjective."'
-                value={clinicianPrompt}
-                onChange={(e) => setClinicianPrompt(e.target.value)}
+                value={trainerPrompt}
+                onChange={(e) => setTrainerPrompt(e.target.value)}
               />
             </div>
 

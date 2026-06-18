@@ -31,17 +31,17 @@ import { ROUTES } from "@/lib/utils/constants";
 import { Loader2 } from "lucide-react";
 
 interface AssessmentFormProps {
-  patientId?: string;
+  clientId?: string;
 }
 
-export function AssessmentForm({ patientId }: AssessmentFormProps) {
+export function AssessmentForm({ clientId }: AssessmentFormProps) {
   const router = useRouter();
   
 
   const form = useForm<CreateAssessmentInput>({
     resolver: zodResolver(createAssessmentSchema) as never,
     defaultValues: {
-      patientId: patientId ?? "",
+      clientId: clientId ?? "",
       assessmentType: "",
       value: 0,
       unit: "",

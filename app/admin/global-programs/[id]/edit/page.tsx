@@ -32,7 +32,7 @@ export default async function EditGlobalProgramPage({ params }: Props) {
           </Link>
         </Button>
         <h1 className="text-3xl font-bold tracking-tight">Edit Global Program</h1>
-        <p className="text-muted-foreground">Changes will be reflected for all clinics after pushing an update.</p>
+        <p className="text-muted-foreground">Changes will be reflected for all organizations after pushing an update.</p>
       </div>
       <GlobalProgramEditorWrapper
         program={program as unknown as Record<string, unknown>}

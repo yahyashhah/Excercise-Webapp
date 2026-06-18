@@ -231,7 +231,7 @@ export default function NewCheckInTemplatePage() {
             New Check-in Template
           </h2>
           <p className="text-muted-foreground text-sm">
-            Build a reusable questionnaire to send to patients on a schedule.
+            Build a reusable questionnaire to send to clients on a schedule.
           </p>
         </div>
       </div>

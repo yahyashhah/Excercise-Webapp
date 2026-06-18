@@ -1,21 +1,21 @@
 import * as React from 'react'
 
 interface SessionCompletedEmailProps {
-  clinicianName: string
-  patientName: string
+  trainerName: string
+  clientName: string
   workoutName: string
   programName: string
-  patientLink: string
-  clinicName?: string
+  clientLink: string
+  organizationName?: string
 }
 
 export function SessionCompletedEmail({
-  clinicianName,
-  patientName,
+  trainerName,
+  clientName,
   workoutName,
   programName,
-  patientLink,
-  clinicName = 'INMOTUS RX',
+  clientLink,
+  organizationName = 'INMOTUS RX',
 }: SessionCompletedEmailProps) {
   return (
     <html lang="en">
@@ -33,20 +33,20 @@ export function SessionCompletedEmail({
                   <tbody>
                     <tr>
                       <td style={styles.headerBar}>
-                        <p style={styles.brandName}>{clinicName}</p>
+                        <p style={styles.brandName}>{organizationName}</p>
                       </td>
                     </tr>
                     <tr>
                       <td style={styles.bodyPad}>
-                        <p style={styles.greeting}>Hi {clinicianName},</p>
+                        <p style={styles.greeting}>Hi {trainerName},</p>
                         <p style={styles.intro}>
-                          Your client <strong>{patientName}</strong> just completed a workout session.
+                          Your client <strong>{clientName}</strong> just completed a workout session.
                         </p>
                         <table width="100%" cellPadding={0} cellSpacing={0} style={styles.detailsCard}>
                           <tbody>
                             <tr>
                               <td style={styles.detailsPad}>
-                                <DetailRow label="Patient" value={patientName} />
+                                <DetailRow label="Client" value={clientName} />
                                 <DetailRow label="Workout" value={workoutName} />
                                 <DetailRow label="Program" value={programName} />
                               </td>
@@ -57,20 +57,20 @@ export function SessionCompletedEmail({
                           <tbody>
                             <tr>
                               <td align="center">
-                                <a href={patientLink} style={styles.ctaButton}>View Patient Progress</a>
+                                <a href={clientLink} style={styles.ctaButton}>View Client Progress</a>
                               </td>
                             </tr>
                           </tbody>
                         </table>
                         <p style={styles.footnote}>
-                          You received this alert because you are the assigned clinician for this patient.
+                          You received this alert because you are the assigned trainer for this client.
                         </p>
                       </td>
                     </tr>
                     <tr>
                       <td style={styles.footer}>
                         <p style={styles.footerText}>
-                          &copy; {new Date().getFullYear()} {clinicName}. All rights reserved.
+                          &copy; {new Date().getFullYear()} {organizationName}. All rights reserved.
                         </p>
                       </td>
                     </tr>

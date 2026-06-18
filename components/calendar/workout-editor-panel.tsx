@@ -1,4 +1,4 @@
-import {  getPatientExerciseHistory } from "@/actions/exercise-history-actions";
+import {  getClientExerciseHistory } from "@/actions/exercise-history-actions";
 import { cn } from "@/lib/utils";
 import { useClipboard, stripIds } from "@/lib/clipboard-context";
 import { useBuilderKeyboard } from "@/hooks/use-builder-keyboard";
@@ -115,14 +115,14 @@ interface WorkoutEditorPanelProps {
   panelState: PanelState;
   onClose: () => void;
   exerciseLibrary: ExerciseSummary[];
-  clinicOrganizationId?: string;
-  patientId: string;
+  organizationOrganizationId?: string;
+  clientId: string;
   onWorkoutCreated: () => void;
   onWorkoutDeleted: () => void;
   onWorkoutUpdated: () => void;
   onAiGenerateClick?: (date: Date) => void;
   createAdHocWorkoutAction: (
-    patientId: string,
+    clientId: string,
     scheduledDate: string,
     workoutName: string
   ) => Promise<{ success: true; data: { sessionId: string; workoutId: string } }
@@ -288,7 +288,7 @@ function SortableExercise({
   onDeleteExercise,
   onAddSet,
   onUpdateNotes,
-  patientId,
+  clientId,
   sessionStatus,
   exerciseLog,
   isSelected,
@@ -323,7 +323,7 @@ function SortableExercise({
     }
     setHistoryLoading(true);
     setHistoryOpen(true);
-    const res = await getPatientExerciseHistory(patientId, exercise.exercise.id);
+    const res = await getClientExerciseHistory(clientId, exercise.exercise.id);
     if (res.success) {
       setHistoryData(res.data);
     }
@@ -624,8 +624,8 @@ export function WorkoutEditorPanel({
   panelState,
   onClose,
   exerciseLibrary,
-  clinicOrganizationId,
-  patientId,
+  organizationOrganizationId,
+  clientId,
   onWorkoutCreated,
   onWorkoutDeleted,
   onWorkoutUpdated,
@@ -690,7 +690,7 @@ export function WorkoutEditorPanel({
     setSaving(true);
     try {
       const result = await createAdHocWorkoutAction(
-        patientId,
+        clientId,
         panelState.date.toISOString(),
         workoutName
       );
@@ -1399,7 +1399,7 @@ export function WorkoutEditorPanel({
                     <div className="bg-green-50 border border-green-200 rounded-md p-4 text-sm text-green-800 mb-6">
                       <div className="flex items-center gap-2 font-semibold mb-1">
                         <CheckCircle className="h-4 w-4" />
-                        Patient Feedback
+                        Client Feedback
                       </div>
                       <div className="grid gap-1">
                         {session.overallRPE !== null && (
@@ -1536,7 +1536,7 @@ export function WorkoutEditorPanel({
                                   blockLetter={blockLetter}
                                   isCircuit={isCircuit}
                                   savingSetIds={savingSetIds}
-                                  patientId={patientId}
+                                  clientId={clientId}
                                   sessionStatus={session.status}
                                   exerciseLog={session.exerciseLogs?.find((l: any) => l.blockExerciseId === exercise.id)}
                                   onSetChange={handleSetChange}
@@ -1629,7 +1629,7 @@ export function WorkoutEditorPanel({
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         exercises={exerciseLibrary}
-        clinicOrganizationId={clinicOrganizationId}
+        organizationOrganizationId={organizationOrganizationId}
         onSelect={handleExerciseSelected}
       />
     </>

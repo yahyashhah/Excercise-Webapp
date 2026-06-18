@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default async function NewProgramPage() {
-  await requireRole("CLINICIAN");
+  await requireRole("TRAINER");
   const exercises = await getExercises();
 
   return (

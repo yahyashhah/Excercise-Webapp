@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const workoutGenerationSchema = z.object({
-  patientId: z.string().uuid("Invalid patient ID"),
+  clientId: z.string().uuid("Invalid client ID"),
   limitations: z.string().max(2000).optional().nullable(),
   comorbidities: z.string().max(2000).optional().nullable(),
   functionalChallenges: z.string().max(2000).optional().nullable(),
@@ -14,7 +14,7 @@ export const workoutGenerationSchema = z.object({
 export type WorkoutGenerationInput = z.infer<typeof workoutGenerationSchema>;
 
 export const createPlanSchema = z.object({
-  patientId: z.string().uuid("Invalid patient ID"),
+  clientId: z.string().uuid("Invalid client ID"),
   title: z
     .string()
     .min(1, "Title is required")

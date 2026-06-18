@@ -16,8 +16,9 @@ export interface ClinicalPlan {
 }
 
 export interface ClinicalPlanParams {
-  patientId?: string | null
-  focusAreas: string[]
+  clientId?: string | null
+  programGoals: string[]
+  availableEquipment?: string[]
   durationWeeks: number
   daysPerWeek: number
   difficultyLevel: string
@@ -30,6 +31,6 @@ export interface ClinicalPlanParams {
   }[]
   preferredWeekdays?: string[]
   subjective?: string
-  clinicianPrompt?: string
+  trainerPrompt?: string
   additionalNotes?: string
 }

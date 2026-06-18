@@ -18,7 +18,7 @@ export default async function AdminGenerateGlobalProgramPage() {
         </Button>
         <h1 className="text-3xl font-bold tracking-tight">Generate Global Program</h1>
         <p className="text-muted-foreground">
-          Use AI to create a master program that will be available to all clinics.
+          Use AI to create a master program that will be available to all organizations.
         </p>
       </div>
       <div className="max-w-2xl">

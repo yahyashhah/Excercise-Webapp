@@ -4,14 +4,14 @@ import { auth } from "@clerk/nextjs/server";
 const f = createUploadthing();
 
 export const ourFileRouter = {
-  clinicLogo: f({ image: { maxFileSize: "2MB", maxFileCount: 1 } })
+  organizationLogo: f({ image: { maxFileSize: "2MB", maxFileCount: 1 } })
     .middleware(async () => {
       const { userId } = await auth();
       if (!userId) throw new Error("Unauthorized");
       return { userId };
     })
     .onUploadComplete(async ({ metadata, file }) => {
-      console.log("Clinic logo uploaded by:", metadata.userId);
+      console.log("Organization logo uploaded by:", metadata.userId);
       return { url: file.ufsUrl };
     }),
 

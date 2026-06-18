@@ -24,7 +24,7 @@ function getPageTitle(pathname: string): string {
     "/programs": "Programs",
     "/programs/new": "New Program",
     "/programs/generate": "Generate Program",
-    "/patients": "Clients",
+    "/clients": "Clients",
     "/messages": "Messages",
     "/assessments": "Assessments",
     "/assessments/new": "New Assessment",
@@ -32,7 +32,7 @@ function getPageTitle(pathname: string): string {
     "/check-ins/new": "New Check-in Template",
     "/habits": "Habits",
     "/settings": "Settings",
-    "/settings/clinic": "Clinic Settings",
+    "/settings/organization": "Organization Settings",
   };
 
   if (exactMap[pathname]) return exactMap[pathname];
@@ -41,10 +41,10 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith("/exercises/")) return "Exercise Details";
   if (pathname.startsWith("/programs/") && pathname.endsWith("/edit")) return "Edit Program";
   if (pathname.startsWith("/programs/")) return "Program Details";
-  if (pathname.startsWith("/patients/") && pathname.endsWith("/adherence")) return "Adherence";
-  if (pathname.startsWith("/patients/") && pathname.endsWith("/outcomes")) return "Outcomes";
-  if (pathname.startsWith("/patients/") && pathname.endsWith("/progress")) return "Progress Tracking";
-  if (pathname.startsWith("/patients/")) return "Client Details";
+  if (pathname.startsWith("/clients/") && pathname.endsWith("/adherence")) return "Adherence";
+  if (pathname.startsWith("/clients/") && pathname.endsWith("/outcomes")) return "Outcomes";
+  if (pathname.startsWith("/clients/") && pathname.endsWith("/progress")) return "Progress Tracking";
+  if (pathname.startsWith("/clients/")) return "Client Details";
   if (pathname.startsWith("/messages/")) return "Conversation";
   if (pathname.startsWith("/sessions/")) return "Workout Session";
   if (pathname.startsWith("/check-ins/") && pathname.endsWith("/respond")) return "Complete Check-in";

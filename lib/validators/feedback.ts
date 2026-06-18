@@ -8,7 +8,7 @@ export const submitFeedbackSchema = z.object({
 
 export const respondToFeedbackSchema = z.object({
   feedbackId: z.string().min(1),
-  clinicianResponse: z.string().min(1, "Response is required").max(2000),
+  trainerResponse: z.string().min(1, "Response is required").max(2000),
 });
 
 export type SubmitFeedbackInput = z.infer<typeof submitFeedbackSchema>;

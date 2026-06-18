@@ -130,7 +130,7 @@ const features = [
     icon: Users,
     title: "Client Portal",
     description:
-      "Patients access guided sessions on any device. Step-by-step instructions, video demos, and set logging — all in one place.",
+      "Clients access guided sessions on any device. Step-by-step instructions, video demos, and set logging — all in one place.",
     gradient: "from-violet-500 to-purple-500",
     bg: "bg-violet-50",
     iconColor: "text-violet-600",
@@ -139,7 +139,7 @@ const features = [
     icon: MessageSquare,
     title: "Feedback & Alerts",
     description:
-      "Patients rate every exercise after each session. Clinicians receive instant alerts on pain or difficulty reports.",
+      "Clients rate every exercise after each session. Trainers receive instant alerts on pain or difficulty reports.",
     gradient: "from-amber-500 to-orange-500",
     bg: "bg-amber-50",
     iconColor: "text-amber-600",
@@ -157,7 +157,7 @@ const features = [
     icon: TrendingUp,
     title: "Outcome Monitoring",
     description:
-      "Record functional assessments over time and visualise patient progress with interactive charts and trend lines.",
+      "Record functional assessments over time and visualise client progress with interactive charts and trend lines.",
     gradient: "from-rose-500 to-pink-500",
     bg: "bg-rose-50",
     iconColor: "text-rose-600",
@@ -168,9 +168,9 @@ const steps = [
   {
     number: "01",
     icon: Users,
-    title: "Create Patient Profile",
+    title: "Create Client Profile",
     description:
-      "Add your patient and capture their health history, limitations, available equipment, and rehabilitation goals.",
+      "Add your client and capture their health history, limitations, available equipment, and rehabilitation goals.",
     color: "from-blue-500 to-indigo-500",
   },
   {
@@ -186,7 +186,7 @@ const steps = [
     icon: TrendingUp,
     title: "Track & Adjust",
     description:
-      "Monitor adherence, review session feedback, and adjust programs in real time as your patient progresses.",
+      "Monitor adherence, review session feedback, and adjust programs in real time as your client progresses.",
     color: "from-emerald-500 to-teal-500",
   },
 ];
@@ -195,7 +195,7 @@ const testimonials = [
   {
     name: "Dr. Sarah Chen",
     role: "Physical Therapist",
-    clinic: "Motion Health Clinic",
+    organization: "Motion Health Organization",
     quote:
       "INMOTUS RX cut my program creation time from 45 minutes to under 2 minutes. The AI understands contraindications and creates thoughtful progressions I would have designed myself.",
     avatar: "SC",
@@ -203,8 +203,8 @@ const testimonials = [
   },
   {
     name: "James Rodriguez",
-    role: "Post-Surgical Patient",
-    clinic: "",
+    role: "Post-Surgical Client",
+    organization: "",
     quote:
       "Having a guided workout on my phone with clear instructions made me actually stick with my exercises. My therapist could see my progress in real time too.",
     avatar: "JR",
@@ -213,9 +213,9 @@ const testimonials = [
   {
     name: "Dr. Emily Thompson",
     role: "Orthopedic Surgeon",
-    clinic: "Summit Orthopaedics",
+    organization: "Summit Orthopaedics",
     quote:
-      "I refer patients to clinicians on INMOTUS RX because I can see adherence data and outcomes. It closes the feedback loop I never had before.",
+      "I refer clients to trainers on INMOTUS RX because I can see adherence data and outcomes. It closes the feedback loop I never had before.",
     avatar: "ET",
     gradient: "from-emerald-500 to-teal-500",
   },
@@ -228,8 +228,8 @@ const pricingPlans = [
     period: "",
     description: "Perfect for independent practitioners getting started",
     features: [
-      "1 clinician account",
-      "Up to 5 patients",
+      "1 trainer account",
+      "Up to 5 clients",
       "AI program generation",
       "Exercise library access",
       "Email support",
@@ -244,11 +244,11 @@ const pricingPlans = [
     period: "/month",
     description: "Everything you need to run a modern practice",
     features: [
-      "1 clinician account",
-      "Unlimited patients",
+      "1 trainer account",
+      "Unlimited clients",
       "Full AI generation",
       "Adherence analytics",
-      "Patient messaging",
+      "Client messaging",
       "Outcome monitoring",
       "Priority support",
     ],
@@ -260,12 +260,12 @@ const pricingPlans = [
     name: "Practice",
     price: "$149",
     period: "/month",
-    description: "For growing multi-clinician practices",
+    description: "For growing multi-trainer practices",
     features: [
-      "Up to 10 clinicians",
-      "Unlimited patients",
+      "Up to 10 trainers",
+      "Unlimited clients",
       "All Professional features",
-      "Custom clinic branding",
+      "Custom organization branding",
       "API access",
       "Dedicated account manager",
       "HIPAA BAA included",
@@ -277,8 +277,8 @@ const pricingPlans = [
 ];
 
 const stats = [
-  { value: 500, suffix: "+", label: "Clinicians", icon: Users },
-  { value: 10000, suffix: "+", label: "Patients", icon: HeartPulse },
+  { value: 500, suffix: "+", label: "Trainers", icon: Users },
+  { value: 10000, suffix: "+", label: "Clients", icon: HeartPulse },
   { value: 95, suffix: "%", label: "Adherence Rate", icon: TrendingUp },
   { value: 2, suffix: " min", label: "Program Generation", icon: Clock },
 ];
@@ -457,8 +457,8 @@ export default function LandingPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.5 }}
             >
-              Clinicians generate AI-powered home exercise programs in under 2 minutes.
-              Patients get guided sessions with video demos, set logging, and real-time feedback.
+              Trainers generate AI-powered home exercise programs in under 2 minutes.
+              Clients get guided sessions with video demos, set logging, and real-time feedback.
             </motion.p>
 
             {/* CTA buttons */}
@@ -501,7 +501,7 @@ export default function LandingPage() {
               {[
                 { icon: Shield, label: "HIPAA Compliant" },
                 { icon: Check, label: "No credit card required" },
-                { icon: Users, label: "500+ clinicians" },
+                { icon: Users, label: "500+ trainers" },
               ].map(({ icon: Icon, label }) => (
                 <div key={label} className="flex items-center gap-1.5">
                   <Icon className="h-4 w-4 text-emerald-400" />
@@ -532,7 +532,7 @@ export default function LandingPage() {
                 {/* App content preview */}
                 <div className="grid gap-4 sm:grid-cols-4">
                   {[
-                    { label: "Active Patients", value: "127", change: "+12 this week", color: "blue" },
+                    { label: "Active Clients", value: "127", change: "+12 this week", color: "blue" },
                     { label: "Active Programs", value: "342", change: "+28 this week", color: "emerald" },
                     { label: "Adherence Rate", value: "94%", change: "+3% vs last month", color: "violet" },
                     { label: "Pending Feedback", value: "8", change: "3 need attention", color: "amber" },
@@ -686,7 +686,7 @@ export default function LandingPage() {
               Live in 3 steps
             </h2>
             <p className="mt-4 text-lg text-slate-400">
-              From patient intake to guided sessions in minutes.
+              From client intake to guided sessions in minutes.
             </p>
           </FadeUp>
 
@@ -726,7 +726,7 @@ export default function LandingPage() {
               Trusted by healthcare professionals
             </h2>
             <p className="mt-4 text-lg text-slate-600">
-              See what clinicians and patients say about INMOTUS RX.
+              See what trainers and clients say about INMOTUS RX.
             </p>
           </FadeUp>
 
@@ -751,7 +751,7 @@ export default function LandingPage() {
                     </div>
                     <div>
                       <p className="font-semibold text-slate-900">{t.name}</p>
-                      <p className="text-sm text-slate-500">{t.role}{t.clinic ? ` · ${t.clinic}` : ""}</p>
+                      <p className="text-sm text-slate-500">{t.role}{t.organization ? ` · ${t.organization}` : ""}</p>
                     </div>
                   </div>
 
@@ -865,10 +865,10 @@ export default function LandingPage() {
         <div className="relative mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
           <FadeUp>
             <h2 className="text-4xl font-extrabold text-white sm:text-5xl">
-              Ready to transform patient care?
+              Ready to transform client care?
             </h2>
             <p className="mt-4 text-lg text-slate-400">
-              Join hundreds of clinicians using AI to build better exercise programs.
+              Join hundreds of trainers using AI to build better exercise programs.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Button
@@ -907,7 +907,7 @@ export default function LandingPage() {
                 <span className="text-lg font-bold text-slate-900">INMOTUS RX</span>
               </div>
               <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-500">
-                AI-powered home exercise programs for modern rehabilitation. Built for clinicians, designed for patients.
+                AI-powered home exercise programs for modern rehabilitation. Built for trainers, designed for clients.
               </p>
               <div className="mt-6 flex items-center gap-1.5 text-xs text-slate-400">
                 <Shield className="h-3.5 w-3.5 text-emerald-500" />

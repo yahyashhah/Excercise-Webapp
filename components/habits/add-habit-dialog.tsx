@@ -29,17 +29,17 @@ const FREQUENCY_OPTIONS = [
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Patient {
+interface Client {
   id: string;
   firstName: string | null;
   lastName: string | null;
 }
 
 interface AddHabitDialogProps {
-  /** Clinician's linked patients — only passed when user is a CLINICIAN. */
-  patients?: Patient[];
-  /** Pre-selected patient id (e.g. when triggered from a patient's profile page). */
-  defaultPatientId?: string;
+  /** Trainer's linked clients — only passed when user is a TRAINER. */
+  clients?: Client[];
+  /** Pre-selected client id (e.g. when triggered from a client's profile page). */
+  defaultClientId?: string;
   /** Override the trigger label/icon. */
   triggerLabel?: string;
 }
@@ -47,8 +47,8 @@ interface AddHabitDialogProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function AddHabitDialog({
-  patients,
-  defaultPatientId,
+  clients,
+  defaultClientId,
   triggerLabel = "Add Habit",
 }: AddHabitDialogProps) {
   const [open, setOpen] = useState(false);
@@ -60,9 +60,9 @@ export function AddHabitDialog({
   const [targetValue, setTargetValue] = useState("");
   const [unit, setUnit]               = useState("");
   const [frequency, setFrequency]     = useState<"DAILY" | "WEEKLY">("DAILY");
-  const [patientId, setPatientId]     = useState(defaultPatientId ?? "");
+  const [clientId, setClientId]     = useState(defaultClientId ?? "");
 
-  const isClinician = Array.isArray(patients);
+  const isTrainer = Array.isArray(clients);
 
   function resetForm() {
     setName("");
@@ -70,7 +70,7 @@ export function AddHabitDialog({
     setTargetValue("");
     setUnit("");
     setFrequency("DAILY");
-    setPatientId(defaultPatientId ?? "");
+    setClientId(defaultClientId ?? "");
   }
 
   function handleOpenChange(next: boolean) {
@@ -86,8 +86,8 @@ export function AddHabitDialog({
       return;
     }
 
-    if (isClinician && !patientId) {
-      toast.error("Please select a patient");
+    if (isTrainer && !clientId) {
+      toast.error("Please select a client");
       return;
     }
 
@@ -98,7 +98,7 @@ export function AddHabitDialog({
         targetValue: targetValue ? parseFloat(targetValue) : undefined,
         unit: unit.trim() || undefined,
         frequency,
-        patientId: isClinician ? patientId : undefined,
+        clientId: isTrainer ? clientId : undefined,
       });
 
       if (result.success) {
@@ -129,20 +129,20 @@ export function AddHabitDialog({
           </DialogHeader>
 
           <div className="mt-5 space-y-5">
-            {/* Patient selector — clinician only */}
-            {isClinician && (
+            {/* Client selector — trainer only */}
+            {isTrainer && (
               <div className="space-y-2">
-                <Label htmlFor="habit-patient">Patient</Label>
+                <Label htmlFor="habit-client">Client</Label>
                 <select
-                  id="habit-patient"
-                  value={patientId}
-                  onChange={(e) => setPatientId(e.target.value)}
+                  id="habit-client"
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
                   required
                   disabled={isPending}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <option value="">Select a patient…</option>
-                  {patients!.map((p) => (
+                  <option value="">Select a client…</option>
+                  {clients!.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.firstName} {p.lastName}
                     </option>
@@ -160,7 +160,7 @@ export function AddHabitDialog({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                autoFocus={!isClinician}
+                autoFocus={!isTrainer}
                 disabled={isPending}
                 maxLength={80}
               />
@@ -254,7 +254,7 @@ export function AddHabitDialog({
             </Button>
             <Button
               type="submit"
-              disabled={isPending || !name.trim() || (isClinician && !patientId)}
+              disabled={isPending || !name.trim() || (isTrainer && !clientId)}
             >
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Habit

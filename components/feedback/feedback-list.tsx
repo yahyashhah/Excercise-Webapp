@@ -14,15 +14,15 @@ interface FeedbackItem {
   id: string;
   rating: string;
   comment: string | null;
-  clinicianResponse: string | null;
+  trainerResponse: string | null;
   createdAt: Date;
   exerciseName: string;
-  patientName?: string;
+  clientName?: string;
 }
 
 interface FeedbackListProps {
   items: FeedbackItem[];
-  isClinician: boolean;
+  isTrainer: boolean;
 }
 
 const ratingColors: Record<string, string> = {
@@ -32,7 +32,7 @@ const ratingColors: Record<string, string> = {
   UNSURE_HOW_TO_PERFORM: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
 };
 
-export function FeedbackList({ items, isClinician }: FeedbackListProps) {
+export function FeedbackList({ items, isTrainer }: FeedbackListProps) {
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
   const [responseText, setResponseText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,7 +43,7 @@ export function FeedbackList({ items, isClinician }: FeedbackListProps) {
 
     const result = await respondToFeedback({
       feedbackId,
-      clinicianResponse: responseText,
+      trainerResponse: responseText,
     });
 
     if (result.success) {
@@ -71,8 +71,8 @@ export function FeedbackList({ items, isClinician }: FeedbackListProps) {
           <div className="flex items-start justify-between gap-2">
             <div>
               <p className="font-medium text-sm">{item.exerciseName}</p>
-              {item.patientName && (
-                <p className="text-muted-foreground text-xs">{item.patientName}</p>
+              {item.clientName && (
+                <p className="text-muted-foreground text-xs">{item.clientName}</p>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -89,14 +89,14 @@ export function FeedbackList({ items, isClinician }: FeedbackListProps) {
             <p className="text-sm text-muted-foreground">{item.comment}</p>
           )}
 
-          {item.clinicianResponse && (
+          {item.trainerResponse && (
             <div className="bg-muted rounded p-2 text-sm">
-              <p className="text-xs font-medium mb-1">Clinician Response:</p>
-              <p>{item.clinicianResponse}</p>
+              <p className="text-xs font-medium mb-1">Trainer Response:</p>
+              <p>{item.trainerResponse}</p>
             </div>
           )}
 
-          {isClinician && !item.clinicianResponse && (
+          {isTrainer && !item.trainerResponse && (
             <div>
               {respondingTo === item.id ? (
                 <div className="space-y-2">

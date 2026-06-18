@@ -28,7 +28,7 @@ export default async function AdminGlobalProgramsPage({ searchParams }: PageProp
         <div>
           <h1 className="text-2xl font-bold text-foreground">Global Programs</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {total.toLocaleString()} master program{total !== 1 ? "s" : ""} available to all clinics.
+            {total.toLocaleString()} master program{total !== 1 ? "s" : ""} available to all organizations.
           </p>
         </div>
         <div className="flex items-center gap-2">

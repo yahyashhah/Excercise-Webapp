@@ -542,7 +542,7 @@ export function WorkoutChecklistTracker({
                             </div>
                           )}
 
-                          {/* Clinician notes */}
+                          {/* Trainer notes */}
                           {ex.notes && (
                             <div className="flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5">
                               <span className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-blue-500 shrink-0">

@@ -85,20 +85,20 @@ export async function createNotification(data: CreateNotificationInput) {
 }
 
 /**
- * Helper that creates a MISSED_SESSION compliance alert for a clinician.
- * Called when a patient has missed a configured number of sessions.
+ * Helper that creates a MISSED_SESSION compliance alert for a trainer.
+ * Called when a client has missed a configured number of sessions.
  */
 export async function createComplianceAlert(
-  clinicianId: string,
-  patientName: string,
+  trainerId: string,
+  clientName: string,
   missedCount: number
 ): Promise<void> {
   await createNotification({
-    userId: clinicianId,
+    userId: trainerId,
     type: NOTIFICATION_TYPES.MISSED_SESSION,
     title: "Missed Sessions Alert",
-    body: `${patientName} has missed ${missedCount} session${missedCount !== 1 ? "s" : ""} in the last 14 days.`,
-    link: "/patients",
-    metadata: { patientName, missedCount },
+    body: `${clientName} has missed ${missedCount} session${missedCount !== 1 ? "s" : ""} in the last 14 days.`,
+    link: "/clients",
+    metadata: { clientName, missedCount },
   });
 }

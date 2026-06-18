@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { requireRole } from "@/lib/current-user";
-import { getPatientDetail } from "@/lib/services/patient.service";
+import { getClientDetail } from "@/lib/services/client.service";
 import * as sessionService from "@/lib/services/session.service";
 import * as programService from "@/lib/services/program.service";
 import { getExercisesForPicker } from "@/lib/services/exercise.service";
@@ -19,22 +19,22 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
-export default async function PatientDetailPage({ params }: Props) {
+export default async function ClientDetailPage({ params }: Props) {
   const { id } = await params;
   const [user, { orgId: sessionOrgId }] = await Promise.all([
-    requireRole("CLINICIAN"),
+    requireRole("TRAINER"),
     auth(),
   ]);
-  const clinicOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
-  const patient = await getPatientDetail(id);
+  const organizationOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
+  const client = await getClientDetail(id);
 
-  if (!patient) notFound();
+  if (!client) notFound();
 
   // Fetch V2 sessions, programs, and exercise library for the calendar
   const [v2Sessions, assignedPrograms, exerciseLibrary] = await Promise.all([
-    sessionService.getSessionsForPatient(patient.id),
-    programService.getProgramsForPatient(patient.id),
-    getExercisesForPicker(clinicOrgId),
+    sessionService.getSessionsForClient(client.id),
+    programService.getProgramsForClient(client.id),
+    getExercisesForPicker(organizationOrgId),
   ]);
 
   // Transform sessions to the shape the calendar expects
@@ -55,52 +55,52 @@ export default async function PatientDetailPage({ params }: Props) {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/patients">
+          <Link href="/clients">
             <ArrowLeft className="mr-1 h-4 w-4" />
             Back
           </Link>
         </Button>
       </div>
 
-      {/* Patient info */}
+      {/* Client info */}
       <Card>
         <CardContent className="flex items-center gap-6 p-6">
           <Avatar className="h-16 w-16">
-            <AvatarImage src={patient.imageUrl || undefined} />
+            <AvatarImage src={client.imageUrl || undefined} />
             <AvatarFallback className="text-lg">
-              {patient.firstName[0]}{patient.lastName[0]}
+              {client.firstName[0]}{client.lastName[0]}
             </AvatarFallback>
           </Avatar>
           <div>
             <h2 className="text-xl font-bold">
-              {patient.firstName} {patient.lastName}
+              {client.firstName} {client.lastName}
             </h2>
-            <p className="text-muted-foreground">{patient.email}</p>
-            {patient.dateOfBirth && (
-              <p className="text-sm text-muted-foreground/70">DOB: {patient.dateOfBirth}</p>
+            <p className="text-muted-foreground">{client.email}</p>
+            {client.dateOfBirth && (
+              <p className="text-sm text-muted-foreground/70">DOB: {client.dateOfBirth}</p>
             )}
           </div>
           <div className="ml-auto flex gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/messages/${patient.id}`}>
+              <Link href={`/messages/${client.id}`}>
                 <MessageSquare className="mr-1 h-4 w-4" />
                 Message
               </Link>
             </Button>
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/patients/${id}/adherence`}>
+              <Link href={`/clients/${id}/adherence`}>
                 <Activity className="mr-1 h-4 w-4" />
                 Sessions
               </Link>
             </Button>
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/patients/${id}/outcomes`}>
+              <Link href={`/clients/${id}/outcomes`}>
                 <BarChart3 className="mr-1 h-4 w-4" />
                 Outcomes
               </Link>
             </Button>
             {/* <Button variant="outline" size="sm" asChild>
-              <Link href={`/patients/${id}/progress`}>
+              <Link href={`/clients/${id}/progress`}>
                 <TrendingUp className="mr-1 h-4 w-4" />
                 Progress
               </Link>
@@ -109,30 +109,30 @@ export default async function PatientDetailPage({ params }: Props) {
         </CardContent>
       </Card>
 
-      {/* Patient profile */}
-      {patient.patientProfile && (
+      {/* Client profile */}
+      {client.clientProfile && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Clinical Profile</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {(patient.patientProfile as any).primaryDiagnosis && (
+            {(client.clientProfile as any).primaryDiagnosis && (
               <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2">
                 <span className="font-semibold text-blue-800">Primary Diagnosis: </span>
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                <span className="text-blue-700">{(patient.patientProfile as any).primaryDiagnosis}</span>
+                <span className="text-blue-700">{(client.clientProfile as any).primaryDiagnosis}</span>
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {(patient.patientProfile as any).secondaryDiagnoses?.length > 0 && (
+                {(client.clientProfile as any).secondaryDiagnoses?.length > 0 && (
                   <p className="mt-0.5 text-xs text-blue-600">
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    Also: {(patient.patientProfile as any).secondaryDiagnoses.join(", ")}
+                    Also: {(client.clientProfile as any).secondaryDiagnoses.join(", ")}
                   </p>
                 )}
               </div>
             )}
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {(patient.patientProfile as any).painScore != null && (
+            {(client.clientProfile as any).painScore != null && (
               <div className="flex items-center gap-3">
                 <span className="font-medium">Pain Score:</span>
                 <div className="flex items-center gap-1.5">
@@ -142,78 +142,78 @@ export default async function PatientDetailPage({ params }: Props) {
                       key={i}
                       className={`h-2.5 w-2.5 rounded-full ${
                         /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-                        i < (patient.patientProfile as any).painScore
+                        i < (client.clientProfile as any).painScore
                           ? i < 3 ? "bg-green-400" : i < 6 ? "bg-amber-400" : "bg-red-500"
                           : "bg-muted"
                       }`}
                     />
                   ))}
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <span className="ml-1 text-muted-foreground">{(patient.patientProfile as any).painScore}/10</span>
+                  <span className="ml-1 text-muted-foreground">{(client.clientProfile as any).painScore}/10</span>
                 </div>
               </div>
             )}
             <div className="grid grid-cols-2 gap-x-6 gap-y-2">
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {(patient.patientProfile as any).activityLevel && (
+              {(client.clientProfile as any).activityLevel && (
                 <div>
                   <span className="font-medium">Activity Level: </span>
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <span className="text-muted-foreground capitalize">{((patient.patientProfile as any).activityLevel as string).toLowerCase()}</span>
+                  <span className="text-muted-foreground capitalize">{((client.clientProfile as any).activityLevel as string).toLowerCase()}</span>
                 </div>
               )}
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {(patient.patientProfile as any).occupation && (
+              {(client.clientProfile as any).occupation && (
                 <div>
                   <span className="font-medium">Occupation: </span>
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <span className="text-muted-foreground">{(patient.patientProfile as any).occupation}</span>
+                  <span className="text-muted-foreground">{(client.clientProfile as any).occupation}</span>
                 </div>
               )}
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {(patient.patientProfile as any).injuryDate && (
+              {(client.clientProfile as any).injuryDate && (
                 <div>
                   <span className="font-medium">Injury Date: </span>
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <span className="text-muted-foreground">{new Date((patient.patientProfile as any).injuryDate).toLocaleDateString()}</span>
+                  <span className="text-muted-foreground">{new Date((client.clientProfile as any).injuryDate).toLocaleDateString()}</span>
                 </div>
               )}
             </div>
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {(patient.patientProfile as any).surgeryHistory && (
+            {(client.clientProfile as any).surgeryHistory && (
               <div>
                 <span className="font-medium">Surgery History: </span>
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                <span className="text-muted-foreground">{(patient.patientProfile as any).surgeryHistory}</span>
+                <span className="text-muted-foreground">{(client.clientProfile as any).surgeryHistory}</span>
               </div>
             )}
-            {patient.patientProfile.limitations && (
+            {client.clientProfile.limitations && (
               <div>
                 <span className="font-medium">Limitations: </span>
-                <span className="text-muted-foreground">{patient.patientProfile.limitations}</span>
+                <span className="text-muted-foreground">{client.clientProfile.limitations}</span>
               </div>
             )}
-            {patient.patientProfile.comorbidities && (
+            {client.clientProfile.comorbidities && (
               <div>
                 <span className="font-medium">Comorbidities: </span>
-                <span className="text-muted-foreground">{patient.patientProfile.comorbidities}</span>
+                <span className="text-muted-foreground">{client.clientProfile.comorbidities}</span>
               </div>
             )}
-            {patient.patientProfile.fitnessGoals.length > 0 && (
+            {client.clientProfile.fitnessGoals.length > 0 && (
               <div>
                 <span className="font-medium">Goals: </span>
                 <div className="mt-1 flex flex-wrap gap-1">
-                  {patient.patientProfile.fitnessGoals.map((g) => (
+                  {client.clientProfile.fitnessGoals.map((g) => (
                     <Badge key={g} variant="secondary" className="text-xs">{g}</Badge>
                   ))}
                 </div>
               </div>
             )}
-            {patient.patientProfile.availableEquipment.length > 0 && (
+            {client.clientProfile.availableEquipment.length > 0 && (
               <div>
                 <span className="font-medium">Equipment: </span>
                 <div className="mt-1 flex flex-wrap gap-1">
-                  {patient.patientProfile.availableEquipment.map((eq) => (
+                  {client.clientProfile.availableEquipment.map((eq) => (
                     <Badge key={eq} variant="outline" className="text-xs">{eq}</Badge>
                   ))}
                 </div>
@@ -232,11 +232,11 @@ export default async function PatientDetailPage({ params }: Props) {
 
         <TabsContent value="calendar" className="mt-4">
           <ClientCalendar
-            patientId={patient.id}
-            clinicianId={user.id}
+            clientId={client.id}
+            trainerId={user.id}
             initialSessions={calendarSessions}
             exerciseLibrary={exerciseLibrary}
-            clinicOrganizationId={clinicOrgId}
+            organizationOrganizationId={organizationOrgId}
           />
         </TabsContent>
 

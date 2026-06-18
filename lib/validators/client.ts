@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const patientProfileSchema = z.object({
+export const clientProfileSchema = z.object({
   limitations: z.string().max(2000, "Limitations must be less than 2000 characters").optional().nullable(),
   comorbidities: z.string().max(2000, "Comorbidities must be less than 2000 characters").optional().nullable(),
   functionalChallenges: z
@@ -14,10 +14,10 @@ export const patientProfileSchema = z.object({
   preferredDaysPerWeek: z.number().int().min(1).max(7).optional().nullable(),
 });
 
-export type PatientProfileInput = z.infer<typeof patientProfileSchema>;
+export type ClientProfileInput = z.infer<typeof clientProfileSchema>;
 
-export const linkPatientSchema = z.object({
-  patientEmail: z.string().email("Please enter a valid patient email address"),
+export const linkClientSchema = z.object({
+  clientEmail: z.string().email("Please enter a valid client email address"),
 });
 
-export type LinkPatientInput = z.infer<typeof linkPatientSchema>;
+export type LinkClientInput = z.infer<typeof linkClientSchema>;
