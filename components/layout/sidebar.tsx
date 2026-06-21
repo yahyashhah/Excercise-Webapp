@@ -17,6 +17,7 @@ import {
   Flame,
   TrendingUp,
   Shield,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -65,10 +66,22 @@ export function Sidebar({
   const pathname = usePathname();
   const links = role === "TRAINER" ? trainerLinks : clientLinks;
 
+  // Collect every href rendered in this sidebar so we can find the best match.
+  const accountHrefs = [
+    "/settings",
+    ...(role === "TRAINER" ? ["/settings/billing"] : []),
+  ];
+  const allHrefs = [...links.map((l) => l.href), ...accountHrefs];
+
+  // The active link is whichever registered href is the longest prefix of the
+  // current pathname — "most specific wins" prevents /settings lighting up on
+  // /settings/billing.
+  const bestMatch = allHrefs
+    .filter((h) => pathname === h || pathname.startsWith(h + "/"))
+    .sort((a, b) => b.length - a.length)[0];
+
   const navItem = (href: string, label: string, Icon: React.ElementType, badge?: React.ReactNode) => {
-    const isActive =
-      pathname === href ||
-      (href !== "/dashboard" && pathname.startsWith(href));
+    const isActive = href === bestMatch;
 
     return (
       <Link
@@ -144,6 +157,7 @@ export function Sidebar({
           </p>
         </div>
         {navItem("/settings", "Settings", Settings)}
+        {role === "TRAINER" && navItem("/settings/billing", "Billing", CreditCard)}
 
         {isAdmin && (
           <>

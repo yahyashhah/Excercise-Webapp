@@ -56,6 +56,20 @@ enum SessionStatus {
   ABANDONED
 }
 
+enum PlanTier {
+  STARTER
+  PRO
+  UNLIMITED
+}
+
+enum SubStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+}
+
 enum BlockType {
   NORMAL
   WARMUP
@@ -126,6 +140,7 @@ model User {
   branding           CoachBranding?       @relation("Branding")
   clinicalNotesAsClient    ClinicalNote[] @relation("ClinicalNotesClient")
   clinicalNotesAsTrainer  ClinicalNote[] @relation("ClinicalNotesTrainer")
+  trainerSubscription      TrainerSubscription? @relation("TrainerSubscription")
 }
 
 model ClientProfile {
@@ -752,4 +767,22 @@ model CoachBranding {
   customDomain   String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+// --- Stripe Trainer Subscription ---
+
+model TrainerSubscription {
+  id                   String    @id @default(auto()) @map("_id") @db.ObjectId
+  trainerId            String    @unique @db.ObjectId
+  trainer              User      @relation("TrainerSubscription", fields: [trainerId], references: [id])
+  stripeCustomerId     String    @unique
+  stripeSubscriptionId String?
+  stripePriceId        String?
+  plan                 PlanTier  @default(STARTER)
+  status               SubStatus @default(TRIALING)
+  trialEndsAt          DateTime
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }
