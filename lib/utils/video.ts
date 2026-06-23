@@ -56,3 +56,24 @@ export function buildYouTubeSearchUrl(query: string): string {
   });
   return `https://www.youtube.com/results?${params.toString()}`;
 }
+
+export function extractYouTubePlaylistId(url: string): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (
+      parsed.hostname !== "www.youtube.com" &&
+      parsed.hostname !== "youtube.com" &&
+      parsed.hostname !== "m.youtube.com"
+    ) {
+      return null;
+    }
+    return parsed.searchParams.get("list");
+  } catch {
+    return null;
+  }
+}
+
+export function isYouTubePlaylistUrl(url: string): boolean {
+  return extractYouTubePlaylistId(url) !== null;
+}

@@ -1,11 +1,14 @@
-import { requireSuperAdmin } from "@/lib/current-user";
+import { getCurrentUser, isSuperAdmin } from "@/lib/current-user";
 import { BulkImportForm } from "@/components/exercises/bulk-import-form";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { redirect } from "next/navigation";
 
 export default async function BulkImportPage() {
-  await requireSuperAdmin();
+  const user = await getCurrentUser();
+  const admin = await isSuperAdmin();
+  if (user.role !== "TRAINER" && !admin) redirect("/dashboard");
 
   return (
     <div className="mx-auto max-w-5xl">
