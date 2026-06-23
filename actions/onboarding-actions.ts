@@ -3,6 +3,7 @@
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { stripe } from "@/lib/stripe";
 
 export async function completeTrainerOnboarding(data: {
   firstName: string;
@@ -23,7 +24,7 @@ export async function completeTrainerOnboarding(data: {
       createdBy: userId,
     });
 
-    await prisma.user.upsert({
+    const user = await prisma.user.upsert({
       where: { clerkId: userId },
       update: {
         firstName: data.firstName,
@@ -45,6 +46,31 @@ export async function completeTrainerOnboarding(data: {
         onboarded: true,
       },
     });
+
+    // Idempotent: skip if subscription record already exists
+    const existingSub = await prisma.trainerSubscription.findUnique({
+      where: { trainerId: user.id },
+    });
+
+    if (!existingSub) {
+      const customer = await stripe.customers.create({
+        email: clerkUser.emailAddresses[0].emailAddress,
+        name: `${data.firstName} ${data.lastName}`,
+        metadata: { trainerId: user.id },
+      });
+
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+
+      await prisma.trainerSubscription.create({
+        data: {
+          trainerId: user.id,
+          stripeCustomerId: customer.id,
+          status: "TRIALING",
+          trialEndsAt,
+        },
+      });
+    }
   } catch (err) {
     console.error("Failed to complete trainer onboarding:", err);
     return { success: false as const, error: "Failed to set up organization. Please try again." };

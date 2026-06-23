@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { YoutubeTranscript } from "youtube-transcript";
 import { extractYouTubeId } from "@/lib/utils/video";
+import { isSuperAdmin } from "@/lib/current-user";
 
 const metadataFields = {
   description: z.string().describe("2-3 sentence clinical description of the exercise and its purpose in a rehabilitation or senior fitness context"),
@@ -40,7 +41,10 @@ export async function POST(req: Request) {
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
-    if (!dbUser || dbUser.role !== "TRAINER") {
+    if (!dbUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const admin = await isSuperAdmin();
+    if (dbUser.role !== "TRAINER" && !admin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

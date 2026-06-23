@@ -19,6 +19,24 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     redirect("/onboarding");
   }
 
+  // Billing gate: redirect trainers who have no active subscription
+  if (user.role === "TRAINER") {
+    const sub = await prisma.trainerSubscription.findUnique({
+      where: { trainerId: user.id },
+    });
+
+    const now = new Date();
+    const isTrialExpired =
+      !sub ||
+      sub.status === "CANCELED" ||
+      (sub.status === "TRIALING" && sub.trialEndsAt < now);
+    const isPaymentFailed =
+      sub?.status === "PAST_DUE" || sub?.status === "UNPAID";
+
+    if (isTrialExpired) redirect("/billing?reason=trial_expired");
+    if (isPaymentFailed) redirect("/billing?reason=payment_failed");
+  }
+
   const [unreadMessageCount, unreadNotificationCount, initialNotifications, adminAccess] =
     await Promise.all([
       prisma.message.count({

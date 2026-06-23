@@ -11,12 +11,12 @@ import { Progress } from "@/components/ui/progress";
 import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT } from "@/lib/utils/constants";
 import { bulkCreateExercisesAction, type BulkExerciseInput } from "@/actions/bulk-exercise-actions";
 import { useUploadThing } from "@/lib/uploadthing-client";
-import { isYouTubeUrl } from "@/lib/utils/video";
+import { isYouTubeUrl, isYouTubePlaylistUrl } from "@/lib/utils/video";
 import { toast } from "sonner";
 import {
   Loader2, Sparkles, ChevronDown, ChevronUp,
   Trash2, CheckCircle2, CloudUpload, Video,
-  AlertCircle, FileVideo, X, Youtube, Link2,
+  AlertCircle, FileVideo, X, Youtube, ListVideo,
 } from "lucide-react";
 
 const EXERCISE_PHASES = [
@@ -28,7 +28,15 @@ const EXERCISE_PHASES = [
 ] as const;
 
 type AiStatus = "idle" | "loading" | "done" | "error";
-type ImportMode = "upload" | "youtube";
+type ImportMode = "upload" | "youtube" | "playlist";
+
+interface PlaylistVideo {
+  videoId: string;
+  title: string;
+  thumbnailUrl: string;
+  videoUrl: string;
+  position: number;
+}
 
 interface ExerciseRow {
   rowId: string;
@@ -83,7 +91,7 @@ function parseYoutubeUrls(raw: string): string[] {
   return raw
     .split(/[\n,\s]+/)
     .map((s) => s.trim())
-    .filter((s) => s.length > 0 && isYouTubeUrl(s));
+    .filter((s) => s.length > 0 && isYouTubeUrl(s) && !isYouTubePlaylistUrl(s));
 }
 
 // ─── Main component ──────────────────────────────────────────────────────────
@@ -100,6 +108,12 @@ export function BulkImportForm() {
   const [youtubeInput, setYoutubeInput] = useState("");
   const [ytProcessing, setYtProcessing] = useState(false);
   const [ytProgress, setYtProgress] = useState({ done: 0, total: 0 });
+
+  // Playlist state
+  const [playlistUrl, setPlaylistUrl] = useState("");
+  const [playlistLoading, setPlaylistLoading] = useState(false);
+  const [playlistVideos, setPlaylistVideos] = useState<PlaylistVideo[]>([]);
+  const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
 
   const [rows, setRows] = useState<ExerciseRow[]>([]);
   const [publishing, setPublishing] = useState(false);
@@ -138,14 +152,9 @@ export function BulkImportForm() {
     addFiles(e.dataTransfer.files);
   }, [addFiles]);
 
-  // ── YouTube processing ───────────────────────────────────────────────────────
+  // ── Shared URL processing ────────────────────────────────────────────────────
 
-  async function processYoutubeUrls() {
-    const urls = parseYoutubeUrls(youtubeInput);
-    if (!urls.length) { toast.error("No valid YouTube URLs found"); return; }
-    if (urls.length > 30) { toast.error("Maximum 30 URLs at a time"); return; }
-
-    setYtProcessing(true);
+  async function processUrlBatch(urls: string[]) {
     setYtProgress({ done: 0, total: urls.length });
     let successCount = 0;
 
@@ -188,11 +197,91 @@ export function BulkImportForm() {
       setYtProgress((p) => ({ ...p, done: p.done + 1 }));
     }
 
-    setYtProcessing(false);
     setYtProgress({ done: 0, total: 0 });
+    return successCount;
+  }
+
+  // ── YouTube URL processing ───────────────────────────────────────────────────
+
+  async function processYoutubeUrls() {
+    const urls = parseYoutubeUrls(youtubeInput);
+    if (!urls.length) { toast.error("No valid YouTube URLs found"); return; }
+    if (urls.length > 30) { toast.error("Maximum 30 URLs at a time"); return; }
+
+    setYtProcessing(true);
+    const successCount = await processUrlBatch(urls);
+    setYtProcessing(false);
+
     if (successCount > 0) {
       setYoutubeInput("");
       toast.success(`${successCount} exercise${successCount === 1 ? "" : "s"} generated from YouTube`);
+    }
+  }
+
+  // ── Playlist processing ──────────────────────────────────────────────────────
+
+  async function fetchPlaylist() {
+    if (!playlistUrl.trim()) { toast.error("Enter a playlist URL"); return; }
+    if (!isYouTubePlaylistUrl(playlistUrl)) { toast.error("That doesn't look like a YouTube playlist URL"); return; }
+
+    setPlaylistLoading(true);
+    setPlaylistVideos([]);
+    setSelectedVideoIds(new Set());
+
+    try {
+      const res = await fetch(`/api/youtube/playlist-videos?url=${encodeURIComponent(playlistUrl)}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error ?? "Failed to fetch playlist");
+        return;
+      }
+      const { videos, total } = await res.json();
+      setPlaylistVideos(videos);
+      setSelectedVideoIds(new Set((videos as PlaylistVideo[]).map((v) => v.videoId)));
+      if (total === 200) {
+        toast.info("Showing first 200 videos — deselect any you don't want before generating");
+      } else {
+        toast.success(`Found ${total} video${total === 1 ? "" : "s"} in playlist`);
+      }
+    } catch {
+      toast.error("Failed to fetch playlist — check the URL and try again");
+    } finally {
+      setPlaylistLoading(false);
+    }
+  }
+
+  function toggleVideoSelection(videoId: string) {
+    setSelectedVideoIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(videoId)) next.delete(videoId);
+      else next.add(videoId);
+      return next;
+    });
+  }
+
+  function selectAllVideos() {
+    setSelectedVideoIds(new Set(playlistVideos.map((v) => v.videoId)));
+  }
+
+  function deselectAllVideos() {
+    setSelectedVideoIds(new Set());
+  }
+
+  async function processPlaylistSelection() {
+    const selected = playlistVideos.filter((v) => selectedVideoIds.has(v.videoId));
+    if (!selected.length) { toast.error("Select at least one video"); return; }
+    if (selected.length > 30) { toast.error("Select at most 30 videos at a time"); return; }
+
+    setYtProcessing(true);
+    const urls = selected.map((v) => v.videoUrl);
+    const successCount = await processUrlBatch(urls);
+    setYtProcessing(false);
+
+    if (successCount > 0) {
+      toast.success(`${successCount} exercise${successCount === 1 ? "" : "s"} generated from playlist`);
+      setPlaylistVideos([]);
+      setSelectedVideoIds(new Set());
+      setPlaylistUrl("");
     }
   }
 
@@ -293,6 +382,7 @@ export function BulkImportForm() {
 
   const ytUrls = parseYoutubeUrls(youtubeInput);
   const ytProgressPct = ytProgress.total > 0 ? Math.round((ytProgress.done / ytProgress.total) * 100) : 0;
+  const selectedCount = selectedVideoIds.size;
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -300,7 +390,7 @@ export function BulkImportForm() {
     <div className="space-y-8">
 
       {/* ── Mode tabs ── */}
-      {false && <div className="flex gap-1 rounded-xl border bg-muted/40 p-1">
+      <div className="flex gap-1 rounded-xl border bg-muted/40 p-1">
         <button
           type="button"
           onClick={() => setMode("upload")}
@@ -312,7 +402,7 @@ export function BulkImportForm() {
           ].join(" ")}
         >
           <CloudUpload className="h-4 w-4" />
-          Upload Video Files
+          Upload Videos
         </button>
         <button
           type="button"
@@ -325,9 +415,22 @@ export function BulkImportForm() {
           ].join(" ")}
         >
           <Youtube className="h-4 w-4" />
-          Import from YouTube
+          YouTube URLs
         </button>
-      </div>}
+        <button
+          type="button"
+          onClick={() => setMode("playlist")}
+          className={[
+            "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",
+            mode === "playlist"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          ].join(" ")}
+        >
+          <ListVideo className="h-4 w-4" />
+          From Playlist
+        </button>
+      </div>
 
       {/* ── Upload panel ── */}
       {mode === "upload" && (
@@ -406,14 +509,14 @@ export function BulkImportForm() {
         </div>
       )}
 
-      {/* ── YouTube panel ── */}
+      {/* ── YouTube URLs panel ── */}
       {mode === "youtube" && (
         <div className="space-y-4">
           <div className="rounded-xl border bg-background shadow-sm">
             <div className="border-b px-5 py-4">
               <p className="font-medium">Paste YouTube URLs</p>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                One URL per line — the AI will fetch each video&apos;s title and generate professional exercise metadata automatically.
+                One URL per line — AI will fetch each video&apos;s title and generate professional exercise metadata automatically.
               </p>
             </div>
             <div className="p-4 space-y-3">
@@ -463,6 +566,146 @@ export function BulkImportForm() {
             <Youtube className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               Works best with exercise-specific YouTube videos — the video title is used to generate the exercise name and all clinical details. Videos like &ldquo;Seated Knee Extension — Senior Physical Therapy&rdquo; produce excellent results.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Playlist panel ── */}
+      {mode === "playlist" && (
+        <div className="space-y-4">
+          <div className="rounded-xl border bg-background shadow-sm">
+            <div className="border-b px-5 py-4">
+              <p className="font-medium">Import from YouTube Playlist</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Paste a playlist URL — all videos will be fetched so you can select which ones to turn into exercises.
+              </p>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="https://www.youtube.com/playlist?list=PLxxxxxxxx"
+                  value={playlistUrl}
+                  onChange={(e) => {
+                    setPlaylistUrl(e.target.value);
+                    if (playlistVideos.length) {
+                      setPlaylistVideos([]);
+                      setSelectedVideoIds(new Set());
+                    }
+                  }}
+                  className="font-mono text-sm"
+                  disabled={playlistLoading || ytProcessing}
+                />
+                <Button
+                  onClick={fetchPlaylist}
+                  disabled={!playlistUrl.trim() || playlistLoading || ytProcessing}
+                  variant="outline"
+                >
+                  {playlistLoading
+                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    : <ListVideo className="mr-2 h-4 w-4" />
+                  }
+                  {playlistLoading ? "Fetching…" : "Fetch Videos"}
+                </Button>
+              </div>
+
+              {/* Video selection grid */}
+              {playlistVideos.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      <span className="text-foreground font-semibold">{selectedCount}</span> of {playlistVideos.length} selected
+                    </p>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={selectAllVideos} disabled={ytProcessing}>
+                        Select all
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={deselectAllVideos} disabled={ytProcessing}>
+                        Deselect all
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="max-h-96 overflow-y-auto rounded-lg border divide-y">
+                    {playlistVideos.map((video) => {
+                      const isSelected = selectedVideoIds.has(video.videoId);
+                      return (
+                        <button
+                          key={video.videoId}
+                          type="button"
+                          onClick={() => toggleVideoSelection(video.videoId)}
+                          disabled={ytProcessing}
+                          className={[
+                            "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50",
+                            isSelected ? "bg-primary/5" : "",
+                          ].join(" ")}
+                        >
+                          <div className={[
+                            "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+                            isSelected ? "border-primary bg-primary text-primary-foreground" : "border-border",
+                          ].join(" ")}>
+                            {isSelected && <CheckCircle2 className="h-3 w-3" />}
+                          </div>
+                          {video.thumbnailUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={video.thumbnailUrl}
+                              alt=""
+                              className="h-10 w-16 shrink-0 rounded object-cover"
+                            />
+                          ) : (
+                            <div className="h-10 w-16 shrink-0 rounded bg-muted flex items-center justify-center">
+                              <Youtube className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{video.title}</p>
+                            <p className="text-xs text-muted-foreground">#{video.position + 1}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {selectedCount > 30 && (
+                    <p className="text-sm text-destructive">
+                      Select at most 30 videos at a time to generate exercises.
+                    </p>
+                  )}
+
+                  {ytProcessing && (
+                    <div className="space-y-1">
+                      <Progress value={ytProgressPct} className="h-1.5" />
+                      <p className="text-xs text-muted-foreground">
+                        AI is analyzing each video and generating clinical metadata… this takes a few seconds per video.
+                        {ytProgress.total > 0 && ` (${ytProgress.done} of ${ytProgress.total})`}
+                      </p>
+                    </div>
+                  )}
+
+                  <Button
+                    onClick={processPlaylistSelection}
+                    disabled={selectedCount === 0 || selectedCount > 30 || ytProcessing}
+                    className="w-full"
+                  >
+                    {ytProcessing
+                      ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      : <Sparkles className="mr-2 h-4 w-4" />
+                    }
+                    {ytProcessing
+                      ? `Processing ${ytProgress.done + 1} of ${ytProgress.total}…`
+                      : `Generate ${selectedCount > 0 ? selectedCount : ""} Exercise${selectedCount === 1 ? "" : "s"}`
+                    }
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            <ListVideo className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              Playlists can contain up to 200 videos. Use the checkboxes to select which videos to import — AI will generate full clinical metadata for each selected video.
             </p>
           </div>
         </div>

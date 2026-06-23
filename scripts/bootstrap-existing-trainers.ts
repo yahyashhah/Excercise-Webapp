@@ -1,0 +1,48 @@
+import Stripe from "stripe";
+import { PrismaClient } from "@prisma/client";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { maxNetworkRetries: 2 });
+const prisma = new PrismaClient();
+
+async function bootstrap() {
+  const trainers = await prisma.user.findMany({ where: { role: "TRAINER" } });
+  console.log(`Found ${trainers.length} trainer(s)`);
+
+  for (const trainer of trainers) {
+    const existing = await prisma.trainerSubscription.findUnique({
+      where: { trainerId: trainer.id },
+    });
+    if (existing) {
+      console.log(`  ${trainer.email} — already has subscription (${existing.status}), skipping`);
+      continue;
+    }
+
+    // Create Stripe Customer
+    const customer = await stripe.customers.create({
+      email: trainer.email,
+      name: `${trainer.firstName} ${trainer.lastName}`,
+      metadata: { trainerId: trainer.id },
+    });
+
+    // Create TrainerSubscription with 14-day trial
+    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    await prisma.trainerSubscription.create({
+      data: {
+        trainerId: trainer.id,
+        stripeCustomerId: customer.id,
+        status: "TRIALING",
+        trialEndsAt,
+      },
+    });
+
+    console.log(`  ${trainer.email} — created customer ${customer.id} + TrainerSubscription`);
+  }
+
+  await prisma.$disconnect();
+  console.log("Done.");
+}
+
+bootstrap().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
