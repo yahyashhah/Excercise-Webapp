@@ -51,6 +51,7 @@ interface ProgramDetailViewProps {
   clients: { id: string; firstName: string; lastName: string }[];
   sessions: Record<string, unknown>[];
   showAssignDialog?: boolean;
+  trainerName?: string;
 }
 
 export function ProgramDetailView({
@@ -59,11 +60,15 @@ export function ProgramDetailView({
   clients,
   sessions,
   showAssignDialog = false,
+  trainerName: trainerNameProp,
 }: ProgramDetailViewProps) {
   const router = useRouter();
   const [assignOpen, setAssignOpen] = useState(showAssignDialog);
   const [detailExercise, setDetailExercise] = useState<Record<string, unknown> | null>(null);
   const workouts = (program.workouts as Record<string, unknown>[]) || [];
+
+  const trainerData = program.trainer as { firstName?: string; lastName?: string } | null;
+  const trainerName = trainerNameProp ?? (trainerData ? `${trainerData.firstName ?? ""} ${trainerData.lastName ?? ""}`.trim() : "Trainer");
   const [expandedWorkouts, setExpandedWorkouts] = useState<Set<string>>(
     new Set()
   );
@@ -443,6 +448,7 @@ export function ProgramDetailView({
             rawWorkouts={workouts}
             rawSessions={sessions}
             isTrainer={isTrainer}
+            trainerName={trainerName}
           />
         </TabsContent>
       </Tabs>

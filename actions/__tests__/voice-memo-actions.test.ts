@@ -158,7 +158,7 @@ describe('confirmVoiceMemoUpload', () => {
       durationSec: 90, isRead: false, createdAt: new Date(),
     }
     mockMemoCreate.mockResolvedValue(savedMemo as never)
-    const result = await confirmVoiceMemoUpload(WORKOUT_ID, 'voice-memos/pending/uuid.webm', 90)
+    const result = await confirmVoiceMemoUpload(WORKOUT_ID, 'voice-memos/pending/550e8400-e29b-41d4-a716-446655440000.webm', 90)
     expect(result.success).toBe(true)
     expect(result.data?.authorRole).toBe('TRAINER')
     expect(result.data?.durationSec).toBe(90)

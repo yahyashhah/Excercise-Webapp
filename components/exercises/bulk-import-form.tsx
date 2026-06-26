@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,13 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT } from "@/lib/utils/constants";
 import { bulkCreateExercisesAction, type BulkExerciseInput } from "@/actions/bulk-exercise-actions";
-import { useUploadThing } from "@/lib/uploadthing-client";
 import { isYouTubeUrl, isYouTubePlaylistUrl } from "@/lib/utils/video";
 import { toast } from "sonner";
 import {
   Loader2, Sparkles, ChevronDown, ChevronUp,
-  Trash2, CheckCircle2, CloudUpload, Video,
-  AlertCircle, FileVideo, X, Youtube, ListVideo,
+  Trash2, CheckCircle2, Video,
+  AlertCircle, Youtube, ListVideo,
 } from "lucide-react";
 
 const EXERCISE_PHASES = [
@@ -28,7 +27,7 @@ const EXERCISE_PHASES = [
 ] as const;
 
 type AiStatus = "idle" | "loading" | "done" | "error";
-type ImportMode = "upload" | "youtube" | "playlist";
+type ImportMode = "youtube" | "playlist";
 
 interface PlaylistVideo {
   videoId: string;
@@ -82,11 +81,6 @@ function makeRow(videoUrl: string, videoFileName: string, imageUrl = ""): Exerci
   };
 }
 
-function formatBytes(bytes: number) {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 function parseYoutubeUrls(raw: string): string[] {
   return raw
     .split(/[\n,\s]+/)
@@ -98,12 +92,8 @@ function parseYoutubeUrls(raw: string): string[] {
 
 export function BulkImportForm() {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [mode, setMode] = useState<ImportMode>("youtube");
-  const [dragOver, setDragOver] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   const [youtubeInput, setYoutubeInput] = useState("");
   const [ytProcessing, setYtProcessing] = useState(false);
@@ -117,40 +107,6 @@ export function BulkImportForm() {
 
   const [rows, setRows] = useState<ExerciseRow[]>([]);
   const [publishing, setPublishing] = useState(false);
-
-  const { startUpload, isUploading } = useUploadThing("bulkExerciseVideos", {
-    onUploadProgress: setUploadProgress,
-    onClientUploadComplete: (res) => {
-      if (!res?.length) return;
-      setRows((prev) => [...prev, ...res.map((f) => makeRow(f.ufsUrl, f.name))]);
-      setSelectedFiles([]);
-      setUploadProgress(0);
-      toast.success(`${res.length} video${res.length === 1 ? "" : "s"} uploaded`);
-    },
-    onUploadError: (error) => {
-      setUploadProgress(0);
-      toast.error(`Upload failed: ${error.message}`);
-    },
-  });
-
-  // ── File helpers ────────────────────────────────────────────────────────────
-
-  const addFiles = useCallback((files: FileList | null) => {
-    if (!files) return;
-    const videoFiles = Array.from(files).filter((f) => f.type.startsWith("video/"));
-    if (!videoFiles.length) { toast.error("Please select video files only"); return; }
-    if (selectedFiles.length + videoFiles.length > 30) { toast.error("Maximum 30 videos at a time"); return; }
-    setSelectedFiles((prev) => {
-      const names = new Set(prev.map((f) => f.name));
-      return [...prev, ...videoFiles.filter((f) => !names.has(f.name))];
-    });
-  }, [selectedFiles]);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    addFiles(e.dataTransfer.files);
-  }, [addFiles]);
 
   // ── Shared URL processing ────────────────────────────────────────────────────
 
@@ -338,12 +294,6 @@ export function BulkImportForm() {
     }
   }
 
-  async function generateAll() {
-    const pending = rows.filter((r) => r.name.trim() && r.aiStatus === "idle");
-    if (!pending.length) { toast.error("Name the exercises first, then generate all"); return; }
-    for (const row of pending) await generateMetadata(row.rowId);
-  }
-
   // ── Publish ─────────────────────────────────────────────────────────────────
 
   const readyCount = rows.filter((r) => r.name.trim() && r.bodyRegion && r.difficultyLevel).length;
@@ -393,19 +343,6 @@ export function BulkImportForm() {
       <div className="flex gap-1 rounded-xl border bg-muted/40 p-1">
         <button
           type="button"
-          onClick={() => setMode("upload")}
-          className={[
-            "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",
-            mode === "upload"
-              ? "bg-background shadow-sm text-foreground"
-              : "text-muted-foreground hover:text-foreground",
-          ].join(" ")}
-        >
-          <CloudUpload className="h-4 w-4" />
-          Upload Videos
-        </button>
-        <button
-          type="button"
           onClick={() => setMode("youtube")}
           className={[
             "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",
@@ -431,83 +368,6 @@ export function BulkImportForm() {
           From Playlist
         </button>
       </div>
-
-      {/* ── Upload panel ── */}
-      {mode === "upload" && (
-        <div className="space-y-4">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/*"
-            multiple
-            className="hidden"
-            onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }}
-          />
-
-          {isUploading ? (
-            <div className="rounded-xl border bg-background p-6 shadow-sm">
-              <div className="mb-3 flex items-center gap-3">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <p className="font-medium">Uploading your videos…</p>
-                <span className="ml-auto text-sm font-semibold text-primary">{uploadProgress}%</span>
-              </div>
-              <Progress value={uploadProgress} className="h-2" />
-              <p className="mt-2 text-xs text-muted-foreground">Do not close this tab while uploading</p>
-            </div>
-          ) : (
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              className={[
-                "flex cursor-pointer flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-8 py-14 text-center transition-colors",
-                dragOver ? "border-primary bg-primary/5" : "border-border bg-muted/30 hover:border-primary/50 hover:bg-muted/50",
-              ].join(" ")}
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-background shadow-sm">
-                <CloudUpload className={`h-8 w-8 ${dragOver ? "text-primary" : "text-muted-foreground"}`} />
-              </div>
-              <div>
-                <p className="text-base font-semibold">Drop your videos here</p>
-                <p className="mt-1 text-sm text-muted-foreground">or click to browse — select as many as you want</p>
-              </div>
-              <p className="text-xs text-muted-foreground">MP4, MOV, AVI &nbsp;·&nbsp; Up to 30 videos &nbsp;·&nbsp; 64 MB each</p>
-            </div>
-          )}
-
-          {selectedFiles.length > 0 && !isUploading && (
-            <div className="rounded-xl border bg-background shadow-sm">
-              <div className="flex items-center justify-between border-b px-4 py-3">
-                <p className="text-sm font-medium">
-                  {selectedFiles.length} video{selectedFiles.length === 1 ? "" : "s"} selected
-                </p>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setSelectedFiles([])}>
-                    Clear all
-                  </Button>
-                  <Button size="sm" onClick={() => startUpload(selectedFiles)}>
-                    <CloudUpload className="mr-2 h-4 w-4" />
-                    Upload {selectedFiles.length} Video{selectedFiles.length === 1 ? "" : "s"}
-                  </Button>
-                </div>
-              </div>
-              <ul className="max-h-60 divide-y overflow-y-auto">
-                {selectedFiles.map((file, i) => (
-                  <li key={i} className="flex items-center gap-3 px-4 py-2.5">
-                    <FileVideo className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="flex-1 truncate text-sm">{file.name}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">{formatBytes(file.size)}</span>
-                    <button type="button" onClick={() => setSelectedFiles((prev) => prev.filter((_, idx) => idx !== i))} className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ── YouTube URLs panel ── */}
       {mode === "youtube" && (
@@ -724,12 +584,6 @@ export function BulkImportForm() {
               </p>
             </div>
             <div className="flex gap-2">
-              {mode === "upload" && (
-                <Button variant="outline" onClick={generateAll} disabled={publishing || isUploading || ytProcessing}>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate All
-                </Button>
-              )}
             </div>
           </div>
 
@@ -760,7 +614,7 @@ export function BulkImportForm() {
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => router.back()} disabled={publishing}>Cancel</Button>
-                <Button onClick={handlePublish} disabled={publishing || readyCount === 0 || isUploading || ytProcessing}>
+                <Button onClick={handlePublish} disabled={publishing || readyCount === 0 || ytProcessing}>
                   {publishing
                     ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     : <CheckCircle2 className="mr-2 h-4 w-4" />

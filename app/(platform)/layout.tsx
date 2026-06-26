@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isSuperAdmin } from "@/lib/current-user";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { getTrainerVoiceMessageFeed } from "@/actions/voice-memo-actions";
 
 export default async function PlatformLayout({ children }: { children: React.ReactNode }) {
   const { userId, orgId } = await auth();
@@ -53,6 +54,11 @@ export default async function PlatformLayout({ children }: { children: React.Rea
       isSuperAdmin(),
     ]);
 
+  const unreadVoiceCount = user.role === "TRAINER"
+    ? (await getTrainerVoiceMessageFeed()).data?.filter((i) => !i.isRead).length ?? 0
+    : 0;
+  const trainerClerkId = user.role === "TRAINER" ? user.clerkId : undefined;
+
   return (
     <div className="flex h-screen overflow-hidden bg-[oklch(0.97_0.005_247)]">
       <Sidebar
@@ -63,6 +69,8 @@ export default async function PlatformLayout({ children }: { children: React.Rea
         userEmail={user.email}
         userImageUrl={user.imageUrl}
         isAdmin={adminAccess}
+        unreadVoiceCount={unreadVoiceCount}
+        trainerClerkId={trainerClerkId}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header
@@ -70,6 +78,8 @@ export default async function PlatformLayout({ children }: { children: React.Rea
           unreadMessageCount={unreadMessageCount}
           unreadNotificationCount={unreadNotificationCount}
           initialNotifications={initialNotifications}
+          unreadVoiceCount={unreadVoiceCount}
+          trainerClerkId={trainerClerkId}
         />
         <main className="flex-1 overflow-y-auto p-6">
           <div className="page-enter">{children}</div>

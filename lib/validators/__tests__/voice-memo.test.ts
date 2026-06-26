@@ -21,19 +21,28 @@ describe('presignSchema', () => {
 describe('confirmSchema', () => {
   it('accepts valid input', () => {
     expect(
-      confirmSchema.safeParse({ workoutId: 'abc', pendingKey: 'voice-memos/pending/x.webm', durationSec: 60 }).success
+      confirmSchema.safeParse({ workoutId: 'abc', pendingKey: 'voice-memos/pending/550e8400-e29b-41d4-a716-446655440000.webm', durationSec: 60 }).success
     ).toBe(true)
   })
 
   it('rejects durationSec > 300', () => {
     expect(
-      confirmSchema.safeParse({ workoutId: 'abc', pendingKey: 'k', durationSec: 301 }).success
+      confirmSchema.safeParse({ workoutId: 'abc', pendingKey: 'voice-memos/pending/550e8400-e29b-41d4-a716-446655440000.webm', durationSec: 301 }).success
     ).toBe(false)
   })
 
   it('rejects durationSec <= 0', () => {
     expect(
-      confirmSchema.safeParse({ workoutId: 'abc', pendingKey: 'k', durationSec: 0 }).success
+      confirmSchema.safeParse({ workoutId: 'abc', pendingKey: 'voice-memos/pending/550e8400-e29b-41d4-a716-446655440000.webm', durationSec: 0 }).success
     ).toBe(false)
+  })
+
+  it('rejects pendingKey without correct prefix', () => {
+    const result = confirmSchema.safeParse({
+      workoutId: 'abc123',
+      pendingKey: 'arbitrary-key.webm',
+      durationSec: 60,
+    })
+    expect(result.success).toBe(false)
   })
 })

@@ -14,6 +14,8 @@ interface HeaderProps {
   unreadMessageCount: number;
   unreadNotificationCount: number;
   initialNotifications: Notification[];
+  unreadVoiceCount?: number;
+  trainerClerkId?: string;
 }
 
 function getPageTitle(pathname: string): string {
@@ -58,6 +60,8 @@ export function Header({
   unreadMessageCount,
   unreadNotificationCount,
   initialNotifications,
+  unreadVoiceCount = 0,
+  trainerClerkId,
 }: HeaderProps) {
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
@@ -81,6 +85,8 @@ export function Header({
             userEmail={user.email}
             userImageUrl={user.imageUrl}
             mobileMode
+            unreadVoiceCount={unreadVoiceCount}
+            trainerClerkId={trainerClerkId}
           />
         </SheetContent>
       </Sheet>

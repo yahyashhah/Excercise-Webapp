@@ -16,7 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { useUploadThing } from "@/lib/uploadthing-client";
 import {
   generateProgramPreviewFromBriefAction,
   saveGeneratedProgramAction,
@@ -27,7 +26,6 @@ import {
   FileText,
   Loader2,
   Sparkles,
-  Upload,
 } from "lucide-react";
 
 interface Props {
@@ -94,12 +92,6 @@ export function ProgramBriefUpload({ clients }: Props) {
   );
   const [saving, setSaving] = useState<"template" | "assign" | null>(null);
 
-  const { startUpload, isUploading } = useUploadThing("programBrief", {
-    onUploadError: (error) => {
-      toast.error(`Upload failed: ${error.message}`);
-    },
-  });
-
   function handleFileChange(files: FileList | null) {
     if (!files || !files.length) return;
     const next = files[0];
@@ -112,34 +104,7 @@ export function ProgramBriefUpload({ clients }: Props) {
   }
 
   async function handleUploadAndGenerate() {
-    if (!file) {
-      toast.error("Select a file to upload");
-      return;
-    }
-
-    setProcessing(true);
-    try {
-      const uploaded = await startUpload([file]);
-      const item = uploaded?.[0];
-      if (!item?.ufsUrl) {
-        toast.error("Upload did not return a file URL");
-        return;
-      }
-
-      const result = await generateProgramPreviewFromBriefAction({
-        fileUrl: item.ufsUrl,
-        fileName: item.name || file.name,
-      });
-
-      if (result.success) {
-        setPreview(result.data as PreviewState);
-        toast.success("Program generated. Review before saving.");
-      } else {
-        toast.error(result.error);
-      }
-    } finally {
-      setProcessing(false);
-    }
+    toast.error("Brief upload is temporarily unavailable.");
   }
 
   async function handleSave(isTemplate: boolean) {
@@ -175,7 +140,7 @@ export function ProgramBriefUpload({ clients }: Props) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5 text-blue-600" />
+            <FileText className="h-5 w-5 text-blue-600" />
             Upload Program Brief
           </CardTitle>
         </CardHeader>
@@ -218,22 +183,23 @@ export function ProgramBriefUpload({ clients }: Props) {
               <Button
                 variant="outline"
                 onClick={() => inputRef.current?.click()}
-                disabled={isUploading || processing}
+                disabled={processing}
               >
                 Select File
               </Button>
               <Button
                 onClick={handleUploadAndGenerate}
-                disabled={!file || isUploading || processing}
+                disabled={!file || processing}
                 className="gap-2"
               >
-                {processing || isUploading ? (
+                {processing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Sparkles className="h-4 w-4" />
                 )}
                 Generate Preview
               </Button>
+              <p className="text-sm text-muted-foreground w-full text-center">File upload is temporarily unavailable.</p>
             </div>
           </div>
         </CardContent>

@@ -9,7 +9,7 @@ export const presignSchema = z.object({
 
 export const confirmSchema = z.object({
   workoutId: z.string().min(1),
-  pendingKey: z.string().min(1),
+  pendingKey: z.string().regex(/^voice-memos\/pending\/[0-9a-f-]{36}\.(webm|mp3|m4a|wav)$/),
   durationSec: z.number().int().min(1).max(300),
 })
 

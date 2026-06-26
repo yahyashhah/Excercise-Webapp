@@ -18,10 +18,12 @@ import {
   TrendingUp,
   Shield,
   CreditCard,
+  Mic,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { VoiceMessagesNavBadge } from "@/components/voice-memo/VoiceMessagesNavBadge";
 
 interface SidebarProps {
   role: "TRAINER" | "CLIENT";
@@ -32,6 +34,8 @@ interface SidebarProps {
   userImageUrl?: string | null;
   mobileMode?: boolean;
   isAdmin?: boolean;
+  unreadVoiceCount?: number;
+  trainerClerkId?: string;
 }
 
 const trainerLinks = [
@@ -41,7 +45,8 @@ const trainerLinks = [
   { href: "/exercises",   label: "Exercises",    icon: Dumbbell },
   // { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
   // { href: "/habits",      label: "Habits",       icon: Flame },
-  { href: "/messages",    label: "Messages",     icon: MessageSquare },
+  { href: "/messages",       label: "Messages",        icon: MessageSquare },
+  { href: "/voice-messages", label: "Voice Messages",   icon: Mic },
   // { href: "/assessments", label: "Assessments",  icon: BarChart3 },
 ];
 
@@ -62,6 +67,8 @@ export function Sidebar({
   userEmail,
   mobileMode = false,
   isAdmin = false,
+  unreadVoiceCount = 0,
+  trainerClerkId,
 }: SidebarProps) {
   const pathname = usePathname();
   const links = role === "TRAINER" ? trainerLinks : clientLinks;
@@ -136,15 +143,28 @@ export function Sidebar({
         </div>
         <nav className="space-y-0.5">
           {links.map((link) => {
-            const badge =
-              link.href === "/messages" && unreadMessageCount > 0 ? (
+            let badge: React.ReactNode = undefined;
+            if (link.href === "/messages" && unreadMessageCount > 0) {
+              badge = (
                 <Badge
                   variant="destructive"
                   className="h-5 min-w-5 justify-center px-1 text-[10px] font-bold"
                 >
                   {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
                 </Badge>
-              ) : undefined;
+              );
+            } else if (
+              link.href === "/voice-messages" &&
+              role === "TRAINER" &&
+              trainerClerkId
+            ) {
+              badge = (
+                <VoiceMessagesNavBadge
+                  initialUnread={unreadVoiceCount}
+                  trainerClerkId={trainerClerkId}
+                />
+              );
+            }
             return navItem(link.href, link.label, link.icon, badge);
           })}
         </nav>

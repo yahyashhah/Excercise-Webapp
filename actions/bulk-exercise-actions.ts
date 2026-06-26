@@ -53,7 +53,7 @@ export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) 
             defaultReps: ex.defaultReps || null,
             videoUrl: ex.videoUrl?.trim() || null,
             imageUrl: ex.imageUrl?.trim() || null,
-            videoProvider: ex.videoUrl ? "uploadthing" : null,
+            videoProvider: ex.videoUrl ? "youtube" : null,
             createdById: dbUser.id,
             isActive: true,
           },
