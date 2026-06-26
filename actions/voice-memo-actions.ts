@@ -80,7 +80,7 @@ export async function generateVoiceMemoPresignedUrl(
     const command = new PutObjectCommand({
       Bucket: R2_BUCKET_NAME,
       Key: pendingKey,
-      ContentType: `audio/${fileExtension === "webm" ? "webm" : fileExtension}`,
+      ContentType: `audio/${fileExtension}`,
     })
     const presignedUrl = await getSignedUrl(getR2Client(), command, { expiresIn: 300 })
 
@@ -271,6 +271,11 @@ export async function markVoiceMemoRead(
     })
     if (!memo) return { success: false, error: "Not found" }
 
+    // Only the recipient can mark as read (not the author)
+    if (memo.authorId === user.id) {
+      return { success: false, error: "Forbidden" }
+    }
+
     await prisma.voiceMemo.update({ where: { id: memoId }, data: { isRead: true } })
 
     // Notify trainer in real-time that client has read the memo
@@ -299,6 +304,15 @@ export async function getWorkoutVoiceMemos(workoutId: string): Promise<{
   try {
     const user = await getAuthedUser()
     if (!user) return { success: false, error: "Unauthorized" }
+
+    const workout = await prisma.workout.findUnique({
+      where: { id: workoutId },
+      include: { program: { select: { trainerId: true, clientId: true } } },
+    })
+    if (!workout) return { success: false, error: "Not found" }
+    if (workout.program.trainerId !== user.id && workout.program.clientId !== user.id) {
+      return { success: false, error: "Forbidden" }
+    }
 
     const memos = await prisma.voiceMemo.findMany({
       where: { workoutId },
