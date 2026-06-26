@@ -71,7 +71,7 @@ export function FeedbackForm({ planExerciseId, exerciseName, onSuccess }: Feedba
                   className={`rounded-lg border-2 p-3 text-sm font-medium transition-colors ${
                     rating === r.value
                       ? ratingColors[r.value]
-                      : "border-slate-200 hover:border-slate-300"
+                      : "border-border hover:border-border/80"
                   }`}
                 >
                   {r.label}

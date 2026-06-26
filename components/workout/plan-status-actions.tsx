@@ -28,10 +28,10 @@ const transitions: Record<string, { label: string; status: string; icon: React.R
   ],
   PAUSED: [
     { label: "Resume Plan", status: "ACTIVE", icon: <RotateCcw className="mr-2 h-4 w-4 text-green-600" /> },
-    { label: "Archive Plan", status: "ARCHIVED", icon: <Archive className="mr-2 h-4 w-4 text-slate-500" /> },
+    { label: "Archive Plan", status: "ARCHIVED", icon: <Archive className="mr-2 h-4 w-4 text-muted-foreground" /> },
   ],
   COMPLETED: [
-    { label: "Archive Plan", status: "ARCHIVED", icon: <Archive className="mr-2 h-4 w-4 text-slate-500" /> },
+    { label: "Archive Plan", status: "ARCHIVED", icon: <Archive className="mr-2 h-4 w-4 text-muted-foreground" /> },
   ],
   ARCHIVED: [],
 };

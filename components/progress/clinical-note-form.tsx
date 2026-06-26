@@ -39,7 +39,7 @@ const SECTION_STYLES = {
     "border-l-4 border-amber-400 bg-amber-50/50 pl-4 py-3 rounded-r-md",
   plan: "border-l-4 border-violet-400 bg-violet-50/50 pl-4 py-3 rounded-r-md",
   private:
-    "border-l-4 border-slate-300 bg-muted/50 pl-4 py-3 rounded-r-md",
+    "border-l-4 border-border bg-muted/50 pl-4 py-3 rounded-r-md",
 } as const;
 
 export function ClinicalNoteForm({
@@ -182,7 +182,7 @@ export function ClinicalNoteForm({
 
       {/* Private Notes — trainer-only */}
       <div className={SECTION_STYLES.private}>
-        <Label className="text-slate-600 font-semibold text-sm mb-1.5 block">
+        <Label className="text-muted-foreground font-semibold text-sm mb-1.5 block">
           Private Notes (trainer only)
         </Label>
         <p className="text-xs text-muted-foreground mb-2">

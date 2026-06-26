@@ -26,7 +26,7 @@ const STATUS_COLORS: Record<string, string> = {
   IN_PROGRESS: "bg-amber-100 text-amber-700",
   SCHEDULED: "bg-blue-100 text-blue-700",
   MISSED: "bg-red-100 text-red-700",
-  SKIPPED: "bg-slate-100 text-slate-600",
+  SKIPPED: "bg-muted text-muted-foreground",
 };
 
 const CIRCUIT_TYPES = new Set(["CIRCUIT", "SUPERSET", "WARMUP", "COOLDOWN"]);
@@ -44,7 +44,7 @@ function getSetCount(block: Block, exercise: BlockExercise): number {
 }
 
 function getStatusColor(status: string): string {
-  return STATUS_COLORS[status.toUpperCase()] ?? "bg-slate-100 text-slate-600";
+  return STATUS_COLORS[status.toUpperCase()] ?? "bg-muted text-muted-foreground";
 }
 
 function formatStatus(status: string): string {
@@ -174,7 +174,7 @@ export default async function SessionReviewPage({ params }: Props) {
               </span>
             )}
             {session.durationMinutes != null && (
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+              <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                 {session.durationMinutes} min
               </span>
             )}
@@ -298,7 +298,7 @@ function CompletionBadge({
     );
   }
   return (
-    <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+    <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
       Not started
     </span>
   );
@@ -398,7 +398,7 @@ function SetRow({
   let noteText: string | null = null;
   if (!log) {
     statusBadge = (
-      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
         ○ Not logged
       </span>
     );

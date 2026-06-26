@@ -45,7 +45,7 @@ export function PlanFeedbackSection({ exercises }: PlanFeedbackSectionProps) {
               key={ex.planExerciseId}
               className="flex items-center justify-between rounded-lg border border-green-100 bg-green-50 px-4 py-3"
             >
-              <p className="text-sm font-medium text-slate-700">
+              <p className="text-sm font-medium text-muted-foreground">
                 {ex.exerciseName}
               </p>
               <Badge variant="secondary" className="bg-green-100 text-green-700">
@@ -75,7 +75,7 @@ export function PlanFeedbackSection({ exercises }: PlanFeedbackSectionProps) {
             key={ex.planExerciseId}
             className="flex items-center justify-between rounded-lg border px-4 py-3"
           >
-            <p className="text-sm font-medium text-slate-700">
+            <p className="text-sm font-medium text-muted-foreground">
               {ex.exerciseName}
             </p>
             <Button

@@ -84,7 +84,7 @@ export function ExerciseCard({
       <Link href={`/exercises/${id}`} className="relative block h-44 overflow-hidden bg-muted">
         <ExerciseImage src={null} alt={name} bodyRegion={bodyRegion} videoUrl={videoUrl} label={name.split(" ").slice(0, 3).join(" ")} />
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-          <div className="flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-1.5 text-sm font-semibold text-slate-800 shadow-lg backdrop-blur-sm">
+          <div className="flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-1.5 text-sm font-semibold text-foreground shadow-lg backdrop-blur-sm">
             <ArrowRight className="h-3.5 w-3.5" />
             View Exercise
           </div>
@@ -102,7 +102,7 @@ export function ExerciseCard({
               </span>
             )}
             {isActive === false && (
-              <span className="rounded-full bg-slate-700/80 px-2 py-0.5 text-[10px] font-medium text-white">Inactive</span>
+              <span className="rounded-full bg-foreground/70 px-2 py-0.5 text-[10px] font-medium text-white">Inactive</span>
             )}
           </div>
         </div>
@@ -162,7 +162,7 @@ export function ExerciseCard({
                   "h-7 gap-1 text-xs font-medium shrink-0",
                   isPublic
                     ? "text-green-700 border-green-200 hover:bg-green-50"
-                    : "text-slate-600 border-slate-200 hover:bg-slate-50"
+                    : "text-muted-foreground border-border hover:bg-muted/50"
                 )}
                 onClick={handleTogglePublic}
                 disabled={isPending}

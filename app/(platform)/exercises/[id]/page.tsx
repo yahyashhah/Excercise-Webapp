@@ -65,7 +65,7 @@ export default async function ExerciseDetailPage({ params }: Props) {
           {/* Video — full width */}
           {(exercise.videoUrl || hasAttachedVideo) ? (
             <div>
-              <h3 className="mb-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">Video Demo</h3>
+              <h3 className="mb-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Video Demo</h3>
               <ExerciseVideoPlayer
                 videoUrl={exercise.videoUrl}
                 mediaItems={exercise.media}
@@ -81,12 +81,12 @@ export default async function ExerciseDetailPage({ params }: Props) {
           {/* Additional video-only media gallery */}
           {exercise.media.filter((m) => m.mediaType !== "image").length > 0 && (
             <div>
-              <h3 className="mb-3 text-sm font-semibold text-slate-500 uppercase tracking-wide">Additional Videos</h3>
+              <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Additional Videos</h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {exercise.media
                   .filter((item) => item.mediaType !== "image")
                   .map((item) => (
-                    <div key={item.id} className="rounded-lg overflow-hidden bg-slate-100">
+                    <div key={item.id} className="rounded-lg overflow-hidden bg-muted">
                       <ExerciseVideoPlayer
                         videoUrl={item.url}
                         mediaItems={[]}
@@ -100,15 +100,15 @@ export default async function ExerciseDetailPage({ params }: Props) {
 
           {exercise.description && (
             <div>
-              <h3 className="mb-2 font-semibold text-slate-900">Description</h3>
-              <p className="text-slate-600">{exercise.description}</p>
+              <h3 className="mb-2 font-semibold text-foreground">Description</h3>
+              <p className="text-muted-foreground">{exercise.description}</p>
             </div>
           )}
 
           {/* Muscles targeted */}
           {exercise.musclesTargeted && exercise.musclesTargeted.length > 0 && (
             <div>
-              <h3 className="mb-2 font-semibold text-slate-900">Muscles Targeted</h3>
+              <h3 className="mb-2 font-semibold text-foreground">Muscles Targeted</h3>
               <div className="flex flex-wrap gap-2">
                 {exercise.musclesTargeted.map((m: string) => (
                   <Badge key={m} variant="outline" className="text-xs capitalize">{m}</Badge>
@@ -119,8 +119,8 @@ export default async function ExerciseDetailPage({ params }: Props) {
 
           {exercise.instructions && (
             <div>
-              <h3 className="mb-2 font-semibold text-slate-900">Instructions</h3>
-              <p className="whitespace-pre-line text-slate-600 leading-relaxed">{exercise.instructions}</p>
+              <h3 className="mb-2 font-semibold text-foreground">Instructions</h3>
+              <p className="whitespace-pre-line text-muted-foreground leading-relaxed">{exercise.instructions}</p>
             </div>
           )}
 
@@ -143,8 +143,8 @@ export default async function ExerciseDetailPage({ params }: Props) {
           {/* Default prescription */}
           {(exercise.defaultSets || exercise.defaultReps || exercise.defaultHoldSeconds) && (
             <div>
-              <h3 className="mb-2 font-semibold text-slate-900">Default Prescription</h3>
-              <p className="text-slate-600">
+              <h3 className="mb-2 font-semibold text-foreground">Default Prescription</h3>
+              <p className="text-muted-foreground">
                 {exercise.defaultSets && `${exercise.defaultSets} sets`}
                 {exercise.defaultReps && ` × ${exercise.defaultReps} reps`}
                 {exercise.defaultHoldSeconds && ` × ${exercise.defaultHoldSeconds}s hold`}
@@ -154,7 +154,7 @@ export default async function ExerciseDetailPage({ params }: Props) {
 
           {exercise.equipmentRequired.length > 0 && (
             <div>
-              <h3 className="mb-2 font-semibold text-slate-900">Equipment</h3>
+              <h3 className="mb-2 font-semibold text-foreground">Equipment</h3>
               <div className="flex flex-wrap gap-2">
                 {exercise.equipmentRequired.map((eq) => (
                   <Badge key={eq} variant="outline">{eq}</Badge>
@@ -165,8 +165,8 @@ export default async function ExerciseDetailPage({ params }: Props) {
 
           {exercise.contraindications.length > 0 && (
             <div>
-              <h3 className="mb-2 font-semibold text-slate-900">Contraindications</h3>
-              <ul className="list-inside list-disc text-slate-600">
+              <h3 className="mb-2 font-semibold text-foreground">Contraindications</h3>
+              <ul className="list-inside list-disc text-muted-foreground">
                 {exercise.contraindications.map((c) => (
                   <li key={c}>{c}</li>
                 ))}
@@ -177,13 +177,13 @@ export default async function ExerciseDetailPage({ params }: Props) {
           {/* Progressions */}
           {exercise.progressionsFrom.length > 0 && (
             <div>
-              <h3 className="mb-2 font-semibold text-slate-900">Progressions</h3>
+              <h3 className="mb-2 font-semibold text-foreground">Progressions</h3>
               <div className="space-y-2">
                 {exercise.progressionsFrom.map((p) => (
                   <Link
                     key={p.id}
                     href={`/exercises/${p.nextExerciseId}`}
-                    className="flex items-center gap-2 rounded-lg border border-slate-200 p-3 text-sm hover:bg-slate-50"
+                    className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm hover:bg-muted/50"
                   >
                     <ArrowRight className="h-4 w-4 text-green-600" />
                     <span className="font-medium">{p.nextExercise.name}</span>

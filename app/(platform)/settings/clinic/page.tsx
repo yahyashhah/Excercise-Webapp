@@ -18,8 +18,8 @@ export default async function OrganizationSettingsPage() {
             Back to Settings
           </Link>
         </Button>
-        <h2 className="text-2xl font-bold text-slate-900">Organization Profile</h2>
-        <p className="text-slate-600">Customize your organization branding for PDF exports</p>
+        <h2 className="text-2xl font-bold tracking-tight">Organization Profile</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Customize your organization branding for PDF exports</p>
       </div>
       <OrganizationProfileForm initialData={profile ?? undefined} />
     </div>

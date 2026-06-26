@@ -219,10 +219,10 @@ export function ExerciseEditForm({ exercise }: Props) {
           </div>
 
           {/* ── VIDEO ── */}
-          <div className="space-y-4 rounded-lg border border-slate-200 p-4">
+          <div className="space-y-4 rounded-lg border border-border p-4">
             <div>
-              <h3 className="font-semibold text-slate-900">Video Demo</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <h3 className="font-semibold text-foreground">Video Demo</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Paste a YouTube link — it plays inline in the client&apos;s plan. The <span className="font-medium text-blue-600">YouTube thumbnail auto-becomes the exercise image</span> if no photo is set.
               </p>
             </div>
@@ -241,7 +241,7 @@ export function ExerciseEditForm({ exercise }: Props) {
             {/* Live YouTube preview */}
             {videoUrl && (
               <div className="space-y-1">
-                <p className="text-xs font-medium text-slate-500">Live Preview</p>
+                <p className="text-xs font-medium text-muted-foreground">Live Preview</p>
                 <ExerciseVideoPlayer
                   videoUrl={videoUrl}
                   mediaItems={[]}
@@ -263,10 +263,10 @@ export function ExerciseEditForm({ exercise }: Props) {
           </div>
 
           {/* ── IMAGE ── */}
-          <div className="space-y-4 rounded-lg border border-slate-200 p-4">
+          <div className="space-y-4 rounded-lg border border-border p-4">
             <div>
-              <h3 className="font-semibold text-slate-900">Exercise Image</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <h3 className="font-semibold text-foreground">Exercise Image</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Shown as a thumbnail on exercise cards and in the PDF handout
               </p>
             </div>
@@ -280,13 +280,13 @@ export function ExerciseEditForm({ exercise }: Props) {
                 onChange={(e) => setImageUrl(e.target.value)}
                 placeholder="https://example.com/exercise-photo.jpg"
               />
-              <p className="text-xs text-slate-500">Paste any image URL from the web</p>
+              <p className="text-xs text-muted-foreground">Paste any image URL from the web</p>
             </div>
 
             {/* Image preview using regular img (no Next.js hostname restrictions for preview) */}
             {imageUrl && (
               <div className="relative">
-                <div className="relative h-40 w-full overflow-hidden rounded-lg bg-slate-100">
+                <div className="relative h-40 w-full overflow-hidden rounded-lg bg-muted">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={imageUrl}
@@ -302,7 +302,7 @@ export function ExerciseEditForm({ exercise }: Props) {
                   onClick={() => setImageUrl("")}
                   className="absolute right-2 top-2 rounded-full bg-white p-1 shadow-md"
                 >
-                  <X className="h-3.5 w-3.5 text-slate-600" />
+                  <X className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               </div>
             )}
@@ -310,10 +310,10 @@ export function ExerciseEditForm({ exercise }: Props) {
           </div>
 
           {/* ── ADDITIONAL MEDIA GALLERY ── */}
-          <div className="space-y-4 rounded-lg border border-slate-200 p-4">
+          <div className="space-y-4 rounded-lg border border-border p-4">
             <div>
-              <h3 className="font-semibold text-slate-900">Additional Media</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <h3 className="font-semibold text-foreground">Additional Media</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Add multiple photos and videos — shown in a gallery on the exercise detail page
               </p>
             </div>
@@ -322,7 +322,7 @@ export function ExerciseEditForm({ exercise }: Props) {
             {mediaItems.length > 0 && (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {mediaItems.map((item) => (
-                  <div key={item.id} className="group relative rounded-lg overflow-hidden bg-slate-100">
+                  <div key={item.id} className="group relative rounded-lg overflow-hidden bg-muted">
                     {item.mediaType === "image" ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -332,7 +332,7 @@ export function ExerciseEditForm({ exercise }: Props) {
                         onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                       />
                     ) : (
-                      <div className="flex h-28 items-center justify-center bg-slate-800">
+                      <div className="flex h-28 items-center justify-center bg-muted-foreground/10">
                         <Play className="h-8 w-8 text-white" />
                       </div>
                     )}

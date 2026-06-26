@@ -10,7 +10,6 @@ import {
   ChevronRight,
   Library,
   CalendarDays,
-  TrendingUp,
   ArrowUpRight,
 } from "lucide-react";
 import { formatFeedbackRating, formatRelativeTime, formatSessionStatus } from "@/lib/utils/formatting";
@@ -61,7 +60,7 @@ const statCards = (
     gradient: "from-blue-500 to-indigo-600",
     bg: "bg-blue-50",
     iconColor: "text-blue-600",
-    trend: "+2 this week",
+    trend: "Manage your roster",
   },
   {
     label: "Active Programs",
@@ -71,17 +70,17 @@ const statCards = (
     gradient: "from-emerald-500 to-teal-600",
     bg: "bg-emerald-50",
     iconColor: "text-emerald-600",
-    trend: "Running now",
+    trend: "View all programs",
   },
   {
     label: "Pending Feedback",
     value: pendingFeedback,
     icon: AlertCircle,
-    href: "/dashboard",
+    href: "/clients",
     gradient: "from-amber-500 to-orange-600",
     bg: "bg-amber-50",
     iconColor: "text-amber-600",
-    trend: pendingFeedback > 0 ? "Needs attention" : "All reviewed",
+    trend: pendingFeedback > 0 ? "Needs your attention" : "All caught up",
   },
   {
     label: "Unread Messages",
@@ -91,7 +90,7 @@ const statCards = (
     gradient: "from-violet-500 to-purple-600",
     bg: "bg-violet-50",
     iconColor: "text-violet-600",
-    trend: unreadMessages > 0 ? "New messages" : "All read",
+    trend: unreadMessages > 0 ? "New messages" : "Inbox clear",
   },
 ];
 
@@ -109,6 +108,13 @@ const sessionStatusColors: Record<string, string> = {
   MISSED: "bg-red-100 text-red-700",
 };
 
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export function TrainerDashboard({
   clientCount,
   pendingFeedback,
@@ -124,7 +130,7 @@ export function TrainerDashboard({
       {/* Welcome banner */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Good morning 👋</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{getGreeting()} 👋</h1>
           <p className="mt-1 text-muted-foreground">
             Here&apos;s what&apos;s happening with your clients today.
           </p>
@@ -158,7 +164,7 @@ export function TrainerDashboard({
                     <p className="text-3xl font-bold tracking-tight">{card.value}</p>
                     <p className="text-sm font-medium text-muted-foreground">{card.label}</p>
                     <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground/70">
-                      <TrendingUp className="h-3 w-3" />
+                      <ChevronRight className="h-3 w-3" />
                       {card.trend}
                     </p>
                   </div>

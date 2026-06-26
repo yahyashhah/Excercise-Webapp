@@ -35,14 +35,14 @@ export function PlanCard({
             </div>
             <PlanStatusBadge status={status} />
           </div>
-          <h3 className="mb-1 font-semibold text-slate-900">{title}</h3>
+          <h3 className="mb-1 font-semibold text-foreground">{title}</h3>
           {clientName && (
             <p className="text-sm text-blue-600">{clientName}</p>
           )}
           {description && (
-            <p className="mb-3 mt-1 line-clamp-2 text-sm text-slate-500">{description}</p>
+            <p className="mb-3 mt-1 line-clamp-2 text-sm text-muted-foreground">{description}</p>
           )}
-          <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
+          <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
             <span>{exerciseCount} exercises</span>
             <span>{sessionCount} sessions</span>
             <span>Updated {formatDate(updatedAt)}</span>
