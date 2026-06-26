@@ -41,6 +41,7 @@ import {
   generateVoiceMemoPresignedUrl,
   confirmVoiceMemoUpload,
   markVoiceMemoRead,
+  getWorkoutVoiceMemos,
 } from '../voice-memo-actions'
 
 const mockAuth = vi.mocked(auth)
@@ -194,5 +195,32 @@ describe('markVoiceMemoRead', () => {
     } as never)
     const result = await markVoiceMemoRead('memo_1')
     expect(result).toEqual({ success: false, error: 'Forbidden' })
+  })
+})
+
+describe('getWorkoutVoiceMemos', () => {
+  it('returns Unauthorized when not authenticated', async () => {
+    mockAuth.mockResolvedValue({ userId: null } as never)
+    expect(await getWorkoutVoiceMemos(WORKOUT_ID)).toEqual({ success: false, error: 'Unauthorized' })
+  })
+
+  it('returns Forbidden when user is unrelated to the workout', async () => {
+    mockAuth.mockResolvedValue({ userId: CLERK_ID } as never)
+    mockUserFind.mockResolvedValue(dbTrainer as never)
+    mockWorkoutFind.mockResolvedValue({
+      ...workoutBase,
+      program: { trainerId: 'other_trainer', clientId: 'other_client' },
+    } as never)
+    expect(await getWorkoutVoiceMemos(WORKOUT_ID)).toEqual({ success: false, error: 'Forbidden' })
+  })
+
+  it('returns memos for authorized trainer', async () => {
+    mockAuth.mockResolvedValue({ userId: CLERK_ID } as never)
+    mockUserFind.mockResolvedValue(dbTrainer as never)
+    mockWorkoutFind.mockResolvedValue(workoutBase as never)
+    vi.mocked(prisma.voiceMemo.findMany).mockResolvedValue([])
+    const result = await getWorkoutVoiceMemos(WORKOUT_ID)
+    expect(result.success).toBe(true)
+    expect(result.data).toEqual({ trainer: null, client: null })
   })
 })
