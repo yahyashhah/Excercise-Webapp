@@ -19,10 +19,6 @@ export function VoiceMemoAddedEmail({
     role === "client"
       ? `${senderName} left you a voice note`
       : `${senderName} left a voice note`
-  const body =
-    role === "client"
-      ? `Your trainer <strong>${senderName}</strong> recorded a coaching note for <strong>${workoutName}</strong>. Open the app to listen before your session.`
-      : `Your client <strong>${senderName}</strong> completed <strong>${workoutName}</strong> and left you a voice response.`
   const ctaLabel = role === "client" ? "Listen to Voice Note" : "View Client Response"
 
   return (
@@ -47,10 +43,13 @@ export function VoiceMemoAddedEmail({
                     <tr>
                       <td style={styles.bodyPad}>
                         <p style={styles.greeting}>Hi {recipientName},</p>
-                        <p
-                          style={styles.intro}
-                          dangerouslySetInnerHTML={{ __html: body }}
-                        />
+                        <p style={styles.intro}>
+                          {role === "client" ? (
+                            <>Your trainer <strong>{senderName}</strong> recorded a coaching note for <strong>{workoutName}</strong>. Open the app to listen before your session.</>
+                          ) : (
+                            <>Your client <strong>{senderName}</strong> completed <strong>{workoutName}</strong> and left you a voice response.</>
+                          )}
+                        </p>
                         <table
                           width="100%"
                           cellPadding={0}
