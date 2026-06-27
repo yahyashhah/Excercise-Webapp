@@ -145,11 +145,15 @@ export async function getAllUsers(params: {
   pageSize?: number;
   search?: string;
   role?: "TRAINER" | "CLIENT" | "ALL";
+  includeArchived?: boolean;
+  orgId?: string;
 }) {
-  const { page = 1, pageSize = 20, search, role = "ALL" } = params;
+  const { page = 1, pageSize = 20, search, role = "ALL", includeArchived = false, orgId } = params;
 
   const where = {
+    ...(!includeArchived && { isActive: { not: false } }),
     ...(role !== "ALL" && { role }),
+    ...(orgId && { clerkOrgId: orgId }),
     ...(search && {
       OR: [
         { firstName: { contains: search, mode: "insensitive" as const } },
@@ -169,6 +173,7 @@ export async function getAllUsers(params: {
         email: true,
         role: true,
         onboarded: true,
+        isActive: true,
         imageUrl: true,
         createdAt: true,
         clerkOrgId: true,
@@ -179,6 +184,19 @@ export async function getAllUsers(params: {
     }),
     prisma.user.count({ where }),
   ]);
+
+  // Build org name map: clerkOrgId → trainer full name
+  const orgIds = [...new Set(rawItems.map(u => u.clerkOrgId).filter(Boolean))] as string[];
+  const orgNameMap: Record<string, string> = {};
+  if (orgIds.length > 0) {
+    const trainers = await prisma.user.findMany({
+      where: { clerkOrgId: { in: orgIds }, role: "TRAINER" },
+      select: { clerkOrgId: true, firstName: true, lastName: true },
+    });
+    for (const t of trainers) {
+      if (t.clerkOrgId) orgNameMap[t.clerkOrgId] = `${t.firstName} ${t.lastName}`;
+    }
+  }
 
   // Compute connection counts per user based on their organization.
   // Trainers: number of clients in the org. Clients: number of trainers in the org.
@@ -193,11 +211,20 @@ export async function getAllUsers(params: {
           },
         });
       }
-      return { ...u, connectionCount };
+      const orgName = u.clerkOrgId ? (orgNameMap[u.clerkOrgId] ?? null) : null;
+      return { ...u, connectionCount, orgName };
     })
   );
 
   return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+}
+
+export async function getTrainersForOrgFilter() {
+  return prisma.user.findMany({
+    where: { role: "TRAINER", clerkOrgId: { not: null } },
+    select: { clerkOrgId: true, firstName: true, lastName: true },
+    orderBy: { firstName: "asc" },
+  });
 }
 
 export async function getAllExercises(params: {
@@ -300,4 +327,66 @@ export async function getAdminGlobalPrograms(params: {
   ]);
 
   return { items, total, totalPages: Math.ceil(total / pageSize) };
+}
+
+export interface TrainerWithClients {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  imageUrl: string | null;
+  clerkOrgId: string | null;
+  onboarded: boolean;
+  isActive: boolean;
+  createdAt: Date;
+  clients: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    imageUrl: string | null;
+    onboarded: boolean;
+    isActive: boolean;
+    createdAt: Date;
+  }>;
+}
+
+export async function getTrainersWithClients(): Promise<TrainerWithClients[]> {
+  const trainers = await prisma.user.findMany({
+    where: { role: "TRAINER" },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      imageUrl: true,
+      clerkOrgId: true,
+      onboarded: true,
+      isActive: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return Promise.all(
+    trainers.map(async (trainer) => {
+      const clients = trainer.clerkOrgId
+        ? await prisma.user.findMany({
+            where: { clerkOrgId: trainer.clerkOrgId, role: "CLIENT" },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              imageUrl: true,
+              onboarded: true,
+              isActive: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+          })
+        : [];
+      return { ...trainer, clients };
+    })
+  );
 }

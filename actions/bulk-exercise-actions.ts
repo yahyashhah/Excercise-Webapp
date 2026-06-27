@@ -34,6 +34,11 @@ export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) 
 
   if (!exercises.length) return { success: false as const, error: "No exercises provided" };
 
+  // Route to org library if the trainer belongs to an org
+  const orgData = dbUser.clerkOrgId
+    ? { source: "ORGANIZATION" as const, organizationId: dbUser.clerkOrgId, isPublic: false }
+    : {};
+
   try {
     const created = await prisma.$transaction(
       exercises.map((ex) =>
@@ -56,6 +61,7 @@ export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) 
             videoProvider: ex.videoUrl ? "youtube" : null,
             createdById: dbUser.id,
             isActive: true,
+            ...orgData,
           },
         })
       )

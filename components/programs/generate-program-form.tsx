@@ -126,16 +126,27 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
   }
 
   function toggleEquipment(item: string) {
-    setSelectedEquipment(prev =>
-      prev.includes(item) ? prev.filter(e => e !== item) : [...prev, item]
-    );
+    setSelectedEquipment(prev => {
+      if (item === "none") {
+        return prev.includes("none") ? [] : ["none"];
+      }
+      const withoutNone = prev.filter(e => e !== "none");
+      return withoutNone.includes(item)
+        ? withoutNone.filter(e => e !== item)
+        : [...withoutNone, item];
+    });
   }
 
   function toggleWeekday(day: string) {
     setSelectedWeekdays((prev) => {
-      const next = prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day];
-      setDaysPerWeek(next.length || 1);
-      return next;
+      if (prev.includes(day)) {
+        const next = prev.filter((d) => d !== day);
+        return next.length === 0 ? prev : next;
+      }
+      if (prev.length >= daysPerWeek) {
+        return [...prev.slice(1), day];
+      }
+      return [...prev, day];
     });
   }
 
@@ -382,7 +393,11 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   <select
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     value={daysPerWeek}
-                    onChange={(e) => setDaysPerWeek(Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setDaysPerWeek(val);
+                      setSelectedWeekdays(prev => prev.slice(0, val));
+                    }}
                   >
                     {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                       <option key={d} value={d}>{d} {d === 1 ? "day" : "days"}</option>
@@ -395,7 +410,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
               <div className="space-y-2">
                 <Label>Program Duration</Label>
                 <div className="flex items-center gap-2 flex-wrap">
-                  {[2, 4, 6, 8, 12].map(w => (
+                  {[1, 2, 4, 6, 8, 12].map(w => (
                     <Button
                       key={w}
                       type="button"
@@ -403,7 +418,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                       size="sm"
                       onClick={() => setDurationWeeks(w)}
                     >
-                      {w} wks
+                      {w === 1 && daysPerWeek === 1 ? "1 day" : w === 1 ? "1 wk" : `${w} wks`}
                     </Button>
                   ))}
                   <div className="flex items-center gap-1.5 ml-1">
@@ -445,8 +460,9 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
               <div className="space-y-2">
                 <Label>Available Equipment</Label>
                 <p className="text-xs text-muted-foreground">
-                  Only exercises using these items (plus bodyweight) will be selected. Leave empty to allow any equipment.
+                  Only exercises using this equipment (plus bodyweight) will be selected. Leave empty to allow any equipment.
                 </p>
+
                 <Popover open={equipmentOpen} onOpenChange={setEquipmentOpen}>
                   <PopoverTrigger
                     render={
@@ -458,7 +474,9 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                       />
                     }
                   >
-                    {selectedEquipment.length === 0
+                    {selectedEquipment.includes("none")
+                      ? "No Equipment (Bodyweight only)"
+                      : selectedEquipment.length === 0
                       ? "Select equipment..."
                       : `${selectedEquipment.length} item${selectedEquipment.length === 1 ? "" : "s"} selected`}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -469,13 +487,23 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                       <CommandList>
                         <CommandEmpty>No equipment found.</CommandEmpty>
                         <CommandGroup>
+                          <CommandItem
+                            key="none"
+                            value="none"
+                            onSelect={() => toggleEquipment("none")}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${
+                                selectedEquipment.includes("none") ? "opacity-100" : "opacity-0"
+                              }`}
+                            />
+                            None (Bodyweight only)
+                          </CommandItem>
                           {equipmentOptions.map(item => (
                             <CommandItem
                               key={item}
                               value={item}
-                              onSelect={() => {
-                                toggleEquipment(item);
-                              }}
+                              onSelect={() => toggleEquipment(item)}
                             >
                               <Check
                                 className={`mr-2 h-4 w-4 ${
@@ -490,7 +518,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                     </Command>
                   </PopoverContent>
                 </Popover>
-                {selectedEquipment.length > 0 && (
+                {selectedEquipment.length > 0 && !selectedEquipment.includes("none") && (
                   <div className="flex flex-wrap gap-1.5 mt-1">
                     {selectedEquipment.map(item => (
                       <span
