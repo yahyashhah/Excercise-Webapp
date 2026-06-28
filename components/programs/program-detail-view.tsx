@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +29,8 @@ import {
   Share2,
   Download,
   Printer,
+  Mic,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { duplicateProgramAction } from "@/actions/program-actions";
@@ -43,6 +45,10 @@ import {
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
+import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
+import { VoiceMemoPlayer } from "@/components/voice-memo/VoiceMemoPlayer";
+import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
+import type { VoiceMemoData } from "@/actions/voice-memo-actions";
 
 
 interface ProgramDetailViewProps {
@@ -141,6 +147,19 @@ export function ProgramDetailView({
     : aggregateProgramEquipment(workouts);
 
   const [shareOpen, setShareOpen] = useState(false);
+  const [voiceMemoWorkout, setVoiceMemoWorkout] = useState<{ id: string; name: string } | null>(null);
+  const [trainerMemo, setTrainerMemo] = useState<VoiceMemoData | null>(null);
+  const [memoLoading, setMemoLoading] = useState(false);
+
+  useEffect(() => {
+    if (!voiceMemoWorkout) return;
+    setMemoLoading(true);
+    setTrainerMemo(null);
+    getWorkoutVoiceMemos(voiceMemoWorkout.id).then((result) => {
+      if (result.success && result.data) setTrainerMemo(result.data.trainer);
+      setMemoLoading(false);
+    });
+  }, [voiceMemoWorkout?.id]);
 
   async function handleDownloadPdf() {
     const res = await fetch(`/api/programs/${program.id as string}/pdf`);
@@ -315,40 +334,52 @@ export function ProgramDetailView({
                           return (
                             <div key={wId}>
                               {/* Session row */}
-                              <button
-                                type="button"
-                                className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-muted/30 transition-colors text-left"
-                                onClick={() => toggleWorkout(wId)}
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                                )}
-                                <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                                  <span className="text-xs font-medium text-muted-foreground bg-muted rounded-md px-2 py-0.5 shrink-0">
-                                    Day {dayPos + 1}
-                                  </span>
-                                  <span className="font-medium text-sm truncate">
-                                    {workout.name as string}
-                                  </span>
-                                  {scheduledDate && (
-                                    <span className="text-xs text-muted-foreground shrink-0">
-                                      {format(new Date(scheduledDate), "MMM d")}
-                                    </span>
+                              <div className="flex items-center hover:bg-muted/30 transition-colors">
+                                <button
+                                  type="button"
+                                  className="flex items-center gap-3 px-5 py-3.5 text-left flex-1 min-w-0"
+                                  onClick={() => toggleWorkout(wId)}
+                                >
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                                   )}
-                                </div>
-                                <div className="flex items-center gap-3 shrink-0 ml-auto">
-                                  {!!workout.estimatedMinutes && (
+                                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                    <span className="text-xs font-medium text-muted-foreground bg-muted rounded-md px-2 py-0.5 shrink-0">
+                                      Day {dayPos + 1}
+                                    </span>
+                                    <span className="font-medium text-sm truncate">
+                                      {workout.name as string}
+                                    </span>
+                                    {scheduledDate && (
+                                      <span className="text-xs text-muted-foreground shrink-0">
+                                        {format(new Date(scheduledDate), "MMM d")}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-3 shrink-0 ml-auto">
+                                    {!!workout.estimatedMinutes && (
+                                      <span className="text-xs text-muted-foreground">
+                                        ~{workout.estimatedMinutes as number} min
+                                      </span>
+                                    )}
                                     <span className="text-xs text-muted-foreground">
-                                      ~{workout.estimatedMinutes as number} min
+                                      {blocks.reduce((sum, b) => sum + ((b.exercises as unknown[]) || []).length, 0)} exercises
                                     </span>
-                                  )}
-                                  <span className="text-xs text-muted-foreground">
-                                    {blocks.reduce((sum, b) => sum + ((b.exercises as unknown[]) || []).length, 0)} exercises
-                                  </span>
-                                </div>
-                              </button>
+                                  </div>
+                                </button>
+                                {isTrainer && (
+                                  <button
+                                    type="button"
+                                    className="px-4 py-3.5 shrink-0 text-muted-foreground hover:text-emerald-600 transition-colors"
+                                    title="Voice note"
+                                    onClick={() => setVoiceMemoWorkout({ id: wId, name: workout.name as string })}
+                                  >
+                                    <Mic className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </div>
 
                               {/* Expanded blocks */}
                               {isExpanded && (
@@ -494,6 +525,34 @@ export function ProgramDetailView({
                 <span className="font-medium">Common mistakes: </span>
                 <span className="text-muted-foreground">{detailExercise.commonMistakes as string}</span>
               </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Voice Memo Dialog */}
+      <Dialog open={!!voiceMemoWorkout} onOpenChange={(open) => !open && setVoiceMemoWorkout(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Voice note — {voiceMemoWorkout?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {memoLoading ? (
+              <div className="flex justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                {trainerMemo && (
+                  <VoiceMemoPlayer memo={trainerMemo} authorName={trainerName} />
+                )}
+                <VoiceMemoRecorder
+                  workoutId={voiceMemoWorkout?.id ?? ""}
+                  role="TRAINER"
+                  onSuccess={(memo) => setTrainerMemo(memo)}
+                  existingMemo={trainerMemo ?? undefined}
+                />
+              </>
             )}
           </div>
         </DialogContent>
