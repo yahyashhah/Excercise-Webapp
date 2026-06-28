@@ -94,13 +94,13 @@ export default async function BillingSettingsPage() {
       {/* CANCELED or no record — show upgrade options */}
       {(!sub || sub.status === "CANCELED") && (
         <div className="space-y-6">
-          <div className="flex items-start gap-4 rounded-xl border border-slate-200 bg-slate-50 p-5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100">
-              <XCircle className="h-5 w-5 text-slate-500" />
+          <div className="flex items-start gap-4 rounded-xl border border-border bg-muted/50 p-5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
+              <XCircle className="h-5 w-5 text-muted-foreground" />
             </div>
             <div>
-              <p className="font-semibold text-slate-800">No active plan</p>
-              <p className="mt-0.5 text-sm text-slate-600">
+              <p className="font-semibold text-foreground">No active plan</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
                 Your subscription has ended. Pick a plan below to get back in.
               </p>
             </div>
@@ -113,12 +113,12 @@ export default async function BillingSettingsPage() {
       )}
 
       {/* What's included callout */}
-      <div className="rounded-xl border border-slate-100 bg-slate-50 p-5">
+      <div className="rounded-xl border border-border/60 bg-muted/50 p-5">
         <div className="flex items-center gap-2 mb-3">
-          <CreditCard className="h-4 w-4 text-slate-500" />
-          <p className="text-sm font-semibold text-slate-700">All plans include</p>
+          <CreditCard className="h-4 w-4 text-muted-foreground" />
+          <p className="text-sm font-semibold text-muted-foreground">All plans include</p>
         </div>
-        <ul className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-slate-600">
+        <ul className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-muted-foreground">
           <li>✓ AI workout generation</li>
           <li>✓ Client progress tracking</li>
           <li>✓ Assessments &amp; check-ins</li>

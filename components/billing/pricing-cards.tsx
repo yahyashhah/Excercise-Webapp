@@ -51,24 +51,24 @@ export function PricingCards() {
                   <span className="text-4xl font-bold">
                     ${config.priceInCents / 100}
                   </span>
-                  <span className="text-slate-500">/mo</span>
+                  <span className="text-muted-foreground">/mo</span>
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col flex-1 space-y-4">
                 <ul className="space-y-2 flex-1">
-                  <li className="flex items-center gap-2 text-sm text-slate-600">
+                  <li className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Check className="h-4 w-4 shrink-0 text-green-500" />
                     {config.description}
                   </li>
-                  <li className="flex items-center gap-2 text-sm text-slate-600">
+                  <li className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Check className="h-4 w-4 shrink-0 text-green-500" />
                     AI workout generation
                   </li>
-                  <li className="flex items-center gap-2 text-sm text-slate-600">
+                  <li className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Check className="h-4 w-4 shrink-0 text-green-500" />
                     Client progress tracking
                   </li>
-                  <li className="flex items-center gap-2 text-sm text-slate-600">
+                  <li className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Check className="h-4 w-4 shrink-0 text-green-500" />
                     Assessments &amp; check-ins
                   </li>

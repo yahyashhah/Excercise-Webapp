@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { WorkoutModeWrapper } from "@/components/workout/workout-mode-wrapper";
+import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
+import { VoiceMemoPlayer } from "@/components/voice-memo/VoiceMemoPlayer";
 
 export default async function SessionPage({
   params,
@@ -29,8 +31,13 @@ export default async function SessionPage({
       workout: {
         include: {
           program: {
-            select: {
-              trainerId: true,
+            include: {
+              trainer: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                },
+              },
             },
           },
           blocks: {
@@ -66,6 +73,11 @@ export default async function SessionPage({
   });
 
   if (!session) return notFound();
+
+  const voiceMemoResult = await getWorkoutVoiceMemos(session.workoutId);
+  const trainerMemo = voiceMemoResult.data?.trainer ?? null;
+  const clientMemo = voiceMemoResult.data?.client ?? null;
+
   const isClientOwner = session.clientId === user.id;
   const isProgramTrainer = session.workout.program.trainerId === user.id;
 
@@ -79,6 +91,36 @@ export default async function SessionPage({
           Back to Dashboard
         </Link>
       </Button>
+      {(trainerMemo || clientMemo) && (
+        <div className="mb-4 space-y-2 rounded-2xl border border-border/60 bg-card px-4 py-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Voice Notes
+          </p>
+          {trainerMemo && (
+            <VoiceMemoPlayer
+              memo={trainerMemo}
+              authorName={
+                [
+                  session.workout.program.trainer?.firstName,
+                  session.workout.program.trainer?.lastName,
+                ]
+                  .filter(Boolean)
+                  .join(" ") || "Trainer"
+              }
+            />
+          )}
+          {clientMemo && (
+            <VoiceMemoPlayer
+              memo={clientMemo}
+              authorName={
+                [session.client?.firstName, session.client?.lastName]
+                  .filter(Boolean)
+                  .join(" ") || "Client"
+              }
+            />
+          )}
+        </div>
+      )}
       <WorkoutModeWrapper
         session={session as any}
         initialMode={mode === "checklist" || mode === "session" ? mode : undefined}

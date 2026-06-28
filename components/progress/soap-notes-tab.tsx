@@ -39,7 +39,7 @@ const SECTION_STYLES = {
   objective: "border-l-4 border-emerald-400 bg-emerald-50/50 pl-4 py-3 rounded-r-md",
   assessment: "border-l-4 border-amber-400 bg-amber-50/50 pl-4 py-3 rounded-r-md",
   plan: "border-l-4 border-violet-400 bg-violet-50/50 pl-4 py-3 rounded-r-md",
-  private: "border-l-4 border-slate-300 bg-muted/50 pl-4 py-3 rounded-r-md",
+  private: "border-l-4 border-border bg-muted/50 pl-4 py-3 rounded-r-md",
 } as const;
 
 function NoteCard({
@@ -124,7 +124,7 @@ function NoteCard({
           )}
           {note.privateNotes && (
             <div className={SECTION_STYLES.private}>
-              <Badge variant="outline" className="mb-1.5 text-xs border-slate-300 text-slate-600 bg-transparent">
+              <Badge variant="outline" className="mb-1.5 text-xs border-border text-muted-foreground bg-transparent">
                 Private Notes
               </Badge>
               <p className="text-sm whitespace-pre-wrap text-muted-foreground">

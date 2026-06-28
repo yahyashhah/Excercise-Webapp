@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
 import { NotificationPanel } from "@/components/notifications/notification-panel";
+import { useSearch } from "@/components/search/search-provider";
 import type { User, Notification } from "@prisma/client";
 
 interface HeaderProps {
@@ -14,6 +15,8 @@ interface HeaderProps {
   unreadMessageCount: number;
   unreadNotificationCount: number;
   initialNotifications: Notification[];
+  unreadVoiceCount?: number;
+  trainerClerkId?: string;
 }
 
 function getPageTitle(pathname: string): string {
@@ -24,15 +27,18 @@ function getPageTitle(pathname: string): string {
     "/programs": "Programs",
     "/programs/new": "New Program",
     "/programs/generate": "Generate Program",
+    "/programs/upload": "Upload Program",
     "/clients": "Clients",
     "/messages": "Messages",
+    "/voice-messages": "Voice Messages",
     "/assessments": "Assessments",
     "/assessments/new": "New Assessment",
     "/check-ins": "Check-ins",
     "/check-ins/new": "New Check-in Template",
     "/habits": "Habits",
     "/settings": "Settings",
-    "/settings/organization": "Organization Settings",
+    "/settings/billing": "Billing & Subscription",
+    "/settings/clinic": "Organization Settings",
   };
 
   if (exactMap[pathname]) return exactMap[pathname];
@@ -41,9 +47,9 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith("/exercises/")) return "Exercise Details";
   if (pathname.startsWith("/programs/") && pathname.endsWith("/edit")) return "Edit Program";
   if (pathname.startsWith("/programs/")) return "Program Details";
-  if (pathname.startsWith("/clients/") && pathname.endsWith("/adherence")) return "Adherence";
+  if (pathname.startsWith("/clients/") && pathname.endsWith("/adherence")) return "Sessions";
   if (pathname.startsWith("/clients/") && pathname.endsWith("/outcomes")) return "Outcomes";
-  if (pathname.startsWith("/clients/") && pathname.endsWith("/progress")) return "Progress Tracking";
+  if (pathname.startsWith("/clients/") && pathname.endsWith("/progress")) return "Progress";
   if (pathname.startsWith("/clients/")) return "Client Details";
   if (pathname.startsWith("/messages/")) return "Conversation";
   if (pathname.startsWith("/sessions/")) return "Workout Session";
@@ -58,9 +64,12 @@ export function Header({
   unreadMessageCount,
   unreadNotificationCount,
   initialNotifications,
+  unreadVoiceCount = 0,
+  trainerClerkId,
 }: HeaderProps) {
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
+  const { setOpen: openSearch } = useSearch();
 
   return (
     <header className="flex h-16 items-center gap-4 border-b border-border bg-card px-6">
@@ -81,6 +90,8 @@ export function Header({
             userEmail={user.email}
             userImageUrl={user.imageUrl}
             mobileMode
+            unreadVoiceCount={unreadVoiceCount}
+            trainerClerkId={trainerClerkId}
           />
         </SheetContent>
       </Sheet>
@@ -96,12 +107,17 @@ export function Header({
 
       <div className="flex-1" />
 
-      {/* Search placeholder */}
-      <Button variant="outline" size="sm" className="hidden gap-2 text-muted-foreground sm:flex">
+      {/* Search */}
+      <Button
+        variant="outline"
+        size="sm"
+        className="hidden gap-2 text-muted-foreground sm:flex"
+        onClick={() => openSearch(true)}
+      >
         <Search className="h-3.5 w-3.5" />
         <span className="text-xs">Search...</span>
         <kbd className="pointer-events-none ml-2 hidden rounded border border-border bg-muted px-1.5 text-[10px] font-medium text-muted-foreground sm:inline-block">
-          /
+          ⌘K
         </kbd>
       </Button>
 

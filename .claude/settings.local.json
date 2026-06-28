@@ -12,7 +12,8 @@
       "WebSearch",
       "Bash(npm test *)",
       "Bash(npx vitest *)",
-      "Bash(bash *)"
+      "Bash(bash *)",
+      "Bash(npx tsc *)"
     ]
   }
 }

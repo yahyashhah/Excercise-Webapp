@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { updateSetLogV2Action, completeSessionV2Action, updateExerciseActualSetsAction } from "@/actions/session-v2-actions";
@@ -19,6 +19,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SetLogEntry, SetLogCache } from "./types";
+import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
+import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
+import type { VoiceMemoData } from "@/actions/voice-memo-actions";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type MediaItem = { id: string; url: string; type: string };
@@ -151,6 +154,9 @@ export function WorkoutChecklistTracker({
     Record<string, { actualReps?: number; actualWeight?: number; actualDuration?: number }>
   >({});
 
+  // Keys of sets where the user clicked "Can't do" — value is the typed reason
+  const [pendingSkips, setPendingSkips] = useState<Record<string, string>>({});
+
   // Actual sets logged per exercise (exercise-level, separate from per-set rows)
   const [actualSetsByExercise, setActualSetsByExercise] = useState<Record<string, number>>(() => {
     const result: Record<string, number> = {};
@@ -216,6 +222,19 @@ export function WorkoutChecklistTracker({
   const [rpe, setRpe] = useState(5);
   const [notes, setNotes] = useState("");
   const [isCompleting, setIsCompleting] = useState(false);
+  const [clientMemo, setClientMemo] = useState<VoiceMemoData | null>(null);
+  const [memosLoaded, setMemosLoaded] = useState(false);
+
+  // Load voice memos when the end dialog opens
+  useEffect(() => {
+    if (!showEndDialog || memosLoaded) return;
+    getWorkoutVoiceMemos(session.workout.id).then((result) => {
+      if (result.success && result.data) {
+        setClientMemo(result.data.client);
+      }
+      setMemosLoaded(true);
+    });
+  }, [showEndDialog, memosLoaded, session.workout.id]);
 
   // ── Derived progress ───────────────────────────────────────────────────────
   const allExercises = session.workout.blocks.flatMap((b) =>
@@ -254,14 +273,16 @@ export function WorkoutChecklistTracker({
     block: WorkoutBlock,
     ex: BlockExercise,
     setIndex: number,
-    skipSet = false
+    skipSet = false,
+    skipReason?: string,
+    skipKey?: string
   ) {
     const key = inputKey(ex.id, setIndex);
     setLoggingKey(key);
 
     const pending = pendingInputs[key] ?? {};
     const data = skipSet
-      ? { actualReps: 0, notes: "Unable to complete" }
+      ? { actualReps: 0, notes: skipReason || undefined }
       : {
           actualReps: pending.actualReps,
           actualWeight: pending.actualWeight,
@@ -271,6 +292,14 @@ export function WorkoutChecklistTracker({
     const result = await updateSetLogV2Action(session.id, ex.id, setIndex, data);
 
     if (result.success) {
+      if (skipKey) {
+        setPendingSkips((prev) => {
+          const next = { ...prev };
+          delete next[skipKey];
+          return next;
+        });
+      }
+
       const entry: SetLogEntry = { ...data, completed: true };
 
       // loggingKey prevents concurrent logging, so exerciseSetLogs is current
@@ -745,18 +774,64 @@ export function WorkoutChecklistTracker({
                                             )}
                                             Done
                                           </Button>
-                                          {!isExtra && (
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="h-8 gap-1 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
-                                              onClick={() => handleLogSet(block, ex, i, true)}
-                                              disabled={isLogging}
-                                            >
-                                              <AlertCircle className="h-3 w-3" />
-                                              Can&apos;t do
-                                            </Button>
-                                          )}
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 gap-1 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+                                            onClick={() =>
+                                              setPendingSkips((prev) => ({ ...prev, [inputKey(ex.id, i)]: "" }))
+                                            }
+                                            disabled={isLogging || inputKey(ex.id, i) in pendingSkips}
+                                          >
+                                            <AlertCircle className="h-3 w-3" />
+                                            Can&apos;t do
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {inputKey(ex.id, i) in pendingSkips && (
+                                      <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/50 p-2.5 space-y-2">
+                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-700">
+                                          Why can&apos;t you do this? (optional)
+                                        </p>
+                                        <Textarea
+                                          className="h-16 text-xs resize-none bg-white"
+                                          placeholder="Pain, equipment issue, form concern…"
+                                          value={pendingSkips[inputKey(ex.id, i)] ?? ""}
+                                          onChange={(e) =>
+                                            setPendingSkips((prev) => ({
+                                              ...prev,
+                                              [inputKey(ex.id, i)]: e.target.value,
+                                            }))
+                                          }
+                                        />
+                                        <div className="flex gap-1.5">
+                                          <Button
+                                            size="sm"
+                                            className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white border-0"
+                                            onClick={() => {
+                                              const key = inputKey(ex.id, i);
+                                              const reason = pendingSkips[key] || undefined;
+                                              handleLogSet(block, ex, i, true, reason, key);
+                                            }}
+                                            disabled={isLogging}
+                                          >
+                                            Skip this set
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-7 text-xs"
+                                            onClick={() =>
+                                              setPendingSkips((prev) => {
+                                                const next = { ...prev };
+                                                delete next[inputKey(ex.id, i)];
+                                                return next;
+                                              })
+                                            }
+                                          >
+                                            Cancel
+                                          </Button>
                                         </div>
                                       </div>
                                     )}
@@ -858,6 +933,21 @@ export function WorkoutChecklistTracker({
                 className="resize-none"
               />
             </div>
+            {!clientMemo ? (
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold">
+                  Leave a voice note{" "}
+                  <span className="font-normal text-muted-foreground">(optional)</span>
+                </p>
+                <VoiceMemoRecorder
+                  workoutId={session.workout.id}
+                  role="CLIENT"
+                  onSuccess={(memo) => setClientMemo(memo)}
+                />
+              </div>
+            ) : (
+              <p className="text-sm font-semibold text-emerald-700">Voice note sent ✓</p>
+            )}
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowEndDialog(false)}>

@@ -178,7 +178,7 @@ function ExerciseList({
                         "inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-sm font-medium border transition-colors",
                         ex.isPublic
                           ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                          : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                       )}
                     >
                       {ex.isPublic ? <Globe className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}

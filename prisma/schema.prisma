@@ -56,6 +56,11 @@ enum SessionStatus {
   ABANDONED
 }
 
+enum VoiceMemoRole {
+  TRAINER
+  CLIENT
+}
+
 enum PlanTier {
   STARTER
   PRO
@@ -109,6 +114,7 @@ model User {
   imageUrl    String?
   clerkOrgId  String?
   onboarded   Boolean  @default(false)
+  isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -417,6 +423,7 @@ model Workout {
   updatedAt        DateTime         @updatedAt
   blocks           WorkoutBlockV2[]
   sessions         WorkoutSessionV2[]
+  voiceMemos       VoiceMemo[]
 }
 
 model WorkoutBlockV2 {
@@ -522,6 +529,19 @@ model SessionFeedback {
   trainerResponse String?
   respondedAt       DateTime?
   createdAt         DateTime         @default(now())
+}
+
+model VoiceMemo {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  workoutId   String        @db.ObjectId
+  workout     Workout       @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  authorId    String
+  authorRole  VoiceMemoRole
+  r2Key       String
+  r2Url       String
+  durationSec Int
+  isRead      Boolean       @default(false)
+  createdAt   DateTime      @default(now())
 }
 
 // --- Phase 3 Models ---

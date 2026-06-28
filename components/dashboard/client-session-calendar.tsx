@@ -91,21 +91,35 @@ export function ClientSessionCalendar({ sessions }: Props) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* Day-of-week headers */}
-        <div className="grid grid-cols-7 text-center">
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-            <div key={d} className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground py-1">
-              {d}
-            </div>
-          ))}
-        </div>
+        {/* Calendar grid with grid lines */}
+        <div className="rounded-lg border border-border/40 overflow-hidden">
+          {/* Day-of-week headers */}
+          <div className="grid grid-cols-7 bg-muted/40 border-b border-border/40">
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, idx) => (
+              <div
+                key={d}
+                className={cn(
+                  "text-[10px] font-semibold uppercase tracking-wide text-muted-foreground py-1.5 text-center",
+                  idx < 6 && "border-r border-border/40"
+                )}
+              >
+                {d}
+              </div>
+            ))}
+          </div>
 
-        {/* Calendar grid */}
-        <div className="grid grid-cols-7 gap-y-1">
-          {Array.from({ length: paddedStart }).map((_, i) => (
-            <div key={`pad-${i}`} />
-          ))}
-          {days.map((day) => {
+          {/* Day cells */}
+          <div className="grid grid-cols-7">
+            {Array.from({ length: paddedStart }).map((_, i) => (
+              <div
+                key={`pad-${i}`}
+                className={cn(
+                  "min-h-[44px] border-b border-border/40",
+                  i % 7 < 6 && "border-r border-border/40"
+                )}
+              />
+            ))}
+            {days.map((day) => {
             const daySessions = getSessionsForDay(day);
             const hasSession = daySessions.length > 0;
             const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
@@ -123,11 +137,13 @@ export function ClientSessionCalendar({ sessions }: Props) {
                 }}
                 disabled={!hasSession}
                 className={cn(
-                  "relative flex flex-col items-center justify-start rounded-lg p-1 py-1.5 transition-colors min-h-[44px]",
+                  "relative flex flex-col items-center justify-start p-1 py-1.5 transition-colors min-h-[44px]",
+                  "border-b border-border/40",
+                  (paddedStart + days.indexOf(day)) % 7 < 6 && "border-r border-border/40",
                   !hasSession && "cursor-default",
                   hasSession && !isSelected && "cursor-pointer hover:bg-muted/60",
                   isSelected && "bg-primary text-primary-foreground",
-                  isCurrentDay && !isSelected && "ring-2 ring-primary ring-inset rounded-lg",
+                  isCurrentDay && !isSelected && "ring-2 ring-primary ring-inset rounded-[4px]",
                   isFutureDay && hasSession && "opacity-50"
                 )}
               >
@@ -150,7 +166,8 @@ export function ClientSessionCalendar({ sessions }: Props) {
               </button>
             );
           })}
-        </div>
+          </div>   {/* closes grid grid-cols-7 (day cells) */}
+        </div>     {/* closes rounded-lg border wrapper */}
 
         {/* Legend */}
         <div className="flex items-center gap-4 pt-1">

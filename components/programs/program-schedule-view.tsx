@@ -69,10 +69,31 @@ import {
   deleteSession,
   duplicateWorkoutToDateAction,
 } from "@/actions/calendar-workout-actions";
+import {
+  deleteWorkoutFromProgramAction,
+  duplicateWorkoutToDayAction,
+} from "@/actions/program-workout-actions";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
+import { VoiceMemoPlayer } from "@/components/voice-memo/VoiceMemoPlayer";
+import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
+import type { VoiceMemoData } from "@/actions/voice-memo-actions";
+import { Mic } from "lucide-react";
 
-const SchedulePillCtx = createContext<{ isTrainer: boolean; onRefresh: () => void }>({
+const SchedulePillCtx = createContext<{
+  isTrainer: boolean;
+  onRefresh: () => void;
+  totalProgramWeeks: number;
+}>({
   isTrainer: false,
   onRefresh: () => {},
+  totalProgramWeeks: 1,
 });
 
 // ─── Localizer (Monday first) ─────────────────────────────────────────────────
@@ -284,6 +305,53 @@ function formatPrescription(sets: ExerciseSet[]): string {
   return `${n} set${n !== 1 ? "s" : ""}`;
 }
 
+function WorkoutVoiceMemoSection({
+  workoutId,
+  trainerName,
+}: {
+  workoutId: string
+  trainerName: string
+}) {
+  const [trainerMemo, setTrainerMemo] = useState<VoiceMemoData | null | undefined>(undefined)
+  const [open, setOpen] = useState(false)
+
+  async function openAndLoad() {
+    setOpen(true)
+    if (trainerMemo === undefined) {
+      const result = await getWorkoutVoiceMemos(workoutId)
+      setTrainerMemo(result.data?.trainer ?? null)
+    }
+  }
+
+  return (
+    <div className="border-t border-border/40 px-3 py-2.5">
+      {!open ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          onClick={openAndLoad}
+        >
+          <Mic className="h-3 w-3" />
+          {trainerMemo ? "View voice note" : "Add voice note"}
+        </Button>
+      ) : (
+        <div className="space-y-2">
+          {trainerMemo && (
+            <VoiceMemoPlayer memo={trainerMemo} authorName={trainerName} />
+          )}
+          <VoiceMemoRecorder
+            workoutId={workoutId}
+            role="TRAINER"
+            onSuccess={(memo) => setTrainerMemo(memo)}
+            existingMemo={trainerMemo ?? undefined}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 /**
  * Convert a WorkoutData (server shape) into a panel-local EditableBlock[]
  * working copy. Each set list is collapsed to a single prescription summary
@@ -319,7 +387,7 @@ function initEditBlocks(workout: WorkoutData): EditableBlock[] {
 const DnDCalendar = withDragAndDrop<ScheduleEvent>(Calendar);
 
 function EventPill({ event }: { event: ScheduleEvent }) {
-  const { isTrainer, onRefresh } = useContext(SchedulePillCtx);
+  const { isTrainer, onRefresh, totalProgramWeeks } = useContext(SchedulePillCtx);
   const cfg = STATUS_CONFIG[event.status] ?? STATUS_CONFIG.SCHEDULED;
   const exerciseCount = event.workout.blocks.reduce(
     (sum, b) => sum + b.exercises.length,
@@ -329,8 +397,12 @@ function EventPill({ event }: { event: ScheduleEvent }) {
   const [dupeDate, setDupeDate] = useState("");
   const [dupeLoading, setDupeLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [templateDupeOpen, setTemplateDupeOpen] = useState(false);
+  const [templateWeek, setTemplateWeek] = useState(0);
+  const [templateDay, setTemplateDay] = useState(0);
+  const [templateDupeLoading, setTemplateDupeLoading] = useState(false);
 
-  const showMenu = isTrainer && event.isSession && !!event.sessionId;
+  const showMenu = isTrainer && (event.isSession ? !!event.sessionId : true);
 
   async function handleDelete() {
     if (!event.sessionId || deleting) return;
@@ -369,6 +441,43 @@ function EventPill({ event }: { event: ScheduleEvent }) {
     }
   }
 
+  async function handleTemplateDelete() {
+    if (event.isSession || deleting) return;
+    setDeleting(true);
+    try {
+      const result = await deleteWorkoutFromProgramAction(event.id);
+      if (result.success) {
+        toast.success("Workout deleted");
+        onRefresh();
+      } else {
+        toast.error(result.error ?? "Failed to delete");
+      }
+    } catch {
+      toast.error("Failed to delete");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function handleTemplateDuplicate() {
+    if (event.isSession || templateDupeLoading) return;
+    setTemplateDupeLoading(true);
+    try {
+      const result = await duplicateWorkoutToDayAction(event.id, templateWeek, templateDay);
+      if (result.success) {
+        toast.success("Workout duplicated");
+        setTemplateDupeOpen(false);
+        onRefresh();
+      } else {
+        toast.error(result.error ?? "Failed to duplicate");
+      }
+    } catch {
+      toast.error("Failed to duplicate");
+    } finally {
+      setTemplateDupeLoading(false);
+    }
+  }
+
   return (
     <>
       <div
@@ -400,22 +509,41 @@ function EventPill({ event }: { event: ScheduleEvent }) {
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-44"
+                className="w-48"
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
               >
-                <DropdownMenuItem onClick={() => setDupeOpen(true)}>
-                  <Copy className="mr-2 h-4 w-4" />
-                  Duplicate to date
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  disabled={deleting}
-                  onClick={handleDelete}
-                >
-                  Delete
-                </DropdownMenuItem>
+                {event.isSession ? (
+                  <>
+                    <DropdownMenuItem onClick={() => setTimeout(() => setDupeOpen(true), 0)}>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Duplicate to date
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      disabled={deleting}
+                      onClick={handleDelete}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <DropdownMenuItem onClick={() => setTimeout(() => setTemplateDupeOpen(true), 0)}>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Duplicate to week/day
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      disabled={deleting}
+                      onClick={handleTemplateDelete}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -450,6 +578,79 @@ function EventPill({ event }: { event: ScheduleEvent }) {
               disabled={!dupeDate || dupeLoading}
             >
               {dupeLoading ? "Duplicating…" : "Duplicate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={templateDupeOpen}
+        onOpenChange={(open) => {
+          setTemplateDupeOpen(open);
+          if (!open) { setTemplateWeek(0); setTemplateDay(0); }
+        }}
+      >
+        <DialogContent
+          className="sm:max-w-sm"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DialogHeader>
+            <DialogTitle>Duplicate Workout</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Choose a week and day to copy <strong>{event.title}</strong> to.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium">Week</p>
+                <Select
+                  value={String(templateWeek)}
+                  onValueChange={(v) => setTemplateWeek(Number(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue>Week {templateWeek + 1}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: Math.max(1, totalProgramWeeks) }, (_, i) => (
+                      <SelectItem key={i} value={String(i)}>
+                        Week {i + 1}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium">Day</p>
+                <Select
+                  value={String(templateDay)}
+                  onValueChange={(v) => setTemplateDay(Number(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue>
+                      {["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"][templateDay]}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(
+                      (label, idx) => (
+                        <SelectItem key={idx} value={String(idx)}>
+                          {label}
+                        </SelectItem>
+                      )
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTemplateDupeOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleTemplateDuplicate} disabled={templateDupeLoading}>
+              {templateDupeLoading ? "Duplicating…" : "Duplicate"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -708,7 +909,7 @@ function ReadOnlyPanel({
   );
 }
 
-// ─── Edit panel (trainer inline edit) ────────────────────────────────────────
+// ─── Edit panel (trainer inline edit)────────────────────────────────────────
 
 interface EditPanelProps {
   event: ScheduleEvent;
@@ -717,6 +918,7 @@ interface EditPanelProps {
   saving: boolean;
   pickerLoadingBlockId: string | null;
   removingId: string | null;
+  trainerName: string;
   onClose: () => void;
   onUpdateField: (
     blockId: string,
@@ -737,6 +939,7 @@ function EditPanel({
   saving,
   pickerLoadingBlockId,
   removingId,
+  trainerName,
   onClose,
   onUpdateField,
   onRemoveExercise,
@@ -862,6 +1065,11 @@ function EditPanel({
             This workout has no blocks.
           </p>
         )}
+
+        <WorkoutVoiceMemoSection
+          workoutId={event.workout.id}
+          trainerName={trainerName}
+        />
       </div>
 
       {/* Sticky footer */}
@@ -1103,6 +1311,7 @@ interface Props {
   rawWorkouts: Record<string, unknown>[];
   rawSessions: Record<string, unknown>[];
   isTrainer: boolean;
+  trainerName: string;
 }
 
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -1111,6 +1320,7 @@ export function ProgramScheduleView({
   rawWorkouts,
   rawSessions,
   isTrainer,
+  trainerName,
 }: Props) {
   const router = useRouter();
 
@@ -1539,7 +1749,7 @@ export function ProgramScheduleView({
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <SchedulePillCtx.Provider
-      value={{ isTrainer, onRefresh: () => startTransition(() => router.refresh()) }}
+      value={{ isTrainer, onRefresh: () => startTransition(() => router.refresh()), totalProgramWeeks }}
     >
     <div className="space-y-4">
       {/* Template mode banner */}
@@ -1635,6 +1845,7 @@ export function ProgramScheduleView({
             saving={saving}
             pickerLoadingBlockId={pickerLoadingBlockId}
             removingId={removingId}
+            trainerName={trainerName}
             onClose={handleClose}
             onUpdateField={handleUpdateField}
             onRemoveExercise={handleRemoveExercise}

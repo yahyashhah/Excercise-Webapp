@@ -118,8 +118,8 @@ export function MessageThread({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-b border-slate-200 p-4">
-        <h2 className="font-semibold text-slate-900">{recipientName}</h2>
+      <div className="border-b border-border p-4">
+        <h2 className="font-semibold text-foreground">{recipientName}</h2>
       </div>
 
       {/* Messages */}
@@ -139,12 +139,12 @@ export function MessageThread({
                 <div className={`max-w-[70%] ${isOwn ? "text-right" : ""}`}>
                   <div
                     className={`inline-block rounded-lg px-4 py-2 text-sm ${
-                      isOwn ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-900"
+                      isOwn ? "bg-blue-600 text-white" : "bg-muted text-foreground"
                     }`}
                   >
                     {msg.content}
                   </div>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="mt-1 text-xs text-muted-foreground/60">
                     {formatRelativeTime(msg.createdAt)}
                   </p>
                 </div>
@@ -156,12 +156,12 @@ export function MessageThread({
           {recipientTyping && (
             <div className="flex items-center gap-3">
               <Avatar className="h-8 w-8 flex-shrink-0">
-                <AvatarFallback className="bg-slate-200 text-xs">{recipientInitials}</AvatarFallback>
+                <AvatarFallback className="bg-muted text-xs">{recipientInitials}</AvatarFallback>
               </Avatar>
-              <div className="inline-flex items-center gap-1 rounded-2xl bg-slate-100 px-4 py-3">
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:0ms]" />
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:150ms]" />
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:300ms]" />
+              <div className="inline-flex items-center gap-1 rounded-2xl bg-muted px-4 py-3">
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:0ms]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:150ms]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:300ms]" />
               </div>
             </div>
           )}
@@ -171,7 +171,7 @@ export function MessageThread({
       </ScrollArea>
 
       {/* Input */}
-      <div className="border-t border-slate-200 p-4">
+      <div className="border-t border-border p-4">
         <div className="flex gap-2">
           <Textarea
             value={content}

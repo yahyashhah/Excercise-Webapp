@@ -26,6 +26,9 @@ import {
 } from "@/components/ui/dialog";
 import { Check, SkipForward, X, Play, Loader2, Timer, ChevronRight, ChevronLeft, Trophy, RotateCcw, ClipboardList } from "lucide-react";
 import type { SetLogEntry, SetLogCache } from "./types";
+import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
+import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
+import type { VoiceMemoData } from "@/actions/voice-memo-actions";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type MediaItem = { id: string; url: string; type: string };
@@ -208,6 +211,8 @@ export function WorkoutSessionTracker({
   const [rpe, setRpe] = useState(5);
   const [notes, setNotes] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [clientMemo, setClientMemo] = useState<VoiceMemoData | null>(null);
+  const [memosLoaded, setMemosLoaded] = useState(false);
   const [timer, setTimer] = useState(0);
   const [timerActive, setTimerActive] = useState(session.status === "IN_PROGRESS");
   const [restCountdown, setRestCountdown] = useState<number | null>(null);
@@ -297,6 +302,17 @@ export function WorkoutSessionTracker({
     setActiveSetLogs(initial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]);
+
+  // Load voice memos when the end dialog opens
+  useEffect(() => {
+    if (!showEndDialog || memosLoaded) return;
+    getWorkoutVoiceMemos(session.workout.id).then((result) => {
+      if (result.success && result.data) {
+        setClientMemo(result.data.client);
+      }
+      setMemosLoaded(true);
+    });
+  }, [showEndDialog, memosLoaded, session.workout.id]);
 
   const formatTime = (s: number) =>
     `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
@@ -757,6 +773,21 @@ export function WorkoutSessionTracker({
               <Label className="font-semibold">Session Notes <span className="font-normal text-muted-foreground">(optional)</span></Label>
               <Textarea placeholder="How did it feel? Any pain or discomfort to flag?" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="resize-none" />
             </div>
+            {!clientMemo ? (
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold">
+                  Leave a voice note{" "}
+                  <span className="font-normal text-muted-foreground">(optional)</span>
+                </p>
+                <VoiceMemoRecorder
+                  workoutId={session.workout.id}
+                  role="CLIENT"
+                  onSuccess={(memo) => setClientMemo(memo)}
+                />
+              </div>
+            ) : (
+              <p className="text-sm font-semibold text-emerald-700">Voice note sent ✓</p>
+            )}
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => { toast.info("Session preserved"); router.push("/dashboard"); }}>

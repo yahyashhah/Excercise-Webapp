@@ -31,7 +31,7 @@ export function ExerciseImageLightbox({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`${thumbnailClassName} bg-slate-100 overflow-hidden group cursor-zoom-in`}
+        className={`${thumbnailClassName} bg-muted overflow-hidden group cursor-zoom-in`}
         title="Click to enlarge"
       >
         <ExerciseImage
@@ -51,7 +51,7 @@ export function ExerciseImageLightbox({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl p-2 overflow-hidden">
           <DialogTitle className="sr-only">{alt}</DialogTitle>
-          <div className="relative w-full rounded-lg overflow-hidden bg-slate-900">
+          <div className="relative w-full rounded-lg overflow-hidden bg-foreground/90">
             {/* 16:9 aspect container */}
             <div style={{ paddingTop: "56.25%", position: "relative" }}>
               <ExerciseImage

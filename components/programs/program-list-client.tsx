@@ -71,7 +71,7 @@ interface GlobalProgramItem {
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
-  DRAFT: { label: "Draft", className: "bg-slate-100 text-slate-600 border-slate-200" },
+  DRAFT: { label: "Draft", className: "bg-muted text-muted-foreground border-border" },
   ACTIVE: { label: "Active", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   PAUSED: { label: "Paused", className: "bg-amber-100 text-amber-700 border-amber-200" },
   COMPLETED: { label: "Completed", className: "bg-blue-100 text-blue-700 border-blue-200" },

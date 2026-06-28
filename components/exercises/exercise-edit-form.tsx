@@ -10,16 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT } from "@/lib/utils/constants";
 import { updateExerciseAction, addExerciseMediaAction, deleteExerciseMediaAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
-import { CheckCircle2, ImageIcon, Loader2, Play, Trash2, X } from "lucide-react";
-import { UploadButton } from "@uploadthing/react";
-import type { OurFileRouter } from "@/lib/uploadthing";
+import { CheckCircle2, Loader2, Play, Trash2, X } from "lucide-react";
 import { ExerciseVideoPlayer } from "@/components/exercises/exercise-video-player";
-
-const uploadButtonAppearance = {
-  button:
-    "ut-ready:bg-slate-900 ut-ready:text-white ut-uploading:bg-slate-500 ut-uploading:text-white",
-  allowedContent: "text-slate-500",
-};
 
 interface MediaItem {
   id: string;
@@ -67,10 +59,7 @@ export function ExerciseEditForm({ exercise }: Props) {
   );
   const [videoUrl, setVideoUrl] = useState(exercise.videoUrl ?? "");
   const [imageUrl, setImageUrl] = useState(exercise.imageUrl ?? "");
-  const [videoUploading, setVideoUploading] = useState(false);
-  const [imageUploading, setImageUploading] = useState(false);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>(exercise.media);
-  const [mediaUploading, setMediaUploading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -230,10 +219,10 @@ export function ExerciseEditForm({ exercise }: Props) {
           </div>
 
           {/* ── VIDEO ── */}
-          <div className="space-y-4 rounded-lg border border-slate-200 p-4">
+          <div className="space-y-4 rounded-lg border border-border p-4">
             <div>
-              <h3 className="font-semibold text-slate-900">Video Demo</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <h3 className="font-semibold text-foreground">Video Demo</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Paste a YouTube link — it plays inline in the client&apos;s plan. The <span className="font-medium text-blue-600">YouTube thumbnail auto-becomes the exercise image</span> if no photo is set.
               </p>
             </div>
@@ -252,7 +241,7 @@ export function ExerciseEditForm({ exercise }: Props) {
             {/* Live YouTube preview */}
             {videoUrl && (
               <div className="space-y-1">
-                <p className="text-xs font-medium text-slate-500">Live Preview</p>
+                <p className="text-xs font-medium text-muted-foreground">Live Preview</p>
                 <ExerciseVideoPlayer
                   videoUrl={videoUrl}
                   mediaItems={[]}
@@ -260,12 +249,6 @@ export function ExerciseEditForm({ exercise }: Props) {
                 />
               </div>
             )}
-
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-slate-200" />
-              <span className="text-xs text-slate-400">or upload a video file</span>
-              <div className="h-px flex-1 bg-slate-200" />
-            </div>
 
             {/* Uploaded video indicator */}
             {videoUrl && !videoUrl.includes("youtube") && !videoUrl.includes("youtu.be") && (
@@ -277,36 +260,13 @@ export function ExerciseEditForm({ exercise }: Props) {
                 </button>
               </div>
             )}
-
-            <UploadButton<OurFileRouter, "exerciseVideo">
-              endpoint="exerciseVideo"
-              onUploadBegin={() => setVideoUploading(true)}
-              onClientUploadComplete={(res) => {
-                setVideoUploading(false);
-                const url = res?.[0]?.ufsUrl;
-                if (url) {
-                  setVideoUrl(url);
-                  toast.success("Video uploaded successfully");
-                }
-              }}
-              onUploadError={(error: Error) => {
-                setVideoUploading(false);
-                toast.error(`Upload failed: ${error.message}`);
-              }}
-              appearance={uploadButtonAppearance}
-            />
-            {videoUploading && (
-              <p className="flex items-center gap-1.5 text-xs text-slate-500">
-                <Loader2 className="h-3 w-3 animate-spin" /> Uploading video…
-              </p>
-            )}
           </div>
 
           {/* ── IMAGE ── */}
-          <div className="space-y-4 rounded-lg border border-slate-200 p-4">
+          <div className="space-y-4 rounded-lg border border-border p-4">
             <div>
-              <h3 className="font-semibold text-slate-900">Exercise Image</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <h3 className="font-semibold text-foreground">Exercise Image</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Shown as a thumbnail on exercise cards and in the PDF handout
               </p>
             </div>
@@ -320,13 +280,13 @@ export function ExerciseEditForm({ exercise }: Props) {
                 onChange={(e) => setImageUrl(e.target.value)}
                 placeholder="https://example.com/exercise-photo.jpg"
               />
-              <p className="text-xs text-slate-500">Paste any image URL from the web</p>
+              <p className="text-xs text-muted-foreground">Paste any image URL from the web</p>
             </div>
 
             {/* Image preview using regular img (no Next.js hostname restrictions for preview) */}
             {imageUrl && (
               <div className="relative">
-                <div className="relative h-40 w-full overflow-hidden rounded-lg bg-slate-100">
+                <div className="relative h-40 w-full overflow-hidden rounded-lg bg-muted">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={imageUrl}
@@ -342,46 +302,18 @@ export function ExerciseEditForm({ exercise }: Props) {
                   onClick={() => setImageUrl("")}
                   className="absolute right-2 top-2 rounded-full bg-white p-1 shadow-md"
                 >
-                  <X className="h-3.5 w-3.5 text-slate-600" />
+                  <X className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               </div>
             )}
 
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-slate-200" />
-              <span className="text-xs text-slate-400">or upload directly</span>
-              <div className="h-px flex-1 bg-slate-200" />
-            </div>
-
-            <UploadButton<OurFileRouter, "exerciseImage">
-              endpoint="exerciseImage"
-              onUploadBegin={() => setImageUploading(true)}
-              onClientUploadComplete={(res) => {
-                setImageUploading(false);
-                const url = res?.[0]?.ufsUrl;
-                if (url) {
-                  setImageUrl(url);
-                  toast.success("Image uploaded successfully");
-                }
-              }}
-              onUploadError={(error: Error) => {
-                setImageUploading(false);
-                toast.error(`Upload failed: ${error.message}`);
-              }}
-              appearance={uploadButtonAppearance}
-            />
-            {imageUploading && (
-              <p className="flex items-center gap-1.5 text-xs text-slate-500">
-                <Loader2 className="h-3 w-3 animate-spin" /> Uploading image…
-              </p>
-            )}
           </div>
 
           {/* ── ADDITIONAL MEDIA GALLERY ── */}
-          <div className="space-y-4 rounded-lg border border-slate-200 p-4">
+          <div className="space-y-4 rounded-lg border border-border p-4">
             <div>
-              <h3 className="font-semibold text-slate-900">Additional Media</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <h3 className="font-semibold text-foreground">Additional Media</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Add multiple photos and videos — shown in a gallery on the exercise detail page
               </p>
             </div>
@@ -390,7 +322,7 @@ export function ExerciseEditForm({ exercise }: Props) {
             {mediaItems.length > 0 && (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {mediaItems.map((item) => (
-                  <div key={item.id} className="group relative rounded-lg overflow-hidden bg-slate-100">
+                  <div key={item.id} className="group relative rounded-lg overflow-hidden bg-muted">
                     {item.mediaType === "image" ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -400,7 +332,7 @@ export function ExerciseEditForm({ exercise }: Props) {
                         onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                       />
                     ) : (
-                      <div className="flex h-28 items-center justify-center bg-slate-800">
+                      <div className="flex h-28 items-center justify-center bg-muted-foreground/10">
                         <Play className="h-8 w-8 text-white" />
                       </div>
                     )}
@@ -427,65 +359,7 @@ export function ExerciseEditForm({ exercise }: Props) {
               </div>
             )}
 
-            {/* Upload new image */}
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
-                <ImageIcon className="h-3.5 w-3.5" /> Add Photo
-              </p>
-              <UploadButton<OurFileRouter, "exerciseImage">
-                endpoint="exerciseImage"
-                onUploadBegin={() => setMediaUploading(true)}
-                onClientUploadComplete={async (res) => {
-                  setMediaUploading(false);
-                  const url = res?.[0]?.ufsUrl;
-                  if (url) {
-                    const result = await addExerciseMediaAction(exercise.id, { mediaType: "image", url });
-                    if (result.success && result.data) {
-                      setMediaItems((prev) => [...prev, result.data as MediaItem]);
-                      toast.success("Photo added to gallery");
-                    }
-                  }
-                }}
-                onUploadError={(error: Error) => {
-                  setMediaUploading(false);
-                  toast.error(`Upload failed: ${error.message}`);
-                }}
-                appearance={uploadButtonAppearance}
-              />
-            </div>
-
-            {/* Upload new video */}
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
-                <Play className="h-3.5 w-3.5" /> Add Video File
-              </p>
-              <UploadButton<OurFileRouter, "exerciseVideo">
-                endpoint="exerciseVideo"
-                onUploadBegin={() => setMediaUploading(true)}
-                onClientUploadComplete={async (res) => {
-                  setMediaUploading(false);
-                  const url = res?.[0]?.ufsUrl;
-                  if (url) {
-                    const result = await addExerciseMediaAction(exercise.id, { mediaType: "video", url });
-                    if (result.success && result.data) {
-                      setMediaItems((prev) => [...prev, result.data as MediaItem]);
-                      toast.success("Video added to gallery");
-                    }
-                  }
-                }}
-                onUploadError={(error: Error) => {
-                  setMediaUploading(false);
-                  toast.error(`Upload failed: ${error.message}`);
-                }}
-                appearance={uploadButtonAppearance}
-              />
-            </div>
-
-            {mediaUploading && (
-              <p className="flex items-center gap-1.5 text-xs text-slate-500">
-                <Loader2 className="h-3 w-3 animate-spin" /> Uploading…
-              </p>
-            )}
+            <p className="text-sm text-muted-foreground">File upload is temporarily unavailable. Use the URL fields above to add media.</p>
           </div>
 
           {/* Actions */}
@@ -493,7 +367,7 @@ export function ExerciseEditForm({ exercise }: Props) {
             <Button type="button" variant="outline" onClick={() => router.back()}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || videoUploading || imageUploading || mediaUploading}>
+            <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>

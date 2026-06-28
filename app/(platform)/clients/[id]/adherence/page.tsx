@@ -18,7 +18,7 @@ const statusColors: Record<string, string> = {
   IN_PROGRESS: "bg-amber-100 text-amber-700",
   SCHEDULED:   "bg-blue-100 text-blue-700",
   MISSED:      "bg-red-100 text-red-700",
-  SKIPPED:     "bg-slate-100 text-slate-600",
+  SKIPPED:     "bg-muted text-muted-foreground",
 };
 
 export default async function ClientAdherencePage({ params }: Props) {

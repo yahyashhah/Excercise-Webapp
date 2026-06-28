@@ -38,7 +38,7 @@ export default async function ClientOutcomesPage({ params }: Props) {
             Back
           </Link>
         </Button>
-        <h2 className="text-xl font-bold text-slate-900">
+        <h2 className="text-xl font-bold">
           Outcomes: {client.firstName} {client.lastName}
         </h2>
       </div>
@@ -46,7 +46,7 @@ export default async function ClientOutcomesPage({ params }: Props) {
       {assessments.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
-            <p className="text-slate-500">No assessments recorded yet.</p>
+            <p className="text-muted-foreground">No assessments recorded yet.</p>
           </CardContent>
         </Card>
       ) : (
@@ -58,14 +58,14 @@ export default async function ClientOutcomesPage({ params }: Props) {
             <CardContent>
               <div className="space-y-2">
                 {items.map((a) => (
-                  <div key={a.id} className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
+                  <div key={a.id} className="flex items-center justify-between rounded-lg border border-border/60 p-3">
                     <div>
-                      <p className="text-sm font-medium text-slate-900">
+                      <p className="text-sm font-medium">
                         {a.value} {a.unit}
                       </p>
-                      {a.notes && <p className="text-xs text-slate-500">{a.notes}</p>}
+                      {a.notes && <p className="text-xs text-muted-foreground">{a.notes}</p>}
                     </div>
-                    <p className="text-xs text-slate-400">{formatDate(a.createdAt)}</p>
+                    <p className="text-xs text-muted-foreground/60">{formatDate(a.createdAt)}</p>
                   </div>
                 ))}
               </div>

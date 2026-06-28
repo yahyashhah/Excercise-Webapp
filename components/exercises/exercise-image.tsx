@@ -46,7 +46,7 @@ export function ExerciseImage({
 
   const [sourceIndex, setSourceIndex] = useState(0);
 
-  const gradient = REGION_GRADIENTS[bodyRegion] ?? "from-slate-400 to-slate-600";
+  const gradient = REGION_GRADIENTS[bodyRegion] ?? "from-muted-foreground/60 to-muted-foreground";
   const currentSrc = sources[sourceIndex];
 
   if (!currentSrc) {

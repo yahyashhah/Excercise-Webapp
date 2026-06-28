@@ -10,8 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { saveOrganizationProfile, type OrganizationMetadata } from "@/actions/organization-actions";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { UploadButton } from "@uploadthing/react";
-import type { OurFileRouter } from "@/lib/uploadthing";
 import Image from "next/image";
 
 interface OrganizationProfileFormProps {
@@ -89,18 +87,7 @@ export function OrganizationProfileForm({ initialData }: OrganizationProfileForm
                 />
               </div>
             )}
-            <UploadButton<OurFileRouter, "organizationLogo">
-              endpoint="organizationLogo"
-              onClientUploadComplete={(res) => {
-                if (res?.[0]?.ufsUrl) {
-                  setLogoUrl(res[0].ufsUrl);
-                  toast.success("Logo uploaded");
-                }
-              }}
-              onUploadError={(error: Error) => {
-                toast.error(`Upload failed: ${error.message}`);
-              }}
-            />
+            <p className="text-sm text-muted-foreground">Logo upload is temporarily unavailable.</p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
