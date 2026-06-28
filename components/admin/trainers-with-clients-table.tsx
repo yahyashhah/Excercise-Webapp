@@ -7,6 +7,7 @@ import { ChevronRight, ChevronDown, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { TrainerWithClients } from "@/lib/services/admin.service";
 import { UserActionsMenu } from "@/components/admin/user-actions-menu";
+import { AdminBulkInviteDialog } from "@/components/admin/admin-bulk-invite-dialog";
 
 interface Props {
   trainers: TrainerWithClients[];
@@ -108,12 +109,20 @@ export function TrainersWithClientsTable({ trainers }: Props) {
                 <td className="px-5 py-3 text-xs text-muted-foreground">
                   {format(new Date(trainer.createdAt), "MMM d, yyyy")}
                 </td>
-                <td className="px-5 py-3 text-right">
-                  <UserActionsMenu
-                    userId={trainer.id}
-                    isActive={trainer.isActive}
-                    userName={`${trainer.firstName} ${trainer.lastName}`}
-                  />
+                <td className="px-5 py-3">
+                  <div className="flex items-center justify-end gap-1">
+                    {trainer.clerkOrgId && (
+                      <AdminBulkInviteDialog
+                        clerkOrgId={trainer.clerkOrgId}
+                        trainerName={`${trainer.firstName} ${trainer.lastName}`}
+                      />
+                    )}
+                    <UserActionsMenu
+                      userId={trainer.id}
+                      isActive={trainer.isActive}
+                      userName={`${trainer.firstName} ${trainer.lastName}`}
+                    />
+                  </div>
                 </td>
               </tr>
 
