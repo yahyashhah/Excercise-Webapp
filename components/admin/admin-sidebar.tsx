@@ -48,9 +48,6 @@ export function AdminSidebar({ userName, userEmail }: AdminSidebarProps) {
             : "text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
         )}
       >
-        {isActive && (
-          <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
-        )}
         <Icon
           className={cn(
             "h-4.5 w-4.5 shrink-0 transition-transform duration-150 group-hover:scale-105",
@@ -66,8 +63,8 @@ export function AdminSidebar({ userName, userEmail }: AdminSidebarProps) {
     <aside className="hidden w-64 flex-col bg-sidebar lg:flex">
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-sidebar-border/60 px-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-linear-to-br from-sidebar-primary to-sidebar-primary/70 shadow-lg shadow-sidebar-primary/20">
-          <Shield className="h-4 w-4 text-sidebar-primary-foreground" />
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted shadow-sm">
+          <Shield className="h-4 w-4 text-muted-foreground" />
         </div>
         <div>
           <span className="text-[15px] font-bold tracking-tight text-sidebar-foreground">INMOTUS RX</span>

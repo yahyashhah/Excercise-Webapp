@@ -114,7 +114,7 @@ export function AddHabitDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {/* base-ui DialogTrigger does not accept asChild — apply button styling directly */}
-      <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-lg bg-linear-to-r from-violet-500 to-purple-600 border-0 px-3 py-2 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition-all hover:from-violet-600 hover:to-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-2 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <Plus className="h-4 w-4" />
         {triggerLabel}
       </DialogTrigger>

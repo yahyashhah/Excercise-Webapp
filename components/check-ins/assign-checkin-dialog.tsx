@@ -133,7 +133,7 @@ export function AssignCheckInDialog({
             <Button
               onClick={handleAssign}
               disabled={assigning || !clientId || clients.length === 0}
-              className="gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
+              className="gap-2"
             >
               <UserPlus className="h-4 w-4" />
               {assigning ? "Assigning..." : "Assign Check-in"}

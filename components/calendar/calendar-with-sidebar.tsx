@@ -60,40 +60,36 @@ interface Props {
 // ---------------------------------------------------------------------------
 // Status config
 // ---------------------------------------------------------------------------
-const statusConfig: Record<
-  string,
-  { bg: string; border: string; text: string; label: string }
-> = {
-  SCHEDULED:   { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a", label: "Scheduled"   },
-  IN_PROGRESS: { bg: "#fffbeb", border: "#f59e0b", text: "#78350f", label: "In Progress" },
-  COMPLETED:   { bg: "#f0fdf4", border: "#22c55e", text: "#14532d", label: "Completed"   },
-  MISSED:      { bg: "#fef2f2", border: "#ef4444", text: "#7f1d1d", label: "Missed"      },
-  SKIPPED:     { bg: "#f9fafb", border: "#94a3b8", text: "#334155", label: "Skipped"     },
+const statusConfig: Record<string, { dot: string; label: string }> = {
+  SCHEDULED:   { dot: "#3b82f6", label: "Scheduled"   },
+  IN_PROGRESS: { dot: "#f59e0b", label: "In Progress" },
+  COMPLETED:   { dot: "#22c55e", label: "Completed"   },
+  MISSED:      { dot: "#ef4444", label: "Missed"      },
+  SKIPPED:     { dot: "#94a3b8", label: "Skipped"     },
 };
 
 // ---------------------------------------------------------------------------
 // Event pill component
 // ---------------------------------------------------------------------------
 function EventComponent({ event }: { event: SessionEvent }) {
-  const c = statusConfig[event.status] ?? statusConfig.SCHEDULED;
+  const dotColor = (statusConfig[event.status] ?? statusConfig.SCHEDULED).dot;
   return (
-    <div
-      className="h-full overflow-hidden rounded-[5px] transition-opacity hover:opacity-90"
-      style={{
-        backgroundColor: c.bg,
-        borderLeft: `3px solid ${c.border}`,
-        color: c.text,
-      }}
-    >
-      <div className="px-2 py-1">
-        <p className="truncate text-[11px] font-semibold leading-tight">
-          {event.title}
-        </p>
-        {event.programName && (
-          <p className="mt-0.5 truncate text-[10px] opacity-60">
-            {event.programName}
+    <div className="h-full overflow-hidden rounded-[5px] border border-border/60 bg-card transition-opacity hover:opacity-90">
+      <div className="px-2 py-1 flex items-start gap-1.5">
+        <span
+          className="mt-[3px] shrink-0 h-1.5 w-1.5 rounded-full"
+          style={{ backgroundColor: dotColor }}
+        />
+        <div className="min-w-0">
+          <p className="truncate text-[11px] font-semibold leading-tight text-foreground">
+            {event.title}
           </p>
-        )}
+          {event.programName && (
+            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+              {event.programName}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -227,7 +223,7 @@ export function CalendarWithSidebar({ sessions, isTrainer, onSessionClick }: Pro
           <div key={key} className="flex items-center gap-1.5">
             <span
               className="h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: c.border }}
+              style={{ backgroundColor: c.dot }}
             />
             <span className="text-xs text-muted-foreground">{c.label}</span>
           </div>

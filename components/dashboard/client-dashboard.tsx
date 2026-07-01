@@ -61,25 +61,21 @@ export function ClientDashboard({
 
       {/* Next workout hero — only when there's a session */}
       {nextWorkout && (
-        <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-blue-600 via-indigo-600 to-violet-600 p-6 text-white shadow-xl shadow-blue-500/25">
-          {/* Decorative blobs */}
-          <div className="pointer-events-none absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
-
+        <div className="relative overflow-hidden rounded-2xl bg-muted p-6 shadow-sm">
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <Badge className="mb-3 border-white/20 bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <Badge className="mb-3 border-border bg-background text-foreground text-xs font-medium">
                 <Calendar className="mr-1 h-3 w-3" />
                 {formatDate(nextWorkout.scheduledDate)}
               </Badge>
-              <h2 className="text-xl font-bold">
+              <h2 className="text-xl font-bold text-foreground">
                 {nextWorkout.workout?.name || "Workout Session"}
               </h2>
-              <p className="mt-1 text-sm text-blue-200">Ready when you are — let&apos;s go!</p>
+              <p className="mt-1 text-sm text-muted-foreground">Ready when you are — let&apos;s go!</p>
             </div>
             <Button
               size="lg"
-              className="shrink-0 bg-white! font-semibold text-black shadow-lg border-0"
+              className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-lg border-0"
               asChild
             >
               <Link href={`/sessions/${nextWorkout.id}`}>

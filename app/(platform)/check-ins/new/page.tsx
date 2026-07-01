@@ -498,7 +498,7 @@ export default function NewCheckInTemplatePage() {
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
+          className="gap-2"
         >
           {saving ? "Saving..." : "Save Template"}
         </Button>

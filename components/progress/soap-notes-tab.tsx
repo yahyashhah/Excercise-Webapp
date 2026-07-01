@@ -35,11 +35,11 @@ interface SoapNotesTabProps {
 }
 
 const SECTION_STYLES = {
-  subjective: "border-l-4 border-blue-400 bg-blue-50/50 pl-4 py-3 rounded-r-md",
-  objective: "border-l-4 border-emerald-400 bg-emerald-50/50 pl-4 py-3 rounded-r-md",
-  assessment: "border-l-4 border-amber-400 bg-amber-50/50 pl-4 py-3 rounded-r-md",
-  plan: "border-l-4 border-violet-400 bg-violet-50/50 pl-4 py-3 rounded-r-md",
-  private: "border-l-4 border-border bg-muted/50 pl-4 py-3 rounded-r-md",
+  subjective: "border border-border rounded-md px-4 py-3 bg-muted/20",
+  objective: "border border-border rounded-md px-4 py-3 bg-muted/20",
+  assessment: "border border-border rounded-md px-4 py-3 bg-muted/20",
+  plan: "border border-border rounded-md px-4 py-3 bg-muted/20",
+  private: "border border-border rounded-md px-4 py-3 bg-muted/20",
 } as const;
 
 function NoteCard({
@@ -92,7 +92,7 @@ function NoteCard({
         <div className="space-y-2">
           {note.subjective && (
             <div className={SECTION_STYLES.subjective}>
-              <Badge variant="outline" className="mb-1.5 text-xs border-blue-300 text-blue-700 bg-transparent">
+              <Badge variant="outline" className="mb-1.5 text-xs">
                 S — Subjective
               </Badge>
               <p className="text-sm whitespace-pre-wrap">{note.subjective}</p>
@@ -100,7 +100,7 @@ function NoteCard({
           )}
           {note.objective && (
             <div className={SECTION_STYLES.objective}>
-              <Badge variant="outline" className="mb-1.5 text-xs border-emerald-300 text-emerald-700 bg-transparent">
+              <Badge variant="outline" className="mb-1.5 text-xs">
                 O — Objective
               </Badge>
               <p className="text-sm whitespace-pre-wrap">{note.objective}</p>
@@ -108,7 +108,7 @@ function NoteCard({
           )}
           {note.assessment && (
             <div className={SECTION_STYLES.assessment}>
-              <Badge variant="outline" className="mb-1.5 text-xs border-amber-300 text-amber-700 bg-transparent">
+              <Badge variant="outline" className="mb-1.5 text-xs">
                 A — Assessment
               </Badge>
               <p className="text-sm whitespace-pre-wrap">{note.assessment}</p>
@@ -116,7 +116,7 @@ function NoteCard({
           )}
           {note.plan && (
             <div className={SECTION_STYLES.plan}>
-              <Badge variant="outline" className="mb-1.5 text-xs border-violet-300 text-violet-700 bg-transparent">
+              <Badge variant="outline" className="mb-1.5 text-xs">
                 P — Plan
               </Badge>
               <p className="text-sm whitespace-pre-wrap">{note.plan}</p>
@@ -124,7 +124,7 @@ function NoteCard({
           )}
           {note.privateNotes && (
             <div className={SECTION_STYLES.private}>
-              <Badge variant="outline" className="mb-1.5 text-xs border-border text-muted-foreground bg-transparent">
+              <Badge variant="outline" className="mb-1.5 text-xs">
                 Private Notes
               </Badge>
               <p className="text-sm whitespace-pre-wrap text-muted-foreground">

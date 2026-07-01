@@ -101,10 +101,6 @@ export function Sidebar({
             : "text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
         )}
       >
-        {/* Active indicator bar */}
-        {isActive && (
-          <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
-        )}
         <Icon
           className={cn(
             "h-4.5 w-4.5 shrink-0 transition-transform duration-150 group-hover:scale-105",
@@ -121,8 +117,8 @@ export function Sidebar({
     <aside className={cn("w-64 flex-col bg-sidebar", mobileMode ? "flex" : "hidden lg:flex")}>
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-sidebar-border/60 px-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-linear-to-br from-blue-400 to-indigo-500 shadow-lg shadow-blue-500/30">
-          <Activity className="h-4 w-4 text-white" />
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted shadow-sm">
+          <Activity className="h-4 w-4 text-muted-foreground" />
         </div>
         <div>
           <span className="text-[15px] font-bold tracking-tight text-sidebar-foreground">

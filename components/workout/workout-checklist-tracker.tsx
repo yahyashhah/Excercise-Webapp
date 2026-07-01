@@ -866,7 +866,7 @@ export function WorkoutChecklistTracker({
       {/* Finish button */}
       <Button
         size="lg"
-        className="w-full bg-linear-to-r from-emerald-500 to-teal-500 border-0 text-white shadow-md hover:from-emerald-600 hover:to-teal-600"
+        className="w-full"
         onClick={() => setShowEndDialog(true)}
       >
         <Trophy className="mr-2 h-4 w-4" />
@@ -877,8 +877,8 @@ export function WorkoutChecklistTracker({
       <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/25">
-              <Trophy className="h-8 w-8 text-white" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-700">
+              <Trophy className="h-8 w-8" />
             </div>
             <DialogTitle className="text-center text-xl">Great work!</DialogTitle>
             <p className="text-center text-sm text-muted-foreground">
@@ -954,7 +954,7 @@ export function WorkoutChecklistTracker({
               Back
             </Button>
             <Button
-              className="flex-1 bg-linear-to-r from-emerald-500 to-teal-500 border-0 text-white hover:from-emerald-600 hover:to-teal-600"
+              className="flex-1"
               onClick={handleFinish}
               disabled={isCompleting}
             >

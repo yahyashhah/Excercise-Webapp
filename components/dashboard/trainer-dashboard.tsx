@@ -57,9 +57,6 @@ const statCards = (
     value: clientCount,
     icon: Users,
     href: "/clients",
-    gradient: "from-blue-500 to-indigo-600",
-    bg: "bg-blue-50",
-    iconColor: "text-blue-600",
     trend: "Manage your roster",
   },
   {
@@ -67,9 +64,6 @@ const statCards = (
     value: activePrograms,
     icon: Library,
     href: "/programs",
-    gradient: "from-emerald-500 to-teal-600",
-    bg: "bg-emerald-50",
-    iconColor: "text-emerald-600",
     trend: "View all programs",
   },
   {
@@ -77,9 +71,6 @@ const statCards = (
     value: pendingFeedback,
     icon: AlertCircle,
     href: "/clients",
-    gradient: "from-amber-500 to-orange-600",
-    bg: "bg-amber-50",
-    iconColor: "text-amber-600",
     trend: pendingFeedback > 0 ? "Needs your attention" : "All caught up",
   },
   {
@@ -87,18 +78,15 @@ const statCards = (
     value: unreadMessages,
     icon: MessageSquare,
     href: "/messages",
-    gradient: "from-violet-500 to-purple-600",
-    bg: "bg-violet-50",
-    iconColor: "text-violet-600",
     trend: unreadMessages > 0 ? "New messages" : "Inbox clear",
   },
 ];
 
 const feedbackColors: Record<string, string> = {
-  FELT_GOOD: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  MILD_DISCOMFORT: "bg-amber-100 text-amber-700 border-amber-200",
-  PAINFUL: "bg-red-100 text-red-700 border-red-200",
-  UNSURE_HOW_TO_PERFORM: "bg-blue-100 text-blue-700 border-blue-200",
+  FELT_GOOD: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
+  MILD_DISCOMFORT: "bg-amber-500/10 text-amber-700 border-amber-200",
+  PAINFUL: "bg-red-500/10 text-red-700 border-red-200",
+  UNSURE_HOW_TO_PERFORM: "bg-muted text-muted-foreground border-border",
 };
 
 const sessionStatusColors: Record<string, string> = {
@@ -136,7 +124,7 @@ export function TrainerDashboard({
           </p>
         </div>
         <Button
-          className="shrink-0 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-lg shadow-blue-500/25 hover:from-blue-600 hover:to-indigo-600 hover:shadow-blue-500/35 transition-all"
+          className="shrink-0"
           asChild
         >
           <Link href="/programs/generate">
@@ -155,8 +143,8 @@ export function TrainerDashboard({
               <Card className="group border-0 shadow-sm ring-1 ring-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-border">
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between">
-                    <div className={`rounded-xl p-2.5 ${card.bg}`}>
-                      <Icon className={`h-5 w-5 ${card.iconColor}`} />
+                    <div className="rounded-xl p-2.5 bg-muted">
+                      <Icon className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <ArrowUpRight className="h-4 w-4 text-muted-foreground/40 transition-all duration-150 group-hover:text-muted-foreground group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   </div>
@@ -206,7 +194,7 @@ export function TrainerDashboard({
                   >
                     {/* Client avatar */}
                     {session.client && (
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-blue-400 to-indigo-500 text-xs font-bold text-white">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground font-medium text-xs">
                         {session.client.firstName[0]}{session.client.lastName[0]}
                       </div>
                     )}

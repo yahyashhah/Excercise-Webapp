@@ -32,14 +32,14 @@ interface ClinicalNoteFormProps {
 
 const SECTION_STYLES = {
   subjective:
-    "border-l-4 border-blue-400 bg-blue-50/50 pl-4 py-3 rounded-r-md",
+    "border border-border rounded-md px-4 py-3 bg-muted/20",
   objective:
-    "border-l-4 border-emerald-400 bg-emerald-50/50 pl-4 py-3 rounded-r-md",
+    "border border-border rounded-md px-4 py-3 bg-muted/20",
   assessment:
-    "border-l-4 border-amber-400 bg-amber-50/50 pl-4 py-3 rounded-r-md",
-  plan: "border-l-4 border-violet-400 bg-violet-50/50 pl-4 py-3 rounded-r-md",
+    "border border-border rounded-md px-4 py-3 bg-muted/20",
+  plan: "border border-border rounded-md px-4 py-3 bg-muted/20",
   private:
-    "border-l-4 border-border bg-muted/50 pl-4 py-3 rounded-r-md",
+    "border border-border rounded-md px-4 py-3 bg-muted/20",
 } as const;
 
 export function ClinicalNoteForm({
@@ -114,10 +114,10 @@ export function ClinicalNoteForm({
 
       {/* Subjective */}
       <div className={SECTION_STYLES.subjective}>
-        <Label className="text-blue-700 font-semibold text-sm mb-1.5 block">
+        <Label className="font-semibold text-sm mb-1.5 block">
           Subjective (S)
         </Label>
-        <p className="text-xs text-blue-600/70 mb-2">
+        <p className="text-xs text-muted-foreground mb-2">
           What the client reports — symptoms, pain levels, functional complaints
         </p>
         <Textarea
@@ -131,10 +131,10 @@ export function ClinicalNoteForm({
 
       {/* Objective */}
       <div className={SECTION_STYLES.objective}>
-        <Label className="text-emerald-700 font-semibold text-sm mb-1.5 block">
+        <Label className="font-semibold text-sm mb-1.5 block">
           Objective (O)
         </Label>
-        <p className="text-xs text-emerald-600/70 mb-2">
+        <p className="text-xs text-muted-foreground mb-2">
           Clinical observations, measurements, test results, ROM findings
         </p>
         <Textarea
@@ -148,10 +148,10 @@ export function ClinicalNoteForm({
 
       {/* Assessment */}
       <div className={SECTION_STYLES.assessment}>
-        <Label className="text-amber-700 font-semibold text-sm mb-1.5 block">
+        <Label className="font-semibold text-sm mb-1.5 block">
           Assessment (A)
         </Label>
-        <p className="text-xs text-amber-600/70 mb-2">
+        <p className="text-xs text-muted-foreground mb-2">
           Diagnosis, clinical reasoning, progress toward goals
         </p>
         <Textarea
@@ -165,10 +165,10 @@ export function ClinicalNoteForm({
 
       {/* Plan */}
       <div className={SECTION_STYLES.plan}>
-        <Label className="text-violet-700 font-semibold text-sm mb-1.5 block">
+        <Label className="font-semibold text-sm mb-1.5 block">
           Plan (P)
         </Label>
-        <p className="text-xs text-violet-600/70 mb-2">
+        <p className="text-xs text-muted-foreground mb-2">
           Treatment plan, exercises prescribed, follow-up schedule
         </p>
         <Textarea
