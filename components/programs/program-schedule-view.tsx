@@ -27,7 +27,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  X,
   Info,
   Play,
   RotateCcw,
@@ -215,25 +214,22 @@ interface EditableBlock {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const STATUS_CONFIG: Record<
-  string,
-  { bg: string; border: string; text: string; label: string }
-> = {
-  SCHEDULED:   { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a", label: "Scheduled" },
-  IN_PROGRESS: { bg: "#fffbeb", border: "#f59e0b", text: "#78350f", label: "In Progress" },
-  COMPLETED:   { bg: "#f0fdf4", border: "#22c55e", text: "#14532d", label: "Completed" },
-  MISSED:      { bg: "#fef2f2", border: "#ef4444", text: "#7f1d1d", label: "Missed" },
-  SKIPPED:     { bg: "#f9fafb", border: "#94a3b8", text: "#334155", label: "Skipped" },
-  TEMPLATE:    { bg: "#f5f3ff", border: "#8b5cf6", text: "#4c1d95", label: "Planned" },
+const STATUS_CONFIG: Record<string, { dot: string; label: string }> = {
+  SCHEDULED:   { dot: "#3b82f6", label: "Scheduled"   },
+  IN_PROGRESS: { dot: "#f59e0b", label: "In Progress" },
+  COMPLETED:   { dot: "#22c55e", label: "Completed"   },
+  MISSED:      { dot: "#ef4444", label: "Missed"      },
+  SKIPPED:     { dot: "#94a3b8", label: "Skipped"     },
+  TEMPLATE:    { dot: "#94a3b8", label: "Planned"     },
 };
 
 const BLOCK_BADGE: Record<string, string> = {
-  WARMUP:   "bg-orange-50 text-orange-700 border-orange-200",
-  COOLDOWN: "bg-sky-50 text-sky-700 border-sky-200",
-  CIRCUIT:  "bg-purple-50 text-purple-700 border-purple-200",
-  SUPERSET: "bg-pink-50 text-pink-700 border-pink-200",
-  AMRAP:    "bg-red-50 text-red-700 border-red-200",
-  EMOM:     "bg-amber-50 text-amber-700 border-amber-200",
+  WARMUP:   "bg-muted text-muted-foreground border-border",
+  COOLDOWN: "bg-muted text-muted-foreground border-border",
+  CIRCUIT:  "bg-muted text-muted-foreground border-border",
+  SUPERSET: "bg-muted text-muted-foreground border-border",
+  AMRAP:    "bg-muted text-muted-foreground border-border",
+  EMOM:     "bg-muted text-muted-foreground border-border",
   NORMAL:   "bg-muted text-muted-foreground border-border",
 };
 
@@ -480,23 +476,24 @@ function EventPill({ event }: { event: ScheduleEvent }) {
 
   return (
     <>
-      <div
-        className="h-full overflow-hidden rounded-[5px] transition-opacity hover:opacity-90 cursor-pointer"
-        style={{
-          backgroundColor: cfg.bg,
-          borderLeft: `3px solid ${cfg.border}`,
-          color: cfg.text,
-        }}
-      >
+      <div className="h-full overflow-hidden rounded-[5px] border border-border/60 bg-card transition-opacity hover:opacity-90 cursor-pointer">
         <div className="px-2 py-1 flex items-start justify-between gap-1">
-          <div className="flex-1 min-w-0">
-            <p className="truncate text-[11px] font-semibold leading-tight">
-              {event.title}
-            </p>
-            <p className="mt-0.5 text-[10px] opacity-70">
-              {exerciseCount} exercise{exerciseCount !== 1 ? "s" : ""}
-              {event.isSession && ` · ${cfg.label}`}
-            </p>
+          <div className="flex items-start gap-1.5 flex-1 min-w-0">
+            {cfg && (
+              <span
+                className="mt-[3px] shrink-0 h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: cfg.dot }}
+              />
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-[11px] font-semibold leading-tight text-foreground">
+                {event.title}
+              </p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                {exerciseCount} exercise{exerciseCount !== 1 ? "s" : ""}
+                {event.isSession && ` · ${cfg?.label}`}
+              </p>
+            </div>
           </div>
           {showMenu && (
             <DropdownMenu>
@@ -788,45 +785,29 @@ function ReadOnlyPanel({
     : null;
 
   return (
-    <div className="w-80 shrink-0 flex flex-col rounded-xl border bg-background shadow-lg overflow-hidden max-h-155">
-      <div className="flex items-start gap-2 border-b px-4 py-3">
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm leading-snug">{workout.name}</p>
-          <div className="flex flex-wrap items-center gap-2 mt-1">
-            {workout.estimatedMinutes && (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                ~{workout.estimatedMinutes} min
-              </span>
-            )}
-            <span className="text-xs text-muted-foreground">
-              {totalExercises} exercise{totalExercises !== 1 ? "s" : ""}
+    <>
+      <div className="border-b px-4 py-3">
+        <p className="font-semibold text-sm leading-snug">{workout.name}</p>
+        <div className="flex flex-wrap items-center gap-2 mt-1">
+          {workout.estimatedMinutes && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              ~{workout.estimatedMinutes} min
             </span>
-            {statusCfg && (
-              <span
-                className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium"
-                style={{
-                  backgroundColor: statusCfg.bg,
-                  color: statusCfg.text,
-                  border: `1px solid ${statusCfg.border}`,
-                }}
-              >
-                {statusCfg.label}
-              </span>
-            )}
-          </div>
+          )}
+          <span className="text-xs text-muted-foreground">
+            {totalExercises} exercise{totalExercises !== 1 ? "s" : ""}
+          </span>
+          {statusCfg && (
+            <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: statusCfg.dot }} />
+              {statusCfg.label}
+            </span>
+          )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 shrink-0 -mt-0.5 -mr-1"
-          onClick={onClose}
-        >
-          <X className="h-3.5 w-3.5" />
-        </Button>
       </div>
 
-      <ScrollArea className="flex-1 max-h-130">
+      <ScrollArea className="flex-1 max-h-[60vh]">
         <div className="p-3 space-y-4">
           {workout.blocks.map((block) => (
             <div key={block.id}>
@@ -905,7 +886,7 @@ function ReadOnlyPanel({
           ))}
         </div>
       </ScrollArea>
-    </div>
+    </>
   );
 }
 
@@ -957,45 +938,29 @@ function EditPanel({
     : null;
 
   return (
-    <div className="w-80 shrink-0 flex flex-col rounded-xl border bg-background shadow-lg overflow-hidden max-h-155">
+    <>
       {/* Header */}
-      <div className="flex items-start gap-2 border-b px-4 py-3 shrink-0">
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm leading-snug truncate">
-            {workout.name}
-          </p>
-          <div className="flex flex-wrap items-center gap-2 mt-1">
-            {workout.estimatedMinutes && (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                ~{workout.estimatedMinutes} min
-              </span>
-            )}
-            <span className="text-xs text-muted-foreground">
-              {totalExercises} exercise{totalExercises !== 1 ? "s" : ""}
+      <div className="border-b px-4 py-3 shrink-0">
+        <p className="font-semibold text-sm leading-snug truncate">
+          {workout.name}
+        </p>
+        <div className="flex flex-wrap items-center gap-2 mt-1">
+          {workout.estimatedMinutes && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              ~{workout.estimatedMinutes} min
             </span>
-            {statusCfg && (
-              <span
-                className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium"
-                style={{
-                  backgroundColor: statusCfg.bg,
-                  color: statusCfg.text,
-                  border: `1px solid ${statusCfg.border}`,
-                }}
-              >
-                {statusCfg.label}
-              </span>
-            )}
-          </div>
+          )}
+          <span className="text-xs text-muted-foreground">
+            {totalExercises} exercise{totalExercises !== 1 ? "s" : ""}
+          </span>
+          {statusCfg && (
+            <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: statusCfg.dot }} />
+              {statusCfg.label}
+            </span>
+          )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 shrink-0 -mt-0.5 -mr-1"
-          onClick={onClose}
-        >
-          <X className="h-3.5 w-3.5" />
-        </Button>
       </div>
 
       {/* Body */}
@@ -1073,7 +1038,7 @@ function EditPanel({
       </div>
 
       {/* Sticky footer */}
-      <div className="sticky bottom-0 bg-background border-t px-4 py-3 flex justify-between gap-2 shrink-0">
+      <div className="border-t px-4 py-3 flex justify-between gap-2 shrink-0">
         <Button
           type="button"
           variant="ghost"
@@ -1094,7 +1059,7 @@ function EditPanel({
           Save Changes{isDirty ? " ●" : ""}
         </Button>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1775,7 +1740,7 @@ export function ProgramScheduleView({
               <div key={key} className="flex items-center gap-1.5">
                 <span
                   className="h-2 w-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: c.border }}
+                  style={{ backgroundColor: c.dot }}
                 />
                 <span className="text-xs text-muted-foreground">{c.label}</span>
               </div>
@@ -1788,77 +1753,80 @@ export function ProgramScheduleView({
         </div>
       )}
 
-      {/* Calendar + detail panel */}
-      <div className="flex gap-4 items-start">
-        <div className="flex-1 min-w-0 overflow-hidden">
-          <DnDCalendar
-            localizer={localizer}
-            events={events}
-            view={view}
-            date={calDate}
-            onView={setView}
-            onNavigate={setCalDate}
-            onSelectEvent={(event: ScheduleEvent) => handleSelectEvent(event)}
-            onEventDrop={isTrainer ? (handleEventDrop as never) : undefined}
-            draggableAccessor={() => isTrainer}
-            resizable={false}
-            popup
-            style={{ height: 580 }}
-            components={{
-              event: EventPill,
-              toolbar: (props) => (
-                <CalToolbar
-                  date={props.date as Date}
-                  view={props.view as View}
-                  onNavigate={props.onNavigate}
-                  onView={props.onView}
-                  isStructural={!hasSessions}
-                  currentProgramWeek={currentProgramWeek}
-                  totalProgramWeeks={totalProgramWeeks}
-                  onJumpToWeek={handleJumpToWeek}
-                />
-              ),
-            }}
-            eventPropGetter={() => ({
-              style: {
-                padding: 0,
-                backgroundColor: "transparent",
-                border: "none",
-                borderRadius: "5px",
-              },
-            })}
-            tooltipAccessor={(event: ScheduleEvent) => {
-              const count = event.workout.blocks.reduce(
-                (s, b) => s + b.exercises.length,
-                0
-              );
-              return `${event.title} · ${count} exercises`;
-            }}
-          />
-        </div>
+      {/* Calendar */}
+      <DnDCalendar
+        localizer={localizer}
+        events={events}
+        view={view}
+        date={calDate}
+        onView={setView}
+        onNavigate={setCalDate}
+        onSelectEvent={(event: ScheduleEvent) => handleSelectEvent(event)}
+        onEventDrop={isTrainer ? (handleEventDrop as never) : undefined}
+        draggableAccessor={() => isTrainer}
+        resizable={false}
+        popup
+        style={{ height: 580 }}
+        components={{
+          event: EventPill,
+          toolbar: (props) => (
+            <CalToolbar
+              date={props.date as Date}
+              view={props.view as View}
+              onNavigate={props.onNavigate}
+              onView={props.onView}
+              isStructural={!hasSessions}
+              currentProgramWeek={currentProgramWeek}
+              totalProgramWeeks={totalProgramWeeks}
+              onJumpToWeek={handleJumpToWeek}
+            />
+          ),
+        }}
+        eventPropGetter={() => ({
+          style: {
+            padding: 0,
+            backgroundColor: "transparent",
+            border: "none",
+            borderRadius: "5px",
+          },
+        })}
+        tooltipAccessor={(event: ScheduleEvent) => {
+          const count = event.workout.blocks.reduce(
+            (s, b) => s + b.exercises.length,
+            0
+          );
+          return `${event.title} · ${count} exercises`;
+        }}
+      />
 
-        {selectedEvent && isTrainer && (
-          <EditPanel
-            event={selectedEvent}
-            editBlocks={editBlocks}
-            isDirty={isDirty}
-            saving={saving}
-            pickerLoadingBlockId={pickerLoadingBlockId}
-            removingId={removingId}
-            trainerName={trainerName}
-            onClose={handleClose}
-            onUpdateField={handleUpdateField}
-            onRemoveExercise={handleRemoveExercise}
-            onOpenPicker={handleOpenPicker}
-            onSave={handleSave}
-            onCancel={handleCancel}
-          />
-        )}
-
-        {selectedEvent && !isTrainer && (
-          <ReadOnlyPanel event={selectedEvent} onClose={handleClose} />
-        )}
-      </div>
+      {/* Workout detail modal */}
+      <Dialog
+        open={selectedEvent !== null}
+        onOpenChange={(open) => { if (!open) handleClose(); }}
+      >
+        <DialogContent className="max-w-lg p-0 flex flex-col overflow-hidden gap-0">
+          {selectedEvent && isTrainer && (
+            <EditPanel
+              event={selectedEvent}
+              editBlocks={editBlocks}
+              isDirty={isDirty}
+              saving={saving}
+              pickerLoadingBlockId={pickerLoadingBlockId}
+              removingId={removingId}
+              trainerName={trainerName}
+              onClose={handleClose}
+              onUpdateField={handleUpdateField}
+              onRemoveExercise={handleRemoveExercise}
+              onOpenPicker={handleOpenPicker}
+              onSave={handleSave}
+              onCancel={handleCancel}
+            />
+          )}
+          {selectedEvent && !isTrainer && (
+            <ReadOnlyPanel event={selectedEvent} onClose={handleClose} />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ExercisePickerDialog
         open={pickerOpen}

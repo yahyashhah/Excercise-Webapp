@@ -84,7 +84,7 @@ export default async function GenerateProgramPage({
         </p>
       </div>
 
-      <div className="max-w-2xl">
+      <div className="max-w-2xl mx-auto">
         <GenerateProgramForm clients={clients} initialClientId={clientId} />
       </div>
     </div>

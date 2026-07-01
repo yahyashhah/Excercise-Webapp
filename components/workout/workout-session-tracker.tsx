@@ -427,12 +427,12 @@ export function WorkoutSessionTracker({
     return (
       <div className="mx-auto max-w-lg">
         <div className="overflow-hidden rounded-2xl border-0 shadow-xl ring-1 ring-border/50">
-          <div className="bg-linear-to-br from-blue-600 via-indigo-600 to-violet-600 p-8 text-center text-white">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
-              <Play className="h-8 w-8 fill-white text-white" />
+          <div className="bg-muted p-8 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-background">
+              <Play className="h-8 w-8 fill-current text-foreground" />
             </div>
-            <h2 className="text-2xl font-bold">{session.workout.name}</h2>
-            <p className="mt-1 text-blue-200">
+            <h2 className="text-2xl font-bold text-foreground">{session.workout.name}</h2>
+            <p className="mt-1 text-muted-foreground">
               {session.workout.blocks.reduce((n, b) => n + b.exercises.length, 0)} exercises · Let&apos;s go!
             </p>
           </div>
@@ -457,7 +457,7 @@ export function WorkoutSessionTracker({
             </div>
             <Button
               size="lg"
-              className="mt-6 w-full bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-lg shadow-blue-500/25 hover:from-blue-600 hover:to-indigo-600"
+              className="mt-6 w-full"
               onClick={handleStart}
               disabled={isLoading}
             >
@@ -725,7 +725,7 @@ export function WorkoutSessionTracker({
               {/* Action buttons */}
               <div className="flex gap-3 pt-1">
                 <Button
-                  className="flex-1 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
+                  className="flex-1"
                   onClick={handleCompleteAll}
                   disabled={isLoading}
                 >
@@ -745,8 +745,8 @@ export function WorkoutSessionTracker({
       <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/25">
-              <Trophy className="h-8 w-8 text-white" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-700">
+              <Trophy className="h-8 w-8" />
             </div>
             <DialogTitle className="text-center text-xl">Great work!</DialogTitle>
             <p className="text-center text-sm text-muted-foreground">
@@ -794,7 +794,7 @@ export function WorkoutSessionTracker({
               Skip &amp; Exit
             </Button>
             <Button
-              className="flex-1 bg-linear-to-r from-emerald-500 to-teal-500 border-0 text-white hover:from-emerald-600 hover:to-teal-600"
+              className="flex-1"
               onClick={handleEndSession}
               disabled={isLoading}
             >

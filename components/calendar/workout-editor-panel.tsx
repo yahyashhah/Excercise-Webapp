@@ -491,7 +491,7 @@ function SortableExercise({
                   />
                   {isCompleted && actualLog && (actualLog.actualReps != null || actualLog.actualDuration != null) && (
                      <div className="absolute -right-2 -top-2 flex gap-0.5 z-10" title="Actual Performance">
-                       <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] bg-green-50 text-green-700 border-green-200 shadow-sm flex items-center gap-0.5">
+                       <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] shadow-sm flex items-center gap-0.5">
                          <CheckCircle className="h-2.5 w-2.5" />
                          {actualLog.actualReps != null ? `${actualLog.actualReps}r` : ''}
                          {actualLog.actualReps != null && actualLog.actualDuration != null ? ' | ' : ''}
@@ -521,7 +521,7 @@ function SortableExercise({
                   />
                   {isCompleted && actualLog && actualLog.actualWeight != null && (
                      <div className="absolute -right-2 -top-2 flex gap-0.5 z-10" title="Actual Weight">
-                       <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] bg-green-50 text-green-700 border-green-200 shadow-sm flex items-center gap-0.5">
+                       <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] shadow-sm flex items-center gap-0.5">
                          <CheckCircle className="h-2.5 w-2.5" />
                          {actualLog.actualWeight}
                        </Badge>
@@ -1454,7 +1454,7 @@ export function WorkoutEditorPanel({
                           <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
                             <Badge
                               variant="secondary"
-                              className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0 rounded-sm ${typeConfig.color}`}
+                              className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0 rounded-sm"
                             >
                               {typeConfig.label}
                             </Badge>

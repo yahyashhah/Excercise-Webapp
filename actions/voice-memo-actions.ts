@@ -3,7 +3,6 @@
 import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
 import { randomUUID } from "crypto"
-import React from "react"
 import {
   PutObjectCommand,
   DeleteObjectCommand,
@@ -13,8 +12,6 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { prisma } from "@/lib/prisma"
 import { getR2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from "@/lib/r2"
 import { pusherServer } from "@/lib/pusher"
-import { getResend } from "@/lib/email/resend"
-import { VoiceMemoAddedEmail } from "@/lib/email/templates/voice-memo-added"
 import { presignSchema, confirmSchema } from "@/lib/validators/voice-memo"
 
 export type VoiceMemoData = {
@@ -173,57 +170,25 @@ export async function confirmVoiceMemoUpload(
       },
     })
 
-    // Fire-and-forget notifications — do not await, never block the response
+    // Fire-and-forget in-app notifications via Pusher
     const workoutName = workout.name
     if (authorRole === "TRAINER" && workout.program.client) {
       const trainerName = `${workout.program.trainer?.firstName ?? ""} ${workout.program.trainer?.lastName ?? ""}`.trim()
       const clientClerkId = workout.program.client.clerkId
-      const completedSession = workout.sessions.find((s) => s.status === "COMPLETED")
-      Promise.all([
-        pusherServer
-          .trigger(`client-${clientClerkId}`, "voice-memo-added", { workoutId, workoutName, trainerName })
-          .catch((e) => console.error("[pusher] voice-memo-added:", e)),
-        getResend().emails.send({
-          from: process.env.RESEND_FROM_EMAIL ?? "noreply@inmotusrx.com",
-          to: workout.program.client.email,
-          subject: `${trainerName} left you a voice note`,
-          react: React.createElement(VoiceMemoAddedEmail, {
-            recipientName: `${workout.program.client.firstName} ${workout.program.client.lastName}`,
-            senderName: trainerName,
-            workoutName,
-            sessionLink: `${process.env.NEXT_PUBLIC_APP_URL}/sessions/${completedSession?.id ?? ""}`,
-            role: "client",
-          }),
-        }).catch((e) => console.error("[resend] voice-memo-added:", e)),
-      ])
+      pusherServer
+        .trigger(`client-${clientClerkId}`, "voice-memo-added", { workoutId, workoutName, trainerName })
+        .catch((e) => console.error("[pusher] voice-memo-added:", e))
     } else if (authorRole === "CLIENT" && workout.program.trainer) {
       const clientName = `${user.firstName} ${user.lastName}`
       const trainerClerkId = workout.program.trainer.clerkId
-      const completedSession = workout.sessions.find(
-        (s) => s.clientId === user.id && s.status === "COMPLETED"
-      )
-      Promise.all([
-        pusherServer
-          .trigger(`trainer-${trainerClerkId}`, "client-voice-memo-added", {
-            clientClerkId: user.clerkId,
-            clientName,
-            workoutId,
-            workoutName,
-          })
-          .catch((e) => console.error("[pusher] client-voice-memo-added:", e)),
-        getResend().emails.send({
-          from: process.env.RESEND_FROM_EMAIL ?? "noreply@inmotusrx.com",
-          to: workout.program.trainer.email,
-          subject: `${clientName} left a voice note`,
-          react: React.createElement(VoiceMemoAddedEmail, {
-            recipientName: `${workout.program.trainer.firstName} ${workout.program.trainer.lastName}`,
-            senderName: clientName,
-            workoutName,
-            sessionLink: `${process.env.NEXT_PUBLIC_APP_URL}/sessions/${completedSession?.id ?? ""}`,
-            role: "trainer",
-          }),
-        }).catch((e) => console.error("[resend] client-voice-memo-added:", e)),
-      ])
+      pusherServer
+        .trigger(`trainer-${trainerClerkId}`, "client-voice-memo-added", {
+          clientClerkId: user.clerkId,
+          clientName,
+          workoutId,
+          workoutName,
+        })
+        .catch((e) => console.error("[pusher] client-voice-memo-added:", e))
     }
 
     revalidatePath("/programs")

@@ -14,6 +14,10 @@ export function getR2Client(): S3Client {
         accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,
         secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,
       },
+      // AWS SDK v3 adds CRC32 checksums by default; R2 presigned PUTs fail when
+      // the checksum is pre-calculated for an empty body but the actual file isn't empty.
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
     })
   }
   return _r2

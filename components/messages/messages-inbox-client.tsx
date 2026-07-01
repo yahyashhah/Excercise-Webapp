@@ -8,18 +8,6 @@ import { formatRelativeTime } from "@/lib/utils/formatting";
 import { getPusherClient } from "@/lib/pusher-client";
 import { inboxChannel } from "@/lib/pusher-channels";
 
-const threadGradients = [
-  "from-blue-400 to-indigo-500",
-  "from-violet-400 to-purple-500",
-  "from-emerald-400 to-teal-500",
-  "from-rose-400 to-pink-500",
-  "from-amber-400 to-orange-500",
-  "from-cyan-400 to-blue-500",
-];
-
-function getThreadGradient(name: string) {
-  return threadGradients[name.charCodeAt(0) % threadGradients.length];
-}
 
 interface Thread {
   otherUser: {
@@ -107,7 +95,6 @@ export function MessagesInboxClient({
         const hasUnread = thread.unreadCount > 0;
         const fullName = `${thread.otherUser.firstName} ${thread.otherUser.lastName}`;
         const initials = `${thread.otherUser.firstName[0]}${thread.otherUser.lastName[0]}`;
-        const gradient = getThreadGradient(thread.otherUser.firstName);
         const isOnline = onlineUsers.has(thread.otherUser.id);
 
         return (
@@ -117,15 +104,12 @@ export function MessagesInboxClient({
                 hasUnread ? "bg-primary/3" : ""
               } ${i !== 0 ? "border-t border-border/50" : ""}`}
             >
-              {hasUnread && (
-                <span className="absolute left-0 top-1/2 h-8 w-0.75 -translate-y-1/2 rounded-r-full bg-primary" />
-              )}
 
               <div className="relative shrink-0">
                 <Avatar className="h-11 w-11 ring-2 ring-white shadow-sm">
                   <AvatarImage src={thread.otherUser.imageUrl || undefined} />
                   <AvatarFallback
-                    className={`bg-linear-to-br ${gradient} text-sm font-bold text-white`}
+                    className="bg-muted text-muted-foreground text-sm font-medium"
                   >
                     {initials}
                   </AvatarFallback>

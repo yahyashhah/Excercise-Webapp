@@ -117,15 +117,15 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
-      <div className="overflow-hidden rounded-2xl bg-linear-to-br from-blue-600 via-indigo-600 to-violet-600 p-6 text-white shadow-xl shadow-blue-500/25">
+      <div className="overflow-hidden rounded-2xl bg-muted p-6 shadow-sm">
         <div className="relative">
           {isReturning && (
-            <Badge className="mb-3 border-white/20 bg-white/15 text-white text-xs backdrop-blur-sm">
+            <Badge variant="outline" className="mb-3 text-xs">
               {alreadyDone > 0 ? `${alreadyDone} exercises done — continuing` : "In Progress"}
             </Badge>
           )}
-          <h2 className="text-2xl font-bold">{session.workout?.name ?? "Workout"}</h2>
-          <p className="mt-1 text-blue-200 text-sm">
+          <h2 className="text-2xl font-bold text-foreground">{session.workout?.name ?? "Workout"}</h2>
+          <p className="mt-1 text-muted-foreground text-sm">
             {totalExercises} exercises · How would you like to train today?
           </p>
         </div>

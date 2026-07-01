@@ -91,7 +91,7 @@ export function TrainersWithClientsTable({ trainers }: Props) {
                   </div>
                 </td>
                 <td className="px-5 py-3">
-                  <Badge variant="outline" className="border-blue-500/30 bg-blue-500/10 text-blue-600 text-[10px]">
+                  <Badge variant="secondary" className="text-[10px]">
                     Trainer · {trainer.clients.length} client{trainer.clients.length !== 1 ? "s" : ""}
                   </Badge>
                 </td>
@@ -145,7 +145,7 @@ export function TrainersWithClientsTable({ trainers }: Props) {
                     </div>
                   </td>
                   <td className="px-5 py-2.5">
-                    <Badge variant="outline" className="border-cyan-500/30 bg-cyan-500/10 text-cyan-600 text-[10px]">
+                    <Badge variant="secondary" className="text-[10px]">
                       Client
                     </Badge>
                   </td>

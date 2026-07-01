@@ -122,15 +122,12 @@ interface ClientCalendarProps {
 // ---------------------------------------------------------------------------
 // Status config
 // ---------------------------------------------------------------------------
-const statusConfig: Record<
-  string,
-  { bg: string; border: string; text: string; label: string }
-> = {
-  SCHEDULED:   { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a", label: "Scheduled"   },
-  IN_PROGRESS: { bg: "#fffbeb", border: "#f59e0b", text: "#78350f", label: "In Progress" },
-  COMPLETED:   { bg: "#f0fdf4", border: "#22c55e", text: "#14532d", label: "Completed"   },
-  MISSED:      { bg: "#fef2f2", border: "#ef4444", text: "#7f1d1d", label: "Missed"      },
-  SKIPPED:     { bg: "#f9fafb", border: "#94a3b8", text: "#334155", label: "Skipped"     },
+const statusConfig: Record<string, { dot: string; label: string }> = {
+  SCHEDULED:   { dot: "#3b82f6", label: "Scheduled"   },
+  IN_PROGRESS: { dot: "#f59e0b", label: "In Progress" },
+  COMPLETED:   { dot: "#22c55e", label: "Completed"   },
+  MISSED:      { dot: "#ef4444", label: "Missed"      },
+  SKIPPED:     { dot: "#94a3b8", label: "Skipped"     },
 };
 
 // ---------------------------------------------------------------------------
@@ -143,7 +140,7 @@ const DnDCalendar = withDragAndDrop<SessionEvent>(Calendar);
 // ---------------------------------------------------------------------------
 function EventComponent({ event }: { event: SessionEvent }) {
   const { onRefresh } = useContext(CalendarPillCtx);
-  const c = statusConfig[event.status] ?? statusConfig.SCHEDULED;
+  const dotColor = (statusConfig[event.status] ?? statusConfig.SCHEDULED).dot;
   const [dupeOpen, setDupeOpen] = useState(false);
   const [dupeDate, setDupeDate] = useState("");
   const [dupeLoading, setDupeLoading] = useState(false);
@@ -188,26 +185,25 @@ function EventComponent({ event }: { event: SessionEvent }) {
 
   return (
     <>
-      <div
-        className="h-full overflow-hidden rounded-[5px] transition-opacity hover:opacity-90"
-        style={{
-          backgroundColor: c.bg,
-          borderLeft: `3px solid ${c.border}`,
-          color: c.text,
-        }}
-      >
+      <div className="h-full overflow-hidden rounded-[5px] border border-border/60 bg-card transition-opacity hover:opacity-90">
         <div className="px-2 py-1 flex items-start justify-between gap-1">
-          <div className="flex-1 min-w-0">
-            <p className="truncate text-[11px] font-semibold leading-tight">
-              {event.workoutName}
-            </p>
-            <p className="mt-0.5 text-[10px] opacity-60">
-              {event.exerciseCount} ex
-            </p>
+          <div className="flex items-start gap-1.5 flex-1 min-w-0">
+            <span
+              className="mt-[3px] shrink-0 h-1.5 w-1.5 rounded-full"
+              style={{ backgroundColor: dotColor }}
+            />
+            <div className="min-w-0">
+              <p className="truncate text-[11px] font-semibold leading-tight text-foreground">
+                {event.workoutName}
+              </p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                {event.exerciseCount} ex
+              </p>
+            </div>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="shrink-0 flex h-5 w-5 items-center justify-center rounded opacity-60 hover:opacity-100 hover:bg-black/10 transition-opacity"
+              className="shrink-0 flex h-5 w-5 items-center justify-center rounded opacity-60 hover:opacity-100 hover:bg-muted transition-opacity"
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
             >
@@ -348,7 +344,7 @@ function CustomToolbar({
       {/* Generate with AI */}
       <Button
         size="sm"
-        className="h-8 gap-1.5 border-0 bg-linear-to-r from-violet-500 to-purple-600 text-white shadow-md shadow-purple-500/20 hover:from-violet-600 hover:to-purple-700"
+        className="h-8 gap-1.5"
         onClick={onAiGenerateClick}
       >
         <Sparkles className="h-3.5 w-3.5" />
@@ -359,7 +355,7 @@ function CustomToolbar({
       {/* Create workout manually */}
       <Button
         size="sm"
-        className="h-8 gap-1.5 border-0 bg-linear-to-r from-blue-500 to-indigo-500 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
+        className="h-8 gap-1.5"
         onClick={onCreateClick}
       >
         <Plus className="h-3.5 w-3.5" />
@@ -468,7 +464,7 @@ export function ClientCalendar({
             <div key={key} className="flex items-center gap-1.5">
               <span
                 className="h-2 w-2 rounded-full shrink-0"
-                style={{ backgroundColor: c.border }}
+                style={{ backgroundColor: c.dot }}
               />
               <span className="text-xs text-muted-foreground">{c.label}</span>
             </div>

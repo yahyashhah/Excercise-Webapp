@@ -44,7 +44,7 @@ export default async function ProgramBriefUploadPage() {
           Upload a structured brief and let AI generate a full program for review.
         </p>
       </div>
-      <div className="max-w-3xl">
+      <div className="max-w-3xl mx-auto">
         <ProgramBriefUpload clients={clients} />
       </div>
     </div>

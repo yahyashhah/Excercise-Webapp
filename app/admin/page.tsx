@@ -23,17 +23,17 @@ export default async function AdminOverviewPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard label="Total Users"     value={stats.totalUsers.toLocaleString()}   sub={`+${stats.newUsersThisMonth} this month`} icon={Users}      color="primary" />
-        <StatCard label="Trainers"      value={stats.trainers.toLocaleString()}                                                   icon={UserCheck}  color="blue" />
-        <StatCard label="Clients"        value={stats.clients.toLocaleString()}                                                     icon={User}       color="cyan" />
-        <StatCard label="Active Programs" value={stats.activePrograms.toLocaleString()} sub={`${stats.totalPrograms.toLocaleString()} total`}           icon={TrendingUp} color="emerald" />
+        <StatCard label="Total Users"     value={stats.totalUsers.toLocaleString()}   sub={`+${stats.newUsersThisMonth} this month`} icon={Users}      />
+        <StatCard label="Trainers"      value={stats.trainers.toLocaleString()}                                                   icon={UserCheck}  />
+        <StatCard label="Clients"        value={stats.clients.toLocaleString()}                                                     icon={User}       />
+        <StatCard label="Active Programs" value={stats.activePrograms.toLocaleString()} sub={`${stats.totalPrograms.toLocaleString()} total`}           icon={TrendingUp} />
       </div>
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard label="Exercises"          value={stats.totalExercises.toLocaleString()} sub="In library"  icon={Dumbbell}  color="amber" />
-        <StatCard label="Total Programs"     value={stats.totalPrograms.toLocaleString()}                    icon={Library}   color="rose" />
-        <StatCard label="Sessions Completed" value={stats.totalSessions.toLocaleString()}                    icon={Activity}  color="emerald" />
-        <StatCard label="New This Month"     value={stats.newUsersThisMonth.toLocaleString()} sub="Signups"  icon={Zap}       color="primary" />
+        <StatCard label="Exercises"          value={stats.totalExercises.toLocaleString()} sub="In library"  icon={Dumbbell}  />
+        <StatCard label="Total Programs"     value={stats.totalPrograms.toLocaleString()}                    icon={Library}   />
+        <StatCard label="Sessions Completed" value={stats.totalSessions.toLocaleString()}                    icon={Activity}  />
+        <StatCard label="New This Month"     value={stats.newUsersThisMonth.toLocaleString()} sub="Signups"  icon={Zap}       />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

@@ -71,11 +71,11 @@ interface GlobalProgramItem {
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
-  DRAFT: { label: "Draft", className: "bg-muted text-muted-foreground border-border" },
-  ACTIVE: { label: "Active", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  PAUSED: { label: "Paused", className: "bg-amber-100 text-amber-700 border-amber-200" },
-  COMPLETED: { label: "Completed", className: "bg-blue-100 text-blue-700 border-blue-200" },
-  ARCHIVED: { label: "Archived", className: "bg-red-100 text-red-600 border-red-200" },
+  ACTIVE:    { label: "Active",    className: "bg-emerald-500/10 text-emerald-700 border-emerald-200" },
+  DRAFT:     { label: "Draft",     className: "bg-muted text-muted-foreground border-border" },
+  PAUSED:    { label: "Paused",    className: "bg-amber-500/10 text-amber-700 border-amber-200" },
+  COMPLETED: { label: "Completed", className: "bg-muted text-muted-foreground border-border" },
+  ARCHIVED:  { label: "Archived",  className: "bg-muted text-muted-foreground border-border opacity-70" },
 };
 
 function ProgramCard({
@@ -138,7 +138,7 @@ function ProgramCard({
             {status.label}
           </Badge>
           {typeBadge === "clinical" && (
-            <Badge className="border border-indigo-200 bg-indigo-50 text-[11px] font-medium text-indigo-700">
+            <Badge variant="outline" className="text-[11px] font-medium">
               Clinical
             </Badge>
           )}
@@ -148,7 +148,7 @@ function ProgramCard({
             </Badge>
           )}
           {updatableSet.has(program.id) && (
-            <Badge className="border border-amber-200 bg-amber-100 text-[11px] font-medium text-amber-700">
+            <Badge variant="outline" className="text-[11px] font-medium">
               Update available
             </Badge>
           )}
@@ -212,7 +212,7 @@ function GlobalProgramCard({
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <Badge className="border border-violet-200 bg-violet-50 text-[11px] font-medium text-violet-700">
+          <Badge variant="secondary" className="text-[11px] font-medium">
             Global
           </Badge>
           {program.tags.slice(0, 3).map((tag) => (
@@ -412,7 +412,7 @@ export function ProgramListClient({
                 AI Generate
               </Link>
             </Button>
-            <Button className="gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600" asChild>
+            <Button className="gap-2" asChild>
               <Link href="/programs/new">
                 <Plus className="h-4 w-4" />
                 New Program
