@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
 import { requireRole } from "@/lib/current-user";
 import * as programService from "@/lib/services/program.service";
 import { getExercises } from "@/lib/services/exercise.service";
@@ -12,13 +13,15 @@ interface Props {
 }
 
 export default async function EditProgramPage({ params }: Props) {
-  const user = await requireRole("TRAINER");
   const { id } = await params;
 
-  const [program, exercises] = await Promise.all([
+  const [user, { orgId: sessionOrgId }, program, exercises] = await Promise.all([
+    requireRole("TRAINER"),
+    auth(),
     programService.getProgramById(id),
     getExercises(),
   ]);
+  const organizationOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
 
   if (!program || program.trainerId !== user.id) notFound();
 
@@ -39,6 +42,7 @@ export default async function EditProgramPage({ params }: Props) {
       <ProgramEditor
         program={program as unknown as Record<string, unknown>}
         exercises={exercises}
+        organizationOrganizationId={organizationOrgId}
       />
     </div>
   );

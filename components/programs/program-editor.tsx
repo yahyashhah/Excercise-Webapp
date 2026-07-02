@@ -55,6 +55,7 @@ interface Props {
     programId?: string
   ) => Promise<{ success: boolean; error?: string; data?: { id: string } }>;
   redirectTo?: string;
+  organizationOrganizationId?: string;
 }
 
 // Helper to map DB workout to input type
@@ -110,7 +111,7 @@ function mapWorkoutToInput(w: Record<string, unknown>): WorkoutInput {
   };
 }
 
-export function ProgramEditor({ program, exercises, onSave, redirectTo }: Props) {
+export function ProgramEditor({ program, exercises, onSave, redirectTo, organizationOrganizationId }: Props) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [workouts, setWorkouts] = useState<WorkoutInput[]>(
@@ -419,6 +420,7 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo }: Props)
           workouts={workouts}
           onChange={setWorkouts}
           exerciseLibrary={exercises}
+          organizationOrganizationId={organizationOrganizationId}
         />
 
         {/* Submit */}

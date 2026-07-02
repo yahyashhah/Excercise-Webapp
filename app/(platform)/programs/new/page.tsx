@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { requireRole } from "@/lib/current-user";
 import { getExercises } from "@/lib/services/exercise.service";
 import { ProgramEditor } from "@/components/programs/program-editor";
@@ -6,8 +7,12 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default async function NewProgramPage() {
-  await requireRole("TRAINER");
-  const exercises = await getExercises();
+  const [user, { orgId: sessionOrgId }, exercises] = await Promise.all([
+    requireRole("TRAINER"),
+    auth(),
+    getExercises(),
+  ]);
+  const organizationOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
 
   return (
     <div className="space-y-6">
@@ -23,7 +28,7 @@ export default async function NewProgramPage() {
           Build a new training program from scratch or start from a template.
         </p>
       </div>
-      <ProgramEditor exercises={exercises} />
+      <ProgramEditor exercises={exercises} organizationOrganizationId={organizationOrgId} />
     </div>
   );
 }

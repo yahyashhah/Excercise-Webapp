@@ -60,6 +60,7 @@ interface Props {
     videoUrl?: string | null;
     videoProvider?: string | null;
   }[];
+  organizationOrganizationId?: string;
 }
 
 interface SelectionState {
@@ -120,7 +121,7 @@ function SortableExercise({
   );
 }
 
-export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
+export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizationOrganizationId }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [videoPreview, setVideoPreview] = useState<{ url: string; provider?: string | null; name: string } | null>(null);
   const [pickerTarget, setPickerTarget] = useState<{
@@ -834,6 +835,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary }: Props) {
         onOpenChange={setPickerOpen}
         exercises={exerciseLibrary}
         onSelect={addExerciseToBlock}
+        organizationOrganizationId={organizationOrganizationId}
       />
 
       {/* Video preview modal */}
