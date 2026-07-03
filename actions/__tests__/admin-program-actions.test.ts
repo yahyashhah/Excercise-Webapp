@@ -6,19 +6,25 @@ vi.mock('@/lib/services/program.service', () => ({
   assignProgram: vi.fn(),
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+vi.mock('@/lib/prisma', () => ({
+  prisma: { program: { findUnique: vi.fn() } },
+}))
 
 import { requireSuperAdmin } from '@/lib/current-user'
 import * as programService from '@/lib/services/program.service'
 import { revalidatePath } from 'next/cache'
+import { prisma } from '@/lib/prisma'
 import { updateAdminProgramAction, assignAdminProgramAction } from '../admin-program-actions'
 
 const mockRequireSuperAdmin = vi.mocked(requireSuperAdmin)
 const mockUpdateProgram = vi.mocked(programService.updateProgram)
 const mockAssignProgram = vi.mocked(programService.assignProgram)
+const mockFindUnique = vi.mocked(prisma.program.findUnique)
 
 beforeEach(() => {
   vi.clearAllMocks()
   mockRequireSuperAdmin.mockResolvedValue({ id: 'admin_1' } as any)
+  mockFindUnique.mockResolvedValue({ isGlobal: false } as any)
 })
 
 describe('updateAdminProgramAction', () => {
@@ -51,6 +57,16 @@ describe('updateAdminProgramAction', () => {
 
     expect(result).toEqual({ success: false, error: 'Failed to update program' })
   })
+
+  it('rejects and does not call the service when the program is global', async () => {
+    mockFindUnique.mockResolvedValue({ isGlobal: true } as any)
+
+    const result = await updateAdminProgramAction('prog_1', { name: 'Updated' })
+
+    expect(result.success).toBe(false)
+    expect((result as any).error).toBeTruthy()
+    expect(mockUpdateProgram).not.toHaveBeenCalled()
+  })
 })
 
 describe('assignAdminProgramAction', () => {
@@ -82,6 +98,20 @@ describe('assignAdminProgramAction', () => {
     })
 
     expect(result.success).toBe(false)
+    expect(mockAssignProgram).not.toHaveBeenCalled()
+  })
+
+  it('rejects and does not call the service when the program is global', async () => {
+    mockFindUnique.mockResolvedValue({ isGlobal: true } as any)
+
+    const result = await assignAdminProgramAction({
+      programId: 'prog_1',
+      clientId: 'client_1',
+      startDate: '2026-08-01T00:00:00.000Z',
+    })
+
+    expect(result.success).toBe(false)
+    expect((result as any).error).toBeTruthy()
     expect(mockAssignProgram).not.toHaveBeenCalled()
   })
 })
