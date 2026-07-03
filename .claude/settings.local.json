@@ -15,5 +15,8 @@
       "Bash(bash *)",
       "Bash(npx tsc *)"
     ]
+  },
+  "worktree": {
+    "baseRef": "head"
   }
 }

@@ -1,6 +1,9 @@
 "use server";
 
 import React from "react";
+import { randomUUID } from "crypto";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { generateProgram, type GeneratedProgram } from "@/lib/services/ai.service";
 import {
   extractProgramBriefText,
@@ -14,6 +17,11 @@ import { ShareProgramEmail } from "@/lib/email/templates/share-program";
 import { parseShareRecipients } from "./program-share-helpers";
 import { revalidatePath } from "next/cache";
 import * as programService from "@/lib/services/program.service";
+import { getR2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from "@/lib/r2";
+import {
+  presignSchema as programBriefPresignSchema,
+  CONTENT_TYPES as PROGRAM_BRIEF_CONTENT_TYPES,
+} from "@/lib/validators/program-brief";
 import {
   createProgramSchema,
   updateProgramSchema,
@@ -365,6 +373,41 @@ export async function generateProgramAction(
   } catch (error) {
     console.error("Failed to generate program:", error);
     return { success: false as const, error: "Failed to generate program" };
+  }
+}
+
+export async function generateProgramBriefUploadUrlAction(
+  fileExtension: string
+): Promise<{
+  success: boolean;
+  data?: { presignedUrl: string; fileUrl: string; contentType: string };
+  error?: string;
+}> {
+  const user = await getTrainerUser();
+  if (!user) return { success: false, error: "Unauthorized" };
+
+  const parsed = programBriefPresignSchema.safeParse({ fileExtension });
+  if (!parsed.success) {
+    return { success: false, error: "Only PDF, DOCX, TXT, or Markdown files are supported" };
+  }
+
+  try {
+    const contentType = PROGRAM_BRIEF_CONTENT_TYPES[parsed.data.fileExtension];
+    const key = `program-briefs/${user.id}/${randomUUID()}.${parsed.data.fileExtension}`;
+    const command = new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      ContentType: contentType,
+    });
+    const presignedUrl = await getSignedUrl(getR2Client(), command, { expiresIn: 300 });
+
+    return {
+      success: true,
+      data: { presignedUrl, fileUrl: `${R2_PUBLIC_URL}/${key}`, contentType },
+    };
+  } catch (error) {
+    console.error("[program-brief] presign error:", error);
+    return { success: false, error: "Failed to generate upload URL" };
   }
 }
 

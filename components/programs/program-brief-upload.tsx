@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
+  generateProgramBriefUploadUrlAction,
   generateProgramPreviewFromBriefAction,
   saveGeneratedProgramAction,
 } from "@/actions/program-actions";
@@ -104,7 +105,45 @@ export function ProgramBriefUpload({ clients }: Props) {
   }
 
   async function handleUploadAndGenerate() {
-    toast.error("Brief upload is temporarily unavailable.");
+    if (!file) return;
+
+    setProcessing(true);
+    try {
+      const extension = file.name.toLowerCase().split(".").pop() ?? "";
+      const presignResult = await generateProgramBriefUploadUrlAction(extension);
+      if (!presignResult.success || !presignResult.data) {
+        toast.error(presignResult.error ?? "Failed to get upload URL");
+        return;
+      }
+      const { presignedUrl, fileUrl, contentType } = presignResult.data;
+
+      const uploadResp = await fetch(presignedUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": contentType },
+      });
+      if (!uploadResp.ok) {
+        toast.error("Upload to storage failed. Please try again.");
+        return;
+      }
+
+      const result = await generateProgramPreviewFromBriefAction({
+        fileUrl,
+        fileName: file.name,
+      });
+      if (!result.success || !result.data) {
+        toast.error(result.error ?? "Failed to generate program from brief");
+        return;
+      }
+
+      setPreview(result.data);
+      toast.success("Preview generated");
+    } catch (err) {
+      console.error("[program-brief-upload]", err);
+      toast.error("Upload failed. Please try again.");
+    } finally {
+      setProcessing(false);
+    }
   }
 
   async function handleSave(isTemplate: boolean) {
@@ -199,7 +238,6 @@ export function ProgramBriefUpload({ clients }: Props) {
                 )}
                 Generate Preview
               </Button>
-              <p className="text-sm text-muted-foreground w-full text-center">File upload is temporarily unavailable.</p>
             </div>
           </div>
         </CardContent>
