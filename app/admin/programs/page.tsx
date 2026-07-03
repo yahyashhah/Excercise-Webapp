@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Library, Search } from "lucide-react";
+import Link from "next/link";
 
 interface PageProps {
   searchParams: Promise<{ search?: string; status?: string; page?: string }>;
@@ -78,17 +79,19 @@ export default async function AdminProgramsPage({ searchParams }: PageProps) {
               {programs.map((prog) => (
                 <tr key={prog.id} className="hover:bg-muted/40 transition-colors">
                   <td className="px-5 py-3">
-                    <p className="font-medium text-foreground">{prog.name}</p>
-                    {prog.description && (
-                      <p className="mt-0.5 max-w-xs truncate text-xs text-muted-foreground">{prog.description}</p>
-                    )}
-                    {prog.tags.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {prog.tags.slice(0, 3).map((tag) => (
-                          <span key={tag} className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{tag}</span>
-                        ))}
-                      </div>
-                    )}
+                    <Link href={`/admin/programs/${prog.id}`} className="group block">
+                      <p className="font-medium text-foreground group-hover:underline">{prog.name}</p>
+                      {prog.description && (
+                        <p className="mt-0.5 max-w-xs truncate text-xs text-muted-foreground">{prog.description}</p>
+                      )}
+                      {prog.tags.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {prog.tags.slice(0, 3).map((tag) => (
+                            <span key={tag} className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{tag}</span>
+                          ))}
+                        </div>
+                      )}
+                    </Link>
                   </td>
                   <td className="px-5 py-3">
                     <Badge variant="outline" className={`text-[10px] ${statusColors[prog.status] ?? ""}`}>

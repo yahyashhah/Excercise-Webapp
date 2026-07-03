@@ -58,6 +58,13 @@ interface ProgramDetailViewProps {
   sessions: Record<string, unknown>[];
   showAssignDialog?: boolean;
   trainerName?: string;
+  adminMode?: boolean;
+  editHref?: string;
+  assignAction?: (input: {
+    programId: string;
+    clientId: string;
+    startDate: string;
+  }) => Promise<{ success: boolean; error?: string; data?: unknown }>;
 }
 
 export function ProgramDetailView({
@@ -67,6 +74,9 @@ export function ProgramDetailView({
   sessions,
   showAssignDialog = false,
   trainerName: trainerNameProp,
+  adminMode = false,
+  editHref,
+  assignAction,
 }: ProgramDetailViewProps) {
   const router = useRouter();
   const [assignOpen, setAssignOpen] = useState(showAssignDialog);
@@ -260,6 +270,25 @@ export function ProgramDetailView({
                 </div>
               </PopoverContent>
             </Popover>
+          </div>
+        )}
+        {adminMode && (
+          <div className="flex items-center gap-2">
+            {trainerName && (
+              <span className="text-sm text-muted-foreground mr-2">
+                Owned by {trainerName}
+              </span>
+            )}
+            <Button variant="outline" asChild>
+              <Link href={editHref ?? `/programs/${program.id}/edit`}>
+                <Pencil className="mr-2 h-4 w-4" /> Edit
+              </Link>
+            </Button>
+            {!clientId && (
+              <Button onClick={() => setAssignOpen(true)}>
+                <UserPlus className="mr-2 h-4 w-4" /> Assign
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -490,6 +519,7 @@ export function ProgramDetailView({
         clients={clients}
         open={assignOpen}
         onOpenChange={setAssignOpen}
+        assignAction={assignAction}
       />
 
       {/* Exercise Detail Modal */}

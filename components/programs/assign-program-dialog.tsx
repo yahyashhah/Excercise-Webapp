@@ -28,6 +28,11 @@ interface Props {
   clients: { id: string; firstName: string; lastName: string }[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  assignAction?: (input: {
+    programId: string;
+    clientId: string;
+    startDate: string;
+  }) => Promise<{ success: boolean; error?: string; data?: unknown }>;
 }
 
 export function AssignProgramDialog({
@@ -35,6 +40,7 @@ export function AssignProgramDialog({
   clients,
   open,
   onOpenChange,
+  assignAction,
 }: Props) {
   const router = useRouter();
   const [clientId, setClientId] = useState("");
@@ -50,7 +56,8 @@ export function AssignProgramDialog({
     }
     setSaving(true);
     try {
-      const result = await assignProgramAction({
+      const doAssign = assignAction ?? assignProgramAction;
+      const result = await doAssign({
         programId,
         clientId,
         startDate: new Date(startDate).toISOString(),
