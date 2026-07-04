@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/command";
 import { getDistinctEquipmentAction } from "@/actions/program-actions";
 import { PlanReviewStep } from "@/components/programs/plan-review-step";
+import { ClinicVisibilitySelector } from "@/components/programs/clinic-visibility-selector";
 import type { ClinicalPlan } from "@/lib/ai/types/program-generation";
 
 interface CircuitConfig {
@@ -67,6 +68,7 @@ export type GenerateExercisesHandler = (params: {
   preferredWeekdays: string[];
   difficultyLevel: string;
   weekPlan: unknown[];
+  organizationIds?: string[];
 }) => Promise<{ success: boolean; error?: string; data?: string }>;
 
 interface GenerateProgramFormProps {
@@ -74,11 +76,12 @@ interface GenerateProgramFormProps {
   initialClientId?: string;
   onGenerateExercises?: GenerateExercisesHandler;
   redirectTo?: string;
+  clinics?: { id: string; name: string }[];
 }
 
 type GenerateState = 'CONFIGURE' | 'PLANNING' | 'REVIEWING' | 'GENERATING';
 
-export function GenerateProgramForm({ clients, initialClientId, onGenerateExercises, redirectTo }: GenerateProgramFormProps) {
+export function GenerateProgramForm({ clients, initialClientId, onGenerateExercises, redirectTo, clinics }: GenerateProgramFormProps) {
   const weekDays = [
     "Monday",
     "Tuesday",
@@ -94,6 +97,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
   const [clinicalPlan, setClinicalPlan] = useState<ClinicalPlan | null>(null);
   const [durationWeeks, setDurationWeeks] = useState(4);
   const [selectedClient, setSelectedClient] = useState(initialClientId ?? "");
+  const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<string[]>([]);
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [equipmentOptions, setEquipmentOptions] = useState<string[]>([]);
@@ -256,6 +260,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
       preferredWeekdays: selectedWeekdays,
       difficultyLevel: difficulty,
       weekPlan: approvedPlan.weeklyPlan,
+      organizationIds: selectedOrganizationIds,
     };
 
     if (onGenerateExercises) {
@@ -356,6 +361,15 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                     )
                   })()}
                 </>
+              )}
+
+              {/* Clinic visibility — shown only in admin/global context (clinics provided) */}
+              {clinics && (
+                <ClinicVisibilitySelector
+                  clinics={clinics}
+                  value={selectedOrganizationIds}
+                  onChange={setSelectedOrganizationIds}
+                />
               )}
 
               {/* Start Date — shown only when a client is selected */}

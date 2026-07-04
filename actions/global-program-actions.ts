@@ -84,6 +84,7 @@ export async function generateGlobalProgramAction(params: {
   preferredWeekdays?: string[];
   difficultyLevel?: string;
   weekPlan?: WeekPlan[];
+  organizationIds?: string[];
   [key: string]: unknown;
 }) {
   await requireSuperAdmin();
@@ -100,6 +101,7 @@ export async function generateGlobalProgramAction(params: {
         isTemplate: false,
         trainerId: null,
         status: "DRAFT",
+        organizationIds: params.organizationIds ?? [],
         aiGenerationParams: params as import("@prisma/client").Prisma.InputJsonValue,
       },
       select: { id: true },
@@ -179,5 +181,21 @@ export async function generateGlobalProgramAction(params: {
   } catch (error) {
     console.error("Failed to generate global program:", error);
     return { success: false as const, error: "Failed to generate global program" };
+  }
+}
+
+export async function assignGlobalProgramOrganizationsAction(
+  programId: string,
+  organizationIds: string[]
+) {
+  await requireSuperAdmin();
+
+  try {
+    await programService.assignGlobalProgramOrganizations(programId, organizationIds);
+    revalidatePath("/admin/global-programs");
+    return { success: true as const };
+  } catch (error) {
+    console.error("Failed to assign program to clinics:", error);
+    return { success: false as const, error: "Failed to assign program to clinics" };
   }
 }

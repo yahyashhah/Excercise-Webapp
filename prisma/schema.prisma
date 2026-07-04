@@ -398,6 +398,7 @@ model Program {
   daysPerWeek      Int?
   tags             String[]
   equipmentRequired String[] @default([])
+  organizationIds  String[] @default([])
   aiGenerationParams Json?
   startDate        DateTime?
   createdAt        DateTime   @default(now())

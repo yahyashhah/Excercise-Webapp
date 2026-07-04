@@ -1,5 +1,5 @@
 import { requireSuperAdmin } from "@/lib/current-user";
-import { getAdminGlobalPrograms } from "@/lib/services/admin.service";
+import { getAdminGlobalPrograms, listClerkOrganizations } from "@/lib/services/admin.service";
 import { format } from "date-fns";
 import { Globe, Plus, Search, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -16,11 +16,10 @@ export default async function AdminGlobalProgramsPage({ searchParams }: PageProp
   const search = params.search ?? "";
   const page = parseInt(params.page ?? "1", 10);
 
-  const { items: programs, total, totalPages } = await getAdminGlobalPrograms({
-    page,
-    pageSize: 25,
-    search,
-  });
+  const [{ items: programs, total, totalPages }, clinics] = await Promise.all([
+    getAdminGlobalPrograms({ page, pageSize: 25, search }),
+    listClerkOrganizations(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -106,7 +105,12 @@ export default async function AdminGlobalProgramsPage({ searchParams }: PageProp
                     {format(new Date(prog.createdAt), "MMM d, yyyy")}
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <GlobalProgramActions programId={prog.id} programName={prog.name} />
+                    <GlobalProgramActions
+                      programId={prog.id}
+                      programName={prog.name}
+                      clinics={clinics}
+                      currentOrganizationIds={prog.organizationIds}
+                    />
                   </td>
                 </tr>
               ))}
