@@ -15,7 +15,7 @@ import { importExercisesFromCsvAction } from "@/actions/bulk-exercise-actions";
 
 type FormState = "idle" | "errors" | "preview" | "importing";
 
-const PREVIEW_COLUMNS = ["name", "bodyRegion", "difficultyLevel", "exercisePhase", "videoUrl"] as const;
+const PREVIEW_COLUMNS = ["name", "bodyRegion", "difficultyLevel", "exercisePhases", "videoUrl"] as const;
 
 export function CsvImportForm() {
   const router = useRouter();
@@ -241,7 +241,7 @@ export function CsvImportForm() {
                       <td className="px-4 py-2 font-medium text-foreground max-w-[200px] truncate">{row.name}</td>
                       <td className="px-4 py-2 text-xs text-muted-foreground">{row.bodyRegion}</td>
                       <td className="px-4 py-2 text-xs text-muted-foreground">{row.difficultyLevel}</td>
-                      <td className="px-4 py-2 text-xs text-muted-foreground">{row.exercisePhase ?? "—"}</td>
+                      <td className="px-4 py-2 text-xs text-muted-foreground">{row.exercisePhases?.length ? row.exercisePhases.join(", ") : "—"}</td>
                       <td className="px-4 py-2 text-xs text-muted-foreground max-w-[160px] truncate">
                         {row.videoUrl ? (
                           <span className="text-blue-600">{row.videoUrl}</span>

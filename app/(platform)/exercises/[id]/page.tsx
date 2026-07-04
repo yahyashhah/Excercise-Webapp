@@ -43,11 +43,11 @@ export default async function ExerciseDetailPage({ params }: Props) {
               <div className="mt-2 flex flex-wrap gap-2">
                 <Badge variant="secondary">{formatBodyRegion(exercise.bodyRegion)}</Badge>
                 <Badge variant="secondary">{formatDifficulty(exercise.difficultyLevel)}</Badge>
-                {exercise.exercisePhase && (
-                  <Badge className="bg-indigo-100 text-indigo-700 border-0">
-                    {exercise.exercisePhase.charAt(0) + exercise.exercisePhase.slice(1).toLowerCase()}
+                {exercise.exercisePhases?.map((phase) => (
+                  <Badge key={phase} className="bg-indigo-100 text-indigo-700 border-0">
+                    {phase.charAt(0) + phase.slice(1).toLowerCase()}
                   </Badge>
-                )}
+                ))}
               </div>
             </div>
             {user.role === "TRAINER" && (

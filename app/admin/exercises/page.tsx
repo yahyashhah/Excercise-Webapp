@@ -132,8 +132,10 @@ export default async function AdminExercisesPage({ searchParams }: PageProps) {
                     </Badge>
                   </td>
                   <td className="px-5 py-3 hidden md:table-cell">
-                    {ex.exercisePhase
-                      ? <span className="text-xs text-muted-foreground">{phaseLabel[ex.exercisePhase] ?? ex.exercisePhase}</span>
+                    {ex.exercisePhases?.length
+                      ? <span className="text-xs text-muted-foreground">
+                          {ex.exercisePhases.map((p: string) => phaseLabel[p] ?? p).join(", ")}
+                        </span>
                       : <span className="text-xs text-muted-foreground/40">—</span>}
                   </td>
                   <td className="px-5 py-3 hidden lg:table-cell">

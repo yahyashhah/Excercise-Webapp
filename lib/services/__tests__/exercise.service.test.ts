@@ -36,19 +36,19 @@ describe('getExercisesForPicker', () => {
     id: '1', name: 'Squat', source: 'UNIVERSAL', organizationId: null,
     isPublic: true, bodyRegion: 'LOWER_BODY', difficultyLevel: 'BEGINNER',
     defaultReps: 10, musclesTargeted: [], description: null,
-    videoUrl: null, videoProvider: null, exercisePhase: null,
+    videoUrl: null, videoProvider: null, exercisePhases: [],
   }
   const publicOrganizationEx = {
     id: '2', name: 'Band Pull', source: 'ORGANIZATION', organizationId: 'org_other',
     isPublic: true, bodyRegion: 'UPPER_BODY', difficultyLevel: 'BEGINNER',
     defaultReps: 12, musclesTargeted: [], description: null,
-    videoUrl: null, videoProvider: null, exercisePhase: null,
+    videoUrl: null, videoProvider: null, exercisePhases: [],
   }
   const privateOrganizationEx = {
     id: '3', name: 'Custom Hold', source: 'ORGANIZATION', organizationId: 'org_mine',
     isPublic: false, bodyRegion: 'CORE', difficultyLevel: 'INTERMEDIATE',
     defaultReps: null, musclesTargeted: [], description: null,
-    videoUrl: null, videoProvider: null, exercisePhase: null,
+    videoUrl: null, videoProvider: null, exercisePhases: [],
   }
 
   it('returns all exercises for the calling organization (universal + public + own private)', async () => {
@@ -125,5 +125,26 @@ describe('getExercises', () => {
     expect(call.where).toHaveProperty('source', 'ORGANIZATION')
     // organizationId sentinel ensures no real exercise matches
     expect(call.where).toHaveProperty('organizationId')
+  })
+})
+
+describe('getExercises phase filtering', () => {
+  it('matches exercises with any of the requested phases (hasSome)', async () => {
+    mockFindMany.mockResolvedValue([] as any)
+    await getExercises({ exercisePhases: ['MOBILITY', 'STRENGTHENING'] as any })
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          exercisePhases: { hasSome: ['MOBILITY', 'STRENGTHENING'] },
+        }),
+      })
+    )
+  })
+
+  it('omits the phase clause entirely when no phases are requested', async () => {
+    mockFindMany.mockResolvedValue([] as any)
+    await getExercises({})
+    const call = mockFindMany.mock.calls[0][0] as any
+    expect(call.where).not.toHaveProperty('exercisePhases')
   })
 })

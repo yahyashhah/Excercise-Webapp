@@ -19,7 +19,13 @@ export const csvRowSchema = z.object({
   description: z.preprocess(emptyToUndefined, z.string().trim().max(2000).optional()),
   bodyRegion: z.enum(BODY_REGIONS),
   difficultyLevel: z.enum(DIFFICULTY_LEVELS),
-  exercisePhase: z.preprocess(emptyToUndefined, z.enum(EXERCISE_PHASES).optional()),
+  exercisePhases: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? [] : v),
+    z.preprocess(
+      (v) => (typeof v === "string" ? v.split(";").map((s) => s.trim()).filter(Boolean) : v),
+      z.array(z.enum(EXERCISE_PHASES))
+    )
+  ),
   musclesTargeted: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   equipmentRequired: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   contraindications: z.preprocess(emptyToUndefined, z.string().trim().optional()),

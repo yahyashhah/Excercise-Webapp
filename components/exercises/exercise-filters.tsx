@@ -24,7 +24,7 @@ export function ExerciseFilters() {
   const currentSearch     = searchParams.get("search") || "";
   const currentRegion     = searchParams.get("bodyRegion") || "";
   const currentDifficulty = searchParams.get("difficultyLevel") || "";
-  const currentPhase      = searchParams.get("exercisePhase") || "";
+  const currentPhases = (searchParams.get("exercisePhase") || "").split(",").filter(Boolean);
 
   const [searchValue, setSearchValue] = useState(currentSearch);
 
@@ -55,7 +55,7 @@ export function ExerciseFilters() {
     return () => clearTimeout(timeout);
   }, [searchValue, currentSearch, updateParam]);
 
-  const hasFilters = currentSearch || currentRegion || currentDifficulty || currentPhase;
+  const hasFilters = currentSearch || currentRegion || currentDifficulty || currentPhases.length > 0;
 
   return (
     <div className="space-y-3">
@@ -109,21 +109,29 @@ export function ExerciseFilters() {
 
       {/* Category pill row */}
       <div className="flex flex-wrap gap-1.5">
-        {EXERCISE_PHASES.map((p) => (
-          <button
-            key={p.value}
-            type="button"
-            onClick={() => updateParam("exercisePhase", p.value)}
-            className={cn(
-              "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
-              currentPhase === p.value
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
-            )}
-          >
-            {p.label}
-          </button>
-        ))}
+        {EXERCISE_PHASES.filter((p) => p.value !== "").map((p) => {
+          const active = currentPhases.includes(p.value);
+          return (
+            <button
+              key={p.value}
+              type="button"
+              onClick={() => {
+                const next = active
+                  ? currentPhases.filter((v) => v !== p.value)
+                  : [...currentPhases, p.value];
+                updateParam("exercisePhase", next.join(","));
+              }}
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+                active
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+              )}
+            >
+              {p.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

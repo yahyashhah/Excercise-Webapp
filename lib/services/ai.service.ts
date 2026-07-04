@@ -17,7 +17,7 @@ type ExercisePoolItem = {
   contraindications: string[]
   description: string | null
   musclesTargeted: string[]
-  exercisePhase: string | null
+  exercisePhases: string[]
   commonMistakes: string | null
   defaultSets: number | null
   defaultReps: number | null
@@ -181,7 +181,7 @@ function scoreNameSimilarity(a: string, b: string) {
 const EXERCISE_POOL_SELECT = {
   id: true, name: true, bodyRegion: true, difficultyLevel: true,
   equipmentRequired: true, contraindications: true, description: true,
-  musclesTargeted: true, exercisePhase: true, commonMistakes: true,
+  musclesTargeted: true, exercisePhases: true, commonMistakes: true,
   defaultSets: true, defaultReps: true, defaultHoldSeconds: true,
   cuesThumbnail: true, videoUrl: true,
 }
@@ -426,7 +426,7 @@ Respond with valid JSON only.`
         const poolStr = pool
           .map(
             e =>
-              `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhase ?? 'STRENGTHENING'} | Region: ${e.bodyRegion} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(', ')} | Equipment: ${e.equipmentRequired.join(', ') || 'None'} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + 's hold' : '10'}`
+              `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhases.length ? e.exercisePhases.join('/') : 'STRENGTHENING'} | Region: ${e.bodyRegion} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(', ')} | Equipment: ${e.equipmentRequired.join(', ') || 'None'} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + 's hold' : '10'}`
           )
           .join('\n')
 
@@ -562,7 +562,7 @@ ${jsonFormat}`
       contraindications: true,
       description: true,
       musclesTargeted: true,
-      exercisePhase: true,
+      exercisePhases: true,
       commonMistakes: true,
       defaultSets: true,
       defaultReps: true,
@@ -579,7 +579,7 @@ ${jsonFormat}`
     contraindications: string[];
     description: string | null;
     musclesTargeted: string[];
-    exercisePhase: string | null;
+    exercisePhases: string[];
     commonMistakes: string | null;
     defaultSets: number | null;
     defaultReps: number | null;
@@ -770,7 +770,7 @@ Respond with valid JSON only. No markdown, no explanation.`;
   const exerciseListStr = exercises
     .map(
       (e) =>
-        `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhase ?? "STRENGTHENING"} | Region: ${e.bodyRegion} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(", ")} | Equipment: ${e.equipmentRequired.join(", ") || "None"} | Video: ${e.videoUrl ? "Yes" : "No"} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + "s hold" : "10"} | Mistakes: ${e.commonMistakes || "N/A"} | Cues: ${e.cuesThumbnail || "N/A"}`
+        `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhases.length ? e.exercisePhases.join("/") : "STRENGTHENING"} | Region: ${e.bodyRegion} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(", ")} | Equipment: ${e.equipmentRequired.join(", ") || "None"} | Video: ${e.videoUrl ? "Yes" : "No"} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + "s hold" : "10"} | Mistakes: ${e.commonMistakes || "N/A"} | Cues: ${e.cuesThumbnail || "N/A"}`
     )
     .join("\n");
 
@@ -813,14 +813,14 @@ ${hasCircuits ? `CIRCUIT ASSIGNMENT RULES (CRITICAL):
 - Total exercises in the "exercises" array must be EXACTLY ${totalExercisesPerSession * params.daysPerWeek} (${totalExercisesPerSession} per session × ${params.daysPerWeek} days).
 - VARIETY (CRITICAL): Each day MUST use COMPLETELY DIFFERENT exercise IDs from every other day. NEVER repeat the same exerciseId across different dayOfWeek values. Treat each day as a fully independent workout and select a fresh set of exercises from the pool for each one. Do NOT copy Day 1's exercises to Day 2 or Day 3.
 - Circuit focus guidelines for exercise selection:
-  WARMUP → lightweight warm-up, joint mobility, gentle activation (prefer exercisePhase: WARMUP or ACTIVATION)
+  WARMUP → lightweight warm-up, joint mobility, gentle activation (prefer exercisePhases: WARMUP or ACTIVATION)
   LOWER_BODY → lower limb strength — quad, hamstring, glute, calf focus (bodyRegion: LOWER_BODY)
   UPPER_BODY → shoulder, arm, chest, upper back exercises (bodyRegion: UPPER_BODY)
   CORE → core stability, lumbar, abdominal (bodyRegion: CORE)
   FULL_BODY → compound multi-joint or functional movement exercises
   BALANCE → proprioception, single-leg stability, vestibular
-  FLEXIBILITY → static stretch, PNF, foam rolling (prefer exercisePhase: MOBILITY)
-  COOLDOWN → gentle cooldown, static stretch, breathing (prefer exercisePhase: COOLDOWN or MOBILITY)
+  FLEXIBILITY → static stretch, PNF, foam rolling (prefer exercisePhases: MOBILITY)
+  COOLDOWN → gentle cooldown, static stretch, breathing (prefer exercisePhases: COOLDOWN or MOBILITY)
   CARDIO → cardiovascular conditioning, sustained effort exercises` : `CRITICAL VOLUME RULE: Each day must have EXACTLY ${totalExercisesPerSession} exercises — no more, no less. Distribute them across the required phases (WARMUP → ACTIVATION → STRENGTHENING → MOBILITY → COOLDOWN).
 VARIETY (CRITICAL): Each day MUST use COMPLETELY DIFFERENT exercise IDs from every other day. NEVER repeat the same exerciseId across different dayOfWeek values. Treat each day as a fully independent workout.`}
 

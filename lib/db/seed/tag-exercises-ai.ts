@@ -18,7 +18,7 @@ async function tagBatch(exercises: {
   description: string | null
   musclesTargeted: string[]
   contraindications: string[]
-  exercisePhase: string | null
+  exercisePhases: string[]
   difficultyLevel: string
 }[]): Promise<TaggingResult[]> {
   const exerciseList = exercises
@@ -29,7 +29,7 @@ Name: ${e.name}
 Description: ${e.description ?? 'N/A'}
 Muscles: ${e.musclesTargeted.join(', ')}
 Contraindications: ${e.contraindications.join(', ') || 'None'}
-Phase: ${e.exercisePhase ?? 'N/A'}
+Phase: ${e.exercisePhases.length ? e.exercisePhases.join(', ') : 'N/A'}
 Difficulty: ${e.difficultyLevel}`
     )
     .join('\n\n---\n\n')
@@ -73,7 +73,7 @@ async function main() {
       description: true,
       musclesTargeted: true,
       contraindications: true,
-      exercisePhase: true,
+      exercisePhases: true,
       difficultyLevel: true,
     },
   })
