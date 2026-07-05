@@ -238,7 +238,7 @@ export async function getExercisesForPickerAction() {
       name: true,
       bodyRegion: true,
       difficultyLevel: true,
-      exercisePhase: true,
+      exercisePhases: true,
       defaultReps: true,
       defaultSets: true,
       defaultHoldSeconds: true,

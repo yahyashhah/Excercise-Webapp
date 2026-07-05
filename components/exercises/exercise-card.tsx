@@ -17,7 +17,7 @@ interface ExerciseCardProps {
   name: string;
   bodyRegion: string;
   difficultyLevel: string;
-  exercisePhase?: string | null;
+  exercisePhases?: string[];
   equipmentRequired: string[];
   description?: string | null;
   imageUrl?: string | null;
@@ -45,7 +45,7 @@ const phaseConfig: Record<string, { label: string; className: string }> = {
 };
 
 export function ExerciseCard({
-  id, name, bodyRegion, difficultyLevel, exercisePhase, equipmentRequired,
+  id, name, bodyRegion, difficultyLevel, exercisePhases, equipmentRequired,
   description, imageUrl, videoUrl, isActive, isTrainer,
   source, isPublic: initialIsPublic, organizationId, organizationOrganizationId,
 }: ExerciseCardProps) {
@@ -62,9 +62,9 @@ export function ExerciseCard({
     label: formatDifficulty(difficultyLevel),
     className: "bg-muted text-muted-foreground border-border",
   };
-  const phase = exercisePhase
-    ? (phaseConfig[exercisePhase] ?? { label: exercisePhase, className: "bg-black/60 text-white" })
-    : null;
+  const phases = (exercisePhases ?? []).map(
+    (p) => phaseConfig[p] ?? { label: p, className: "bg-black/60 text-white" }
+  );
 
   function handleTogglePublic() {
     const next = !isPublic;
@@ -90,10 +90,14 @@ export function ExerciseCard({
           </div>
         </div>
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-2.5">
-          {phase && (
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold backdrop-blur-sm ${phase.className}`}>
-              {phase.label}
-            </span>
+          {phases.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {phases.map((phase) => (
+                <span key={phase.label} className={`rounded-full px-2 py-0.5 text-[10px] font-semibold backdrop-blur-sm ${phase.className}`}>
+                  {phase.label}
+                </span>
+              ))}
+            </div>
           )}
           <div className="ml-auto flex items-center gap-1.5">
             {videoUrl && (

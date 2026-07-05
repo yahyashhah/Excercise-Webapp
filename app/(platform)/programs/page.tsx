@@ -28,7 +28,7 @@ export default async function ProgramsPage({ searchParams }: Props) {
           isTemplate: tab === "templates",
         })
       : programService.getProgramsForClient(user.id),
-    user.role === "TRAINER" ? programService.getGlobalPrograms() : Promise.resolve([]),
+    user.role === "TRAINER" ? programService.getGlobalPrograms(user.clerkOrgId ?? undefined) : Promise.resolve([]),
   ]);
 
   // For each organization program that came from a global master, check if master has been updated

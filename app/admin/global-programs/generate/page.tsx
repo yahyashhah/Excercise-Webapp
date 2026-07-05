@@ -1,4 +1,5 @@
 import { requireSuperAdmin } from "@/lib/current-user";
+import { listClerkOrganizations } from "@/lib/services/admin.service";
 import { GlobalGenerateWrapper } from "./global-generate-wrapper";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui/button";
 
 export default async function AdminGenerateGlobalProgramPage() {
   await requireSuperAdmin();
+  const clinics = await listClerkOrganizations();
 
   return (
     <div className="space-y-6">
@@ -22,7 +24,7 @@ export default async function AdminGenerateGlobalProgramPage() {
         </p>
       </div>
       <div className="max-w-2xl">
-        <GlobalGenerateWrapper />
+        <GlobalGenerateWrapper clinics={clinics} />
       </div>
     </div>
   );

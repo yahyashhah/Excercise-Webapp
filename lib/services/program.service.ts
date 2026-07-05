@@ -48,7 +48,8 @@ export async function createProgram(
   trainerId: string,
   data: CreateProgramInput
 ) {
-  const { workouts, startDate, ...rest } = data;
+  const { workouts, startDate, organizationIds, ...rest } = data;
+  void organizationIds;
 
   return prisma.program.create({
     data: {
@@ -268,6 +269,7 @@ export async function duplicateProgram(
     daysPerWeek: source.daysPerWeek,
     tags: source.tags,
     equipmentRequired: source.equipmentRequired ?? [],
+    organizationIds: [],
     workouts,
   });
 }
@@ -318,9 +320,20 @@ export async function getTemplates(trainerId: string) {
 
 // --- Global Programs (super admin) ---
 
-export async function getGlobalPrograms() {
+export async function getGlobalPrograms(clerkOrgId?: string) {
+  const where: Prisma.ProgramWhereInput = {
+    isGlobal: true,
+    status: { not: "ARCHIVED" },
+  };
+  if (clerkOrgId) {
+    where.OR = [
+      { organizationIds: { isEmpty: true } },
+      { organizationIds: { has: clerkOrgId } },
+    ];
+  }
+
   return prisma.program.findMany({
-    where: { isGlobal: true, status: { not: "ARCHIVED" } },
+    where,
     include: programListInclude,
     orderBy: { updatedAt: "desc" },
   });
@@ -464,6 +477,16 @@ export async function pushGlobalProgramUpdate(id: string) {
     where: { id, isGlobal: true },
     data: { globalUpdatedAt: new Date() },
     select: { id: true, globalUpdatedAt: true },
+  });
+}
+
+export async function assignGlobalProgramOrganizations(
+  id: string,
+  organizationIds: string[]
+) {
+  return prisma.program.update({
+    where: { id, isGlobal: true },
+    data: { organizationIds },
   });
 }
 

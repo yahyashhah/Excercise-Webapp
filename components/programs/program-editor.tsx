@@ -37,6 +37,7 @@ import {
   updateProgramAction,
 } from "@/actions/program-actions";
 import { ProgramBuilder } from "./program-builder";
+import { ClinicVisibilitySelector } from "./clinic-visibility-selector";
 
 interface Props {
   program?: Record<string, unknown>;
@@ -56,6 +57,7 @@ interface Props {
   ) => Promise<{ success: boolean; error?: string; data?: { id: string } }>;
   redirectTo?: string;
   organizationOrganizationId?: string;
+  clinics?: { id: string; name: string }[];
 }
 
 // Helper to map DB workout to input type
@@ -111,7 +113,7 @@ function mapWorkoutToInput(w: Record<string, unknown>): WorkoutInput {
   };
 }
 
-export function ProgramEditor({ program, exercises, onSave, redirectTo, organizationOrganizationId }: Props) {
+export function ProgramEditor({ program, exercises, onSave, redirectTo, organizationOrganizationId, clinics }: Props) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [workouts, setWorkouts] = useState<WorkoutInput[]>(
@@ -125,6 +127,10 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
   // Equipment state — pre-populated from saved program or empty
   const [equipment, setEquipment] = useState<string[]>(
     (program?.equipmentRequired as string[]) || []
+  );
+  // Clinic visibility state — pre-populated from saved program or empty (= all clinics)
+  const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<string[]>(
+    (program?.organizationIds as string[]) || []
   );
   const [equipmentInput, setEquipmentInput] = useState("");
   const equipmentInputRef = useRef<HTMLInputElement>(null);
@@ -202,6 +208,7 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
       }));
       data.workouts = cleanWorkouts;
       data.equipmentRequired = equipment;
+      data.organizationIds = selectedOrganizationIds;
 
       if (onSave) {
         const result = await onSave(data, program?.id as string | undefined);
@@ -344,6 +351,15 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
                 </FormItem>
               )}
             />
+            {clinics && (
+              <div className="sm:col-span-2">
+                <ClinicVisibilitySelector
+                  clinics={clinics}
+                  value={selectedOrganizationIds}
+                  onChange={setSelectedOrganizationIds}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 

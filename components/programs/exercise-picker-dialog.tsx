@@ -24,6 +24,7 @@ import { Search, Play, X, Plus, ArrowLeft, Globe, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
 import { createOrganizationExerciseAction, toggleExercisePublicAction } from "@/actions/exercise-actions";
+import { isYouTubeUrl } from "@/lib/utils/video";
 import { toast } from "sonner";
 
 interface Exercise {
@@ -36,7 +37,7 @@ interface Exercise {
   description?: string | null;
   videoUrl?: string | null;
   videoProvider?: string | null;
-  exercisePhase?: string | null;
+  exercisePhases?: string[];
   source?: string | null;
   organizationId?: string | null;
   isPublic?: boolean;
@@ -196,11 +197,11 @@ function ExerciseList({
                   <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", DIFFICULTY_COLORS[ex.difficultyLevel])}>
                     {ex.difficultyLevel}
                   </Badge>
-                  {ex.exercisePhase && ex.exercisePhase !== "STRENGTHENING" && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-purple-50 text-purple-700 border-purple-200">
-                      {ex.exercisePhase.charAt(0) + ex.exercisePhase.slice(1).toLowerCase()}
+                  {ex.exercisePhases?.filter((p) => p !== "STRENGTHENING").map((p) => (
+                    <Badge key={p} variant="outline" className="text-[10px] px-1.5 py-0 bg-purple-50 text-purple-700 border-purple-200">
+                      {p.charAt(0) + p.slice(1).toLowerCase()}
                     </Badge>
-                  )}
+                  ))}
                 </div>
               </div>
             </div>
@@ -223,6 +224,142 @@ function ExerciseList({
   );
 }
 
+function PhaseMultiSelect({ value, onChange }: { value: string[]; onChange: (next: string[]) => void }) {
+  const options = [
+    { value: "WARMUP", label: "Warm-up" },
+    { value: "ACTIVATION", label: "Activation" },
+    { value: "STRENGTHENING", label: "Strengthening" },
+    { value: "MOBILITY", label: "Mobility" },
+    { value: "COOLDOWN", label: "Cool-down" },
+  ];
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((opt) => {
+        const active = value.includes(opt.value);
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(active ? value.filter((v) => v !== opt.value) : [...value, opt.value])}
+            className={cn(
+              "px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
+              active
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+            )}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function emptyFormShape() {
+  return {
+    name: "",
+    description: "",
+    bodyRegion: "",
+    difficultyLevel: "",
+    exercisePhases: [] as string[],
+    videoUrl: "",
+    isPublic: true,
+  };
+}
+
+function CreateExerciseFields({
+  form,
+  setForm,
+}: {
+  form: ReturnType<typeof emptyFormShape>;
+  setForm: React.Dispatch<React.SetStateAction<ReturnType<typeof emptyFormShape>>>;
+}) {
+  return (
+    <>
+      <div className="space-y-1.5">
+        <Label htmlFor="ex-name" className="text-xs font-semibold">Name *</Label>
+        <Input
+          id="ex-name"
+          value={form.name}
+          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+          placeholder="e.g. Seated Hip Flexor Stretch"
+          className="h-8 text-sm"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">Body Region *</Label>
+          <Select value={form.bodyRegion} onValueChange={(v) => setForm((f) => ({ ...f, bodyRegion: v ?? f.bodyRegion }))}>
+            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select..." /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="LOWER_BODY">Lower Body</SelectItem>
+              <SelectItem value="UPPER_BODY">Upper Body</SelectItem>
+              <SelectItem value="CORE">Core</SelectItem>
+              <SelectItem value="FULL_BODY">Full Body</SelectItem>
+              <SelectItem value="BALANCE">Balance</SelectItem>
+              <SelectItem value="FLEXIBILITY">Flexibility</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">Difficulty *</Label>
+          <Select value={form.difficultyLevel} onValueChange={(v) => setForm((f) => ({ ...f, difficultyLevel: v ?? f.difficultyLevel }))}>
+            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select..." /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="BEGINNER">Beginner</SelectItem>
+              <SelectItem value="INTERMEDIATE">Intermediate</SelectItem>
+              <SelectItem value="ADVANCED">Advanced</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold">Phase(s)</Label>
+        <PhaseMultiSelect
+          value={form.exercisePhases}
+          onChange={(next) => setForm((f) => ({ ...f, exercisePhases: next }))}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="ex-desc" className="text-xs font-semibold">Description</Label>
+        <Textarea
+          id="ex-desc"
+          value={form.description}
+          onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+          placeholder="Brief description..."
+          className="text-sm resize-none h-16"
+        />
+      </div>
+
+      <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
+        <div>
+          <p className="text-sm font-medium">Visible to all organizations</p>
+          <p className="text-xs text-muted-foreground">When on, this exercise appears in the Universal tab for all organizations</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={form.isPublic}
+          onClick={() => setForm((f) => ({ ...f, isPublic: !f.isPublic }))}
+          className={cn(
+            "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+            form.isPublic ? "bg-primary" : "bg-input"
+          )}
+        >
+          <span className={cn(
+            "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
+            form.isPublic ? "translate-x-4" : "translate-x-0"
+          )} />
+        </button>
+      </div>
+    </>
+  );
+}
+
 export function ExercisePickerDialog({
   open,
   onOpenChange,
@@ -238,16 +375,14 @@ export function ExercisePickerDialog({
   const [localExercises, setLocalExercises] = useState<Exercise[]>([]);
   const [publicOverrides, setPublicOverrides] = useState<Map<string, boolean>>(new Map());
   const [isPending, startTransition] = useTransition();
+  const [createTab, setCreateTab] = useState<"ai" | "manual">("ai");
 
-  const [createForm, setCreateForm] = useState({
-    name: "",
-    description: "",
-    bodyRegion: "",
-    difficultyLevel: "",
-    exercisePhase: "",
-    videoUrl: "",
-    isPublic: true,
-  });
+  const [aiForm, setAiForm] = useState(emptyFormShape());
+  const [aiVideoUrl, setAiVideoUrl] = useState("");
+  const [aiStatus, setAiStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  const [manualForm, setManualForm] = useState(emptyFormShape());
 
   const allExercises = useMemo(
     () => [...exercises, ...localExercises].map((ex) =>
@@ -274,7 +409,10 @@ export function ExercisePickerDialog({
     const q = search.toLowerCase();
     return list.filter((ex) => {
       if (q && !ex.name.toLowerCase().includes(q)) return false;
-      if (phase !== "all" && (ex.exercisePhase ?? "STRENGTHENING") !== phase) return false;
+      if (phase !== "all") {
+        const phases = ex.exercisePhases?.length ? ex.exercisePhases : ["STRENGTHENING"];
+        if (!phases.includes(phase)) return false;
+      }
       if (bodyRegion !== "all" && ex.bodyRegion !== bodyRegion) return false;
       return true;
     });
@@ -283,9 +421,44 @@ export function ExercisePickerDialog({
   const filteredUniversal = useMemo(() => applyFilters(universalExercises), [universalExercises, search, phase, bodyRegion]);
   const filteredMyOrganization  = useMemo(() => applyFilters(myOrganizationExercises),  [myOrganizationExercises,  search, phase, bodyRegion]);
 
+  async function handleGenerateWithAi() {
+    setAiStatus("loading");
+    setAiError(null);
+    try {
+      const res = await fetch("/api/ai/generate-exercise-metadata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ youtubeUrl: aiVideoUrl }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error ?? "Failed to generate exercise metadata");
+      }
+      const d = json.data;
+      setAiForm({
+        name: d.exerciseName ?? "",
+        description: d.description ?? "",
+        bodyRegion: d.bodyRegion ?? "",
+        difficultyLevel: d.difficultyLevel ?? "",
+        exercisePhases: d.exercisePhases ?? [],
+        videoUrl: d.videoUrl ?? aiVideoUrl,
+        isPublic: true,
+      });
+      setAiStatus("done");
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : "Failed to generate exercise metadata");
+      setAiStatus("error");
+    }
+  }
+
   function handleClose() {
     setView("list");
-    setCreateForm({ name: "", description: "", bodyRegion: "", difficultyLevel: "", exercisePhase: "", videoUrl: "", isPublic: true });
+    setCreateTab("ai");
+    setAiForm(emptyFormShape());
+    setAiVideoUrl("");
+    setAiStatus("idle");
+    setAiError(null);
+    setManualForm(emptyFormShape());
     onOpenChange(false);
   }
 
@@ -306,20 +479,21 @@ export function ExercisePickerDialog({
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!createForm.name || !createForm.bodyRegion || !createForm.difficultyLevel) {
+    const form = createTab === "ai" ? aiForm : manualForm;
+    if (!form.name || !form.bodyRegion || !form.difficultyLevel) {
       toast.error("Name, body region, and difficulty are required");
       return;
     }
 
     startTransition(async () => {
       const result = await createOrganizationExerciseAction({
-        name: createForm.name,
-        description: createForm.description || undefined,
-        bodyRegion: createForm.bodyRegion,
-        difficultyLevel: createForm.difficultyLevel,
-        exercisePhase: createForm.exercisePhase || undefined,
-        videoUrl: createForm.videoUrl || undefined,
-        isPublic: createForm.isPublic,
+        name: form.name,
+        description: form.description || undefined,
+        bodyRegion: form.bodyRegion,
+        difficultyLevel: form.difficultyLevel,
+        exercisePhases: form.exercisePhases,
+        videoUrl: form.videoUrl || undefined,
+        isPublic: form.isPublic,
       });
 
       if (result.success) {
@@ -328,7 +502,7 @@ export function ExercisePickerDialog({
           name: result.data.name,
           bodyRegion: result.data.bodyRegion,
           difficultyLevel: result.data.difficultyLevel,
-          exercisePhase: result.data.exercisePhase ?? null,
+          exercisePhases: result.data.exercisePhases ?? [],
           videoUrl: result.data.videoUrl ?? null,
           videoProvider: result.data.videoProvider ?? null,
           description: result.data.description ?? null,
@@ -375,111 +549,75 @@ export function ExercisePickerDialog({
 
           {view === "create" ? (
             <div className="flex-1 overflow-y-auto px-4 py-4">
-              <form onSubmit={handleCreate} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="ex-name" className="text-xs font-semibold">Name *</Label>
-                  <Input
-                    id="ex-name"
-                    value={createForm.name}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
-                    placeholder="e.g. Seated Hip Flexor Stretch"
-                    className="h-8 text-sm"
-                  />
-                </div>
+              <Tabs value={createTab} onValueChange={(v) => setCreateTab(v as "ai" | "manual")}>
+                <TabsList className="grid grid-cols-2 mb-4">
+                  <TabsTrigger value="ai">AI Generate</TabsTrigger>
+                  <TabsTrigger value="manual">Manual</TabsTrigger>
+                </TabsList>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold">Body Region *</Label>
-                    <Select value={createForm.bodyRegion} onValueChange={(v) => setCreateForm((f) => ({ ...f, bodyRegion: v ?? f.bodyRegion }))}>
-                      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select..." /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="LOWER_BODY">Lower Body</SelectItem>
-                        <SelectItem value="UPPER_BODY">Upper Body</SelectItem>
-                        <SelectItem value="CORE">Core</SelectItem>
-                        <SelectItem value="FULL_BODY">Full Body</SelectItem>
-                        <SelectItem value="BALANCE">Balance</SelectItem>
-                        <SelectItem value="FLEXIBILITY">Flexibility</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold">Difficulty *</Label>
-                    <Select value={createForm.difficultyLevel} onValueChange={(v) => setCreateForm((f) => ({ ...f, difficultyLevel: v ?? f.difficultyLevel }))}>
-                      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select..." /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="BEGINNER">Beginner</SelectItem>
-                        <SelectItem value="INTERMEDIATE">Intermediate</SelectItem>
-                        <SelectItem value="ADVANCED">Advanced</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                <TabsContent value="ai" className="mt-0">
+                  <form onSubmit={handleCreate} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ai-video" className="text-xs font-semibold">YouTube Video URL</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="ai-video"
+                          value={aiVideoUrl}
+                          onChange={(e) => setAiVideoUrl(e.target.value)}
+                          placeholder="https://www.youtube.com/watch?v=..."
+                          className="h-8 text-sm flex-1"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-8 text-xs shrink-0"
+                          disabled={!isYouTubeUrl(aiVideoUrl) || aiStatus === "loading"}
+                          onClick={handleGenerateWithAi}
+                        >
+                          {aiStatus === "loading" ? "Generating..." : "Generate with AI"}
+                        </Button>
+                      </div>
+                      {aiStatus === "error" && (
+                        <p className="text-xs text-destructive">{aiError} — check the link and try again.</p>
+                      )}
+                    </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Phase</Label>
-                  <Select value={createForm.exercisePhase} onValueChange={(v) => setCreateForm((f) => ({ ...f, exercisePhase: v ?? f.exercisePhase }))}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select phase..." /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="WARMUP">Warm-up</SelectItem>
-                      <SelectItem value="ACTIVATION">Activation</SelectItem>
-                      <SelectItem value="STRENGTHENING">Strengthening</SelectItem>
-                      <SelectItem value="MOBILITY">Mobility</SelectItem>
-                      <SelectItem value="COOLDOWN">Cool-down</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="ex-desc" className="text-xs font-semibold">Description</Label>
-                  <Textarea
-                    id="ex-desc"
-                    value={createForm.description}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, description: e.target.value }))}
-                    placeholder="Brief description..."
-                    className="text-sm resize-none h-16"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="ex-video" className="text-xs font-semibold">Video URL</Label>
-                  <Input
-                    id="ex-video"
-                    value={createForm.videoUrl}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, videoUrl: e.target.value }))}
-                    placeholder="YouTube or Vimeo URL"
-                    className="h-8 text-sm"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
-                  <div>
-                    <p className="text-sm font-medium">Visible to all organizations</p>
-                    <p className="text-xs text-muted-foreground">When on, this exercise appears in the Universal tab for all organizations</p>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={createForm.isPublic}
-                    onClick={() => setCreateForm((f) => ({ ...f, isPublic: !f.isPublic }))}
-                    className={cn(
-                      "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-                      createForm.isPublic ? "bg-primary" : "bg-input"
+                    {aiStatus === "done" && (
+                      <>
+                        <CreateExerciseFields form={aiForm} setForm={setAiForm} />
+                        <div className="flex gap-2 pt-2">
+                          <Button type="button" variant="outline" className="flex-1 h-8 text-xs" onClick={() => setView("list")}>Cancel</Button>
+                          <Button type="submit" className="flex-1 h-8 text-xs" disabled={isPending}>
+                            {isPending ? "Creating..." : "Create & Add to Program"}
+                          </Button>
+                        </div>
+                      </>
                     )}
-                  >
-                    <span className={cn(
-                      "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
-                      createForm.isPublic ? "translate-x-4" : "translate-x-0"
-                    )} />
-                  </button>
-                </div>
+                  </form>
+                </TabsContent>
 
-                <div className="flex gap-2 pt-2">
-                  <Button type="button" variant="outline" className="flex-1 h-8 text-xs" onClick={() => setView("list")}>Cancel</Button>
-                  <Button type="submit" className="flex-1 h-8 text-xs" disabled={isPending}>
-                    {isPending ? "Creating..." : "Create & Add to Program"}
-                  </Button>
-                </div>
-              </form>
+                <TabsContent value="manual" className="mt-0">
+                  <form onSubmit={handleCreate} className="space-y-4">
+                    <CreateExerciseFields form={manualForm} setForm={setManualForm} />
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ex-video" className="text-xs font-semibold">Video URL</Label>
+                      <Input
+                        id="ex-video"
+                        value={manualForm.videoUrl}
+                        onChange={(e) => setManualForm((f) => ({ ...f, videoUrl: e.target.value }))}
+                        placeholder="YouTube or Vimeo URL"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button type="button" variant="outline" className="flex-1 h-8 text-xs" onClick={() => setView("list")}>Cancel</Button>
+                      <Button type="submit" className="flex-1 h-8 text-xs" disabled={isPending}>
+                        {isPending ? "Creating..." : "Create & Add to Program"}
+                      </Button>
+                    </div>
+                  </form>
+                </TabsContent>
+              </Tabs>
             </div>
           ) : (
             <>

@@ -16,7 +16,7 @@ async function upsertExercise(exercise: (typeof allExercises)[0]): Promise<"crea
         description: exercise.description,
         bodyRegion: exercise.bodyRegion,
         difficultyLevel: exercise.difficultyLevel,
-        exercisePhase: exercise.exercisePhase,
+        exercisePhases: exercise.exercisePhases,
         musclesTargeted: exercise.musclesTargeted,
         equipmentRequired: exercise.equipmentRequired,
         contraindications: exercise.contraindications,

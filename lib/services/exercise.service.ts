@@ -11,7 +11,7 @@ export interface ExerciseFilters {
   search?: string;
   bodyRegion?: BodyRegion;
   difficultyLevel?: DifficultyLevel;
-  exercisePhase?: ExercisePhase;
+  exercisePhases?: ExercisePhase[];
   equipment?: string;
   source?: ExerciseSource;
   organizationId?: string;
@@ -23,7 +23,7 @@ export async function getExercises(filters: ExerciseFilters = {}) {
       isActive: true,
       ...(filters.bodyRegion && { bodyRegion: filters.bodyRegion }),
       ...(filters.difficultyLevel && { difficultyLevel: filters.difficultyLevel }),
-      ...(filters.exercisePhase && { exercisePhase: filters.exercisePhase }),
+      ...(filters.exercisePhases?.length && { exercisePhases: { hasSome: filters.exercisePhases } }),
       ...(filters.search && {
         name: { contains: filters.search, mode: "insensitive" as const },
       }),
@@ -43,7 +43,7 @@ export async function getExercises(filters: ExerciseFilters = {}) {
       name: true,
       bodyRegion: true,
       difficultyLevel: true,
-      exercisePhase: true,
+      exercisePhases: true,
       equipmentRequired: true,
       description: true,
       imageUrl: true,
@@ -81,7 +81,7 @@ export async function getExercisesForPicker(organizationId?: string) {
       description: true,
       videoUrl: true,
       videoProvider: true,
-      exercisePhase: true,
+      exercisePhases: true,
       source: true,
       organizationId: true,
       isPublic: true,
@@ -122,7 +122,7 @@ export async function createExercise(data: {
   source?: ExerciseSource;
   organizationId?: string;
   isPublic?: boolean;
-  exercisePhase?: ExercisePhase;
+  exercisePhases?: ExercisePhase[];
 }) {
   const videoUrl = data.videoUrl?.trim() || buildYouTubeSearchUrl(data.name);
   let imageUrl = data.imageUrl?.trim() || undefined;
@@ -150,7 +150,7 @@ export async function createExercise(data: {
       source: data.source ?? "UNIVERSAL",
       organizationId: data.organizationId ?? null,
       isPublic: data.isPublic ?? true,
-      exercisePhase: data.exercisePhase,
+      exercisePhases: data.exercisePhases ?? [],
     },
   });
 }

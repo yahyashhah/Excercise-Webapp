@@ -13,7 +13,7 @@ export interface BulkExerciseInput {
   instructions?: string;
   bodyRegion: string;
   difficultyLevel: string;
-  exercisePhase?: string;
+  exercisePhases?: string[];
   musclesTargeted: string[];
   equipmentRequired: string[];
   contraindications: string[];
@@ -49,7 +49,7 @@ export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) 
             instructions: ex.instructions?.trim() || null,
             bodyRegion: ex.bodyRegion as BodyRegion,
             difficultyLevel: ex.difficultyLevel as DifficultyLevel,
-            exercisePhase: (ex.exercisePhase as ExercisePhase) || null,
+            exercisePhases: (ex.exercisePhases as ExercisePhase[] | undefined) ?? [],
             musclesTargeted: ex.musclesTargeted,
             equipmentRequired: ex.equipmentRequired,
             contraindications: ex.contraindications,
@@ -118,7 +118,7 @@ export async function importExercisesFromCsvAction(rows: CsvExerciseRow[]) {
             instructions: row.instructions ?? null,
             bodyRegion: row.bodyRegion as BodyRegion,
             difficultyLevel: row.difficultyLevel as DifficultyLevel,
-            exercisePhase: row.exercisePhase ? (row.exercisePhase as ExercisePhase) : null,
+            exercisePhases: (row.exercisePhases as ExercisePhase[] | undefined) ?? [],
             musclesTargeted: splitPipe(row.musclesTargeted),
             equipmentRequired: splitPipe(row.equipmentRequired),
             contraindications: splitPipe(row.contraindications),

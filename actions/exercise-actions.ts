@@ -177,7 +177,7 @@ export async function createOrganizationExerciseAction(input: {
   difficultyLevel: string;
   videoUrl?: string;
   isPublic: boolean;
-  exercisePhase?: string;
+  exercisePhases?: string[];
 }) {
   const { userId, orgId: sessionOrgId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
@@ -201,7 +201,7 @@ export async function createOrganizationExerciseAction(input: {
       source: organizationOrgId ? "ORGANIZATION" : "UNIVERSAL",
       organizationId: organizationOrgId ?? undefined,
       isPublic: input.isPublic,
-      exercisePhase: input.exercisePhase as ExercisePhase | undefined,
+      exercisePhases: (input.exercisePhases as ExercisePhase[] | undefined) ?? [],
     });
 
     revalidatePath("/exercises");

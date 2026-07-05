@@ -16,7 +16,7 @@ interface Props {
     search?: string;
     bodyRegion?: string;
     difficultyLevel?: string;
-    exercisePhase?: string;
+    exercisePhase?: string; // comma-separated ExercisePhase values
     equipment?: string;
     source?: string;
   }>;
@@ -33,11 +33,15 @@ export default async function ExercisesPage({ searchParams }: Props) {
   // Prefer live session orgId — dbUser.clerkOrgId may be null for accounts created before orgs were set up
   const organizationOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
 
+  const exercisePhases = params.exercisePhase
+    ? (params.exercisePhase.split(",").filter(Boolean) as ExercisePhase[])
+    : undefined;
+
   const exercises = await getExercises({
     search: params.search,
     bodyRegion: params.bodyRegion as BodyRegion | undefined,
     difficultyLevel: params.difficultyLevel as DifficultyLevel | undefined,
-    exercisePhase: params.exercisePhase as ExercisePhase | undefined,
+    exercisePhases,
     equipment: params.equipment,
     source: activeSource as ExerciseSource,
     organizationId: activeSource === "ORGANIZATION" ? organizationOrgId : undefined,
@@ -117,7 +121,7 @@ export default async function ExercisesPage({ searchParams }: Props) {
               name={exercise.name}
               bodyRegion={exercise.bodyRegion}
               difficultyLevel={exercise.difficultyLevel}
-              exercisePhase={exercise.exercisePhase}
+              exercisePhases={exercise.exercisePhases}
               equipmentRequired={exercise.equipmentRequired}
               description={exercise.description}
               imageUrl={exercise.imageUrl}

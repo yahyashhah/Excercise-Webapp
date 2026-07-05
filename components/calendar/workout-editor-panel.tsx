@@ -86,7 +86,7 @@ type ExerciseSummary = {
   description?: string | null;
   videoUrl?: string | null;
   videoProvider?: string | null;
-  exercisePhase?: string | null;
+  exercisePhases?: string[];
   source?: string | null;
   organizationId?: string | null;
   isPublic?: boolean;

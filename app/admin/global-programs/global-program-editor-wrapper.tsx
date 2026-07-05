@@ -19,9 +19,10 @@ interface Props {
     imageUrl?: string | null;
     equipmentRequired?: string[];
   }[];
+  clinics?: { id: string; name: string }[];
 }
 
-export function GlobalProgramEditorWrapper({ program, exercises }: Props) {
+export function GlobalProgramEditorWrapper({ program, exercises, clinics }: Props) {
   async function handleSave(data: CreateProgramInput, programId?: string) {
     if (programId) {
       return updateGlobalProgramAction(programId, data);
@@ -33,6 +34,7 @@ export function GlobalProgramEditorWrapper({ program, exercises }: Props) {
     <ProgramEditor
       program={program}
       exercises={exercises}
+      clinics={clinics}
       onSave={handleSave}
       redirectTo="/admin/global-programs"
     />

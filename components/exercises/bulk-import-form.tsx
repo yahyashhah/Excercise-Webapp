@@ -47,7 +47,7 @@ interface ExerciseRow {
   instructions: string;
   bodyRegion: string;
   difficultyLevel: string;
-  exercisePhase: string;
+  exercisePhases: string[];
   musclesTargeted: string;
   equipmentRequired: string[];
   contraindications: string;
@@ -69,7 +69,7 @@ function makeRow(videoUrl: string, videoFileName: string, imageUrl = ""): Exerci
     instructions: "",
     bodyRegion: "",
     difficultyLevel: "",
-    exercisePhase: "",
+    exercisePhases: [],
     musclesTargeted: "",
     equipmentRequired: [],
     contraindications: "",
@@ -136,7 +136,7 @@ export function BulkImportForm() {
         newRow.instructions = d.instructions ?? "";
         newRow.bodyRegion = d.bodyRegion ?? "";
         newRow.difficultyLevel = d.difficultyLevel ?? "";
-        newRow.exercisePhase = d.exercisePhase ?? "";
+        newRow.exercisePhases = d.exercisePhases ?? [];
         newRow.musclesTargeted = (d.musclesTargeted ?? []).join(", ");
         newRow.equipmentRequired = d.equipmentRequired ?? [];
         newRow.contraindications = (d.contraindications ?? []).join(", ");
@@ -279,7 +279,7 @@ export function BulkImportForm() {
         instructions: d.instructions ?? "",
         bodyRegion: d.bodyRegion ?? "",
         difficultyLevel: d.difficultyLevel ?? "",
-        exercisePhase: d.exercisePhase ?? "",
+        exercisePhases: d.exercisePhases ?? [],
         musclesTargeted: (d.musclesTargeted ?? []).join(", "),
         equipmentRequired: d.equipmentRequired ?? [],
         contraindications: (d.contraindications ?? []).join(", "),
@@ -308,7 +308,7 @@ export function BulkImportForm() {
       instructions: r.instructions || undefined,
       bodyRegion: r.bodyRegion,
       difficultyLevel: r.difficultyLevel,
-      exercisePhase: r.exercisePhase || undefined,
+      exercisePhases: r.exercisePhases,
       musclesTargeted: r.musclesTargeted.split(",").map((s) => s.trim()).filter(Boolean),
       equipmentRequired: r.equipmentRequired,
       contraindications: r.contraindications.split(",").map((s) => s.trim()).filter(Boolean),
@@ -702,7 +702,7 @@ function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleE
       {/* Expanded fields */}
       {row.expanded && (
         <div className="space-y-4 border-t px-4 pb-5 pt-4">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Body Region *</Label>
               <select value={row.bodyRegion} onChange={(e) => onUpdate({ bodyRegion: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
@@ -717,12 +717,31 @@ function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleE
                 {DIFFICULTY_LEVELS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Phase</Label>
-              <select value={row.exercisePhase} onChange={(e) => onUpdate({ exercisePhase: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
-                <option value="">Select…</option>
-                {EXERCISE_PHASES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-              </select>
+            <div className="space-y-1.5 sm:col-span-3">
+              <Label className="text-xs font-medium">Phase(s)</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {EXERCISE_PHASES.map((p) => {
+                  const active = row.exercisePhases.includes(p.value);
+                  return (
+                    <button
+                      key={p.value}
+                      type="button"
+                      onClick={() => onUpdate({
+                        exercisePhases: active
+                          ? row.exercisePhases.filter((v) => v !== p.value)
+                          : [...row.exercisePhases, p.value],
+                      })}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        active
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

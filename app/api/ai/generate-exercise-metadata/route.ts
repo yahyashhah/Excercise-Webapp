@@ -13,7 +13,9 @@ const metadataFields = {
   instructions: z.string().describe("Clear step-by-step instructions for the client, numbered list format, safety-first"),
   bodyRegion: z.enum(["LOWER_BODY", "UPPER_BODY", "CORE", "FULL_BODY", "BALANCE", "FLEXIBILITY"]).describe("Primary body region targeted"),
   difficultyLevel: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]).describe("Appropriate difficulty level for a senior/rehab population — default to BEGINNER unless clearly advanced"),
-  exercisePhase: z.enum(["WARMUP", "ACTIVATION", "STRENGTHENING", "MOBILITY", "COOLDOWN"]).describe("Workout phase this exercise best fits"),
+  exercisePhases: z.array(z.enum(["WARMUP", "ACTIVATION", "STRENGTHENING", "MOBILITY", "COOLDOWN"]))
+    .min(1)
+    .describe("Workout phase(s) this exercise fits — an exercise can belong to more than one, e.g. mobility and strength. Return every phase that genuinely applies."),
   musclesTargeted: z.array(z.string()).describe("Primary muscles worked, e.g. ['Quadriceps', 'Glutes']"),
   equipmentRequired: z.array(z.enum(["None", "Resistance Band", "Dumbbells", "Yoga Mat", "Stability Ball", "Foam Roller", "Chair", "Wall", "Towel", "Step/Stair"])).describe("Equipment needed from the standard list"),
   contraindications: z.array(z.string()).describe("Medical conditions where this exercise should be avoided, e.g. ['Acute knee injury', 'Total knee replacement < 6 weeks']"),

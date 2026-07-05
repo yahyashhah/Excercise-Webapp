@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { clerkClient } from "@clerk/nextjs/server";
 import { subMonths, startOfMonth, endOfMonth, format } from "date-fns";
 
 export async function getPlatformStats() {
@@ -36,6 +37,12 @@ export async function getPlatformStats() {
     activePrograms,
     newUsersThisMonth,
   };
+}
+
+export async function listClerkOrganizations() {
+  const client = await clerkClient();
+  const { data } = await client.organizations.getOrganizationList({ limit: 100 });
+  return data.map((org) => ({ id: org.id, name: org.name }));
 }
 
 export async function getUserGrowthData(months = 6) {

@@ -9,21 +9,30 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Pencil, Send, Trash2 } from "lucide-react";
+import { MoreVertical, Pencil, Send, Trash2, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   pushGlobalProgramUpdateAction,
   deleteGlobalProgramAction,
 } from "@/actions/global-program-actions";
+import { AssignClinicsDialog } from "./assign-clinics-dialog";
 
 interface Props {
   programId: string;
   programName: string;
+  clinics: { id: string; name: string }[];
+  currentOrganizationIds: string[];
 }
 
-export function GlobalProgramActions({ programId, programName }: Props) {
+export function GlobalProgramActions({
+  programId,
+  programName,
+  clinics,
+  currentOrganizationIds,
+}: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
 
   async function handlePushUpdate() {
     setLoading(true);
@@ -57,31 +66,44 @@ export function GlobalProgramActions({ programId, programName }: Props) {
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        disabled={loading}
-        className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
-      >
-        <MoreVertical className="h-4 w-4" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => router.push(`/admin/global-programs/${programId}/edit`)} className="flex items-center gap-2">
-          <Pencil className="h-4 w-4" />
-          Edit
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={handlePushUpdate} className="flex items-center gap-2">
-          <Send className="h-4 w-4" />
-          Push Update Notification
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={handleDelete}
-          className="flex items-center gap-2 text-destructive focus:text-destructive"
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          disabled={loading}
+          className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
         >
-          <Trash2 className="h-4 w-4" />
-          Archive
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <MoreVertical className="h-4 w-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => router.push(`/admin/global-programs/${programId}/edit`)} className="flex items-center gap-2">
+            <Pencil className="h-4 w-4" />
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setAssignOpen(true)} className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            Assign to Clinics
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handlePushUpdate} className="flex items-center gap-2">
+            <Send className="h-4 w-4" />
+            Push Update Notification
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={handleDelete}
+            className="flex items-center gap-2 text-destructive focus:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+            Archive
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AssignClinicsDialog
+        programId={programId}
+        clinics={clinics}
+        currentOrganizationIds={currentOrganizationIds}
+        open={assignOpen}
+        onOpenChange={setAssignOpen}
+      />
+    </>
   );
 }

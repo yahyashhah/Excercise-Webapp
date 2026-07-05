@@ -1,5 +1,6 @@
 import { requireSuperAdmin } from "@/lib/current-user";
 import { getExercises } from "@/lib/services/exercise.service";
+import { listClerkOrganizations } from "@/lib/services/admin.service";
 import { GlobalProgramEditorWrapper } from "../global-program-editor-wrapper";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -7,7 +8,10 @@ import { Button } from "@/components/ui/button";
 
 export default async function NewGlobalProgramPage() {
   await requireSuperAdmin();
-  const exercises = await getExercises();
+  const [exercises, clinics] = await Promise.all([
+    getExercises(),
+    listClerkOrganizations(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -23,7 +27,7 @@ export default async function NewGlobalProgramPage() {
           Create a master program that will be available to all organizations.
         </p>
       </div>
-      <GlobalProgramEditorWrapper exercises={exercises} />
+      <GlobalProgramEditorWrapper exercises={exercises} clinics={clinics} />
     </div>
   );
 }

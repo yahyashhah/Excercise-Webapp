@@ -180,7 +180,7 @@ interface LibraryExercise {
   name: string;
   bodyRegion: string;
   difficultyLevel: string;
-  exercisePhase: string | null;
+  exercisePhases: string[];
   defaultReps: number | null;
   defaultSets: number | null;
   defaultHoldSeconds: number | null;
@@ -964,7 +964,7 @@ function EditPanel({
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-5">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-5">
         {editBlocks.map((block) => (
           <div key={block.id}>
             {/* Block header */}
@@ -1804,7 +1804,7 @@ export function ProgramScheduleView({
         open={selectedEvent !== null}
         onOpenChange={(open) => { if (!open) handleClose(); }}
       >
-        <DialogContent className="max-w-lg p-0 flex flex-col overflow-hidden gap-0">
+        <DialogContent className="max-w-lg max-h-[85vh] p-0 flex flex-col overflow-hidden gap-0">
           {selectedEvent && isTrainer && (
             <EditPanel
               event={selectedEvent}
