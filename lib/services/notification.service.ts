@@ -10,6 +10,7 @@ export const NOTIFICATION_TYPES = {
   NEW_RESPONSE: "NEW_RESPONSE",
   NEW_MESSAGE: "NEW_MESSAGE",
   EXERCISE_NOTE: "EXERCISE_NOTE",
+  WEARABLE_ALERT: "WEARABLE_ALERT",
 } as const;
 
 export type NotificationType =

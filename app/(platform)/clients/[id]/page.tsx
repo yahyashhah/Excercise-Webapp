@@ -29,7 +29,7 @@ export default async function ClientDetailPage({ params }: Props) {
     auth(),
   ]);
   const organizationOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
-  const client = await getClientDetail(id);
+  const client = await getClientDetail(id, user.id);
 
   if (!client) notFound();
 

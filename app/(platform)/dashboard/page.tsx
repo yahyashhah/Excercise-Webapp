@@ -6,6 +6,7 @@ import * as sessionService from "@/lib/services/session.service";
 import * as messageService from "@/lib/services/message.service";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import { getDashboardInsights } from "@/lib/services/dashboard-insights.service";
+import { getLatestDailySummary } from "@/lib/services/wearable.service";
 import { startOfWeek, endOfWeek, startOfDay } from "date-fns";
 
 export default async function DashboardPage() {
@@ -83,7 +84,7 @@ export default async function DashboardPage() {
   const calendarStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const calendarEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59);
 
-  const [recentAssessments, unreadMessages, calendarSessions, completedThisWeek] = await Promise.all([
+  const [recentAssessments, unreadMessages, calendarSessions, completedThisWeek, wearableSummary] = await Promise.all([
     prisma.assessment.findMany({
       where: { clientId: user.id },
       orderBy: { createdAt: "desc" },
@@ -119,6 +120,7 @@ export default async function DashboardPage() {
         completedAt: { gte: weekStart, lte: weekEnd },
       },
     }),
+    getLatestDailySummary(user.id),
   ]);
 
   // The hero "next workout" uses the first upcoming session
@@ -133,6 +135,7 @@ export default async function DashboardPage() {
       weeklyCompliance={completedThisWeek}
       recentAssessments={recentAssessments}
       unreadMessages={unreadMessages}
+      wearableSummary={wearableSummary}
     />
   );
 }

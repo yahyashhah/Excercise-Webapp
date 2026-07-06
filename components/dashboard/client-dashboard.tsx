@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/utils/formatting";
 import { ClientSessionCalendar } from "./client-session-calendar";
+import { WearableSummaryCard } from "./wearable-summary-card";
+import type { WearableDailySummary } from "@prisma/client";
 
 interface ClientDashboardProps {
   upcomingSessions: {
@@ -35,6 +37,7 @@ interface ClientDashboardProps {
   weeklyCompliance: number;
   recentAssessments: { id: string; assessmentType: string; value: number; unit: string; createdAt: Date }[];
   unreadMessages: number;
+  wearableSummary: WearableDailySummary | null;
 }
 
 export function ClientDashboard({
@@ -43,6 +46,7 @@ export function ClientDashboard({
   weeklyCompliance,
   recentAssessments,
   unreadMessages,
+  wearableSummary,
 }: ClientDashboardProps) {
   const totalWeekSessions = weeklyCompliance + upcomingSessions.length;
   const compliancePercent = totalWeekSessions > 0
@@ -169,6 +173,9 @@ export function ClientDashboard({
           </div>
         </CardContent>
       </Card>
+
+      {/* Wearable summary — only when a device has synced data */}
+      {wearableSummary && <WearableSummaryCard summary={wearableSummary} />}
 
       {/* Schedule calendar */}
       <ClientSessionCalendar sessions={calendarSessions} />

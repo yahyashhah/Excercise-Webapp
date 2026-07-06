@@ -28,8 +28,14 @@ export async function getClientIdsForTrainer(trainerId: string): Promise<string[
   return clients.map((p) => p.id);
 }
 
-export async function getClientDetail(clientId: string) {
-  return prisma.user.findUnique({
+export async function getClientDetail(clientId: string, trainerId: string) {
+  const trainer = await prisma.user.findUnique({
+    where: { id: trainerId },
+    select: { clerkOrgId: true },
+  });
+  if (!trainer?.clerkOrgId) return null;
+
+  const client = await prisma.user.findUnique({
     where: { id: clientId },
     include: {
       clientProfile: true,
@@ -39,6 +45,9 @@ export async function getClientDetail(clientId: string) {
       },
     },
   });
+  if (!client || client.clerkOrgId !== trainer.clerkOrgId) return null;
+
+  return client;
 }
 
 export async function getTrainersForClient(clientId: string) {

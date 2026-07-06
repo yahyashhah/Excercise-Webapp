@@ -109,6 +109,21 @@ enum AuditActorType {
   SYSTEM
 }
 
+enum WearableProvider {
+  APPLE_HEALTH
+  FITBIT
+  GARMIN
+  OURA
+  WHOOP
+  OTHER
+}
+
+enum WearableConnectionStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
 model User {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   clerkId     String   @unique
@@ -136,24 +151,28 @@ model User {
   assessedBy       Assessment[]       @relation("AssessedBy")
   exercisesCreated Exercise[]
 
-  programsCreated        Program[]            @relation("ProgramsCreated")
-  programsAssigned       Program[]            @relation("ProgramsAssigned")
-  sessionsV2             WorkoutSessionV2[]   @relation("SessionsV2")
-  checkInTemplates       CheckInTemplate[]    @relation("CheckInTemplatesCreated")
-  checkInAssignments     CheckInAssignment[]  @relation("CheckInAssignments")
-  checkInResponses       CheckInResponse[]    @relation("CheckInResponses")
-  bodyMetrics            BodyMetric[]         @relation("BodyMetrics")
-  progressPhotos         ProgressPhoto[]      @relation("ProgressPhotos")
-  habits                 HabitDefinition[]    @relation("Habits")
-  nutritionTarget        NutritionTarget?     @relation("NutritionTarget")
-  nutritionLogs          NutritionLog[]       @relation("NutritionLogs")
-  notifications          Notification[]       @relation("Notifications")
-  packages               CoachPackage[]       @relation("Packages")
-  subscriptions          ClientSubscription[] @relation("Subscriptions")
-  branding               CoachBranding?       @relation("Branding")
-  clinicalNotesAsClient  ClinicalNote[]       @relation("ClinicalNotesClient")
-  clinicalNotesAsTrainer ClinicalNote[]       @relation("ClinicalNotesTrainer")
-  trainerSubscription    TrainerSubscription? @relation("TrainerSubscription")
+  programsCreated        Program[]              @relation("ProgramsCreated")
+  programsAssigned       Program[]              @relation("ProgramsAssigned")
+  sessionsV2             WorkoutSessionV2[]     @relation("SessionsV2")
+  checkInTemplates       CheckInTemplate[]      @relation("CheckInTemplatesCreated")
+  checkInAssignments     CheckInAssignment[]    @relation("CheckInAssignments")
+  checkInResponses       CheckInResponse[]      @relation("CheckInResponses")
+  bodyMetrics            BodyMetric[]           @relation("BodyMetrics")
+  progressPhotos         ProgressPhoto[]        @relation("ProgressPhotos")
+  habits                 HabitDefinition[]      @relation("Habits")
+  nutritionTarget        NutritionTarget?       @relation("NutritionTarget")
+  nutritionLogs          NutritionLog[]         @relation("NutritionLogs")
+  notifications          Notification[]         @relation("Notifications")
+  packages               CoachPackage[]         @relation("Packages")
+  subscriptions          ClientSubscription[]   @relation("Subscriptions")
+  branding               CoachBranding?         @relation("Branding")
+  clinicalNotesAsClient  ClinicalNote[]         @relation("ClinicalNotesClient")
+  clinicalNotesAsTrainer ClinicalNote[]         @relation("ClinicalNotesTrainer")
+  trainerSubscription    TrainerSubscription?   @relation("TrainerSubscription")
+  wearableAccount        WearableAccount?       @relation("WearableAccount")
+  wearableConnections    WearableConnection[]   @relation("WearableConnections")
+  wearableDailySummaries WearableDailySummary[] @relation("WearableDailySummaries")
+  wearableWorkouts       WearableWorkout[]      @relation("WearableWorkouts")
 }
 
 model AuditLog {
@@ -860,4 +879,65 @@ model ProgramPurchase {
 
   @@index([trainerId, createdAt])
   @@index([buyerEmail])
+}
+
+model WearableAccount {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  clientId    String   @unique @map("patientId") @db.ObjectId
+  client      User     @relation("WearableAccount", fields: [clientId], references: [id])
+  vitalUserId String   @unique
+  createdAt   DateTime @default(now())
+}
+
+model WearableConnection {
+  id             String                   @id @default(auto()) @map("_id") @db.ObjectId
+  clientId       String                   @map("patientId") @db.ObjectId
+  client         User                     @relation("WearableConnections", fields: [clientId], references: [id])
+  provider       WearableProvider
+  status         WearableConnectionStatus @default(CONNECTED)
+  connectedAt    DateTime                 @default(now())
+  lastSyncedAt   DateTime?
+  disconnectedAt DateTime?
+
+  @@unique([clientId, provider])
+  @@index([clientId])
+}
+
+model WearableDailySummary {
+  id               String           @id @default(auto()) @map("_id") @db.ObjectId
+  clientId         String           @map("patientId") @db.ObjectId
+  client           User             @relation("WearableDailySummaries", fields: [clientId], references: [id])
+  date             DateTime
+  provider         WearableProvider
+  sleepDurationMin Int?
+  sleepScore       Int?
+  restingHeartRate Int?
+  hrvMs            Float?
+  steps            Int?
+  activeMinutes    Int?
+  caloriesBurned   Int?
+  raw              Json?
+  createdAt        DateTime         @default(now())
+
+  @@unique([clientId, date, provider])
+  @@index([clientId, date])
+}
+
+model WearableWorkout {
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  clientId        String           @map("patientId") @db.ObjectId
+  client          User             @relation("WearableWorkouts", fields: [clientId], references: [id])
+  provider        WearableProvider
+  externalId      String
+  activityType    String
+  startedAt       DateTime
+  endedAt         DateTime
+  durationMinutes Int
+  avgHeartRate    Int?
+  caloriesBurned  Int?
+  raw             Json?
+  createdAt       DateTime         @default(now())
+
+  @@unique([provider, externalId])
+  @@index([clientId, startedAt])
 }

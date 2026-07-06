@@ -4,6 +4,11 @@ import { requireRole } from "@/lib/current-user";
 import { getClientDetail } from "@/lib/services/client.service";
 import * as progressService from "@/lib/services/progress.service";
 import * as noteService from "@/lib/services/clinical-note.service";
+import {
+  getConnectionsForClient,
+  getDailySummariesForClient,
+  getWorkoutsForClient,
+} from "@/lib/services/wearable.service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,6 +17,7 @@ import { ArrowLeft } from "lucide-react";
 import { PhotosTab } from "@/components/progress/photos-tab";
 import { MetricsTab } from "@/components/progress/metrics-tab";
 import { SoapNotesTab } from "@/components/progress/soap-notes-tab";
+import { WearablesTab } from "@/components/progress/wearables-tab";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -20,17 +26,21 @@ interface Props {
 export default async function ClientProgressPage({ params }: Props) {
   const { id } = await params;
   const user = await requireRole("TRAINER");
-  const client = await getClientDetail(id);
+  const client = await getClientDetail(id, user.id);
 
   if (!client) notFound();
 
   // Fetch all progress data in parallel
-  const [photos, metrics, metricTypes, notes] = await Promise.all([
-    progressService.getProgressPhotos(client.id),
-    progressService.getBodyMetrics(client.id),
-    progressService.getBodyMetricTypes(client.id),
-    noteService.getNotesForClient(client.id, user.id),
-  ]);
+  const [photos, metrics, metricTypes, notes, wearableConnections, wearableSummaries, wearableWorkouts] =
+    await Promise.all([
+      progressService.getProgressPhotos(client.id),
+      progressService.getBodyMetrics(client.id),
+      progressService.getBodyMetricTypes(client.id),
+      noteService.getNotesForClient(client.id, user.id),
+      getConnectionsForClient(client.id),
+      getDailySummariesForClient(client.id, 30),
+      getWorkoutsForClient(client.id),
+    ]);
 
   return (
     <div className="space-y-8">
@@ -83,6 +93,9 @@ export default async function ClientProgressPage({ params }: Props) {
           <TabsTrigger value="notes">
             Clinical Notes — SOAP ({notes.length})
           </TabsTrigger>
+          <TabsTrigger value="wearables">
+            Wearables ({wearableConnections.filter((c) => c.status === "CONNECTED").length})
+          </TabsTrigger>
         </TabsList>
 
         {/* ---------------------------------------------------------------- */}
@@ -108,6 +121,17 @@ export default async function ClientProgressPage({ params }: Props) {
         {/* ---------------------------------------------------------------- */}
         <TabsContent value="notes" className="mt-6">
           <SoapNotesTab notes={notes} clientId={client.id} />
+        </TabsContent>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Wearables tab                                                     */}
+        {/* ---------------------------------------------------------------- */}
+        <TabsContent value="wearables" className="mt-6">
+          <WearablesTab
+            connections={wearableConnections}
+            summaries={wearableSummaries}
+            workouts={wearableWorkouts}
+          />
         </TabsContent>
       </Tabs>
     </div>
