@@ -7,7 +7,9 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { generateProgram, type GeneratedProgram } from "@/lib/services/ai.service";
 import {
   extractProgramBriefText,
-  parseProgramBriefFlexible,
+  extractBriefMetadata,
+  parseProgramBrief,
+  type BriefMetadata,
 } from "@/lib/services/program-brief.service";
 
 import { auth } from "@clerk/nextjs/server";
@@ -411,7 +413,16 @@ export async function generateProgramBriefUploadUrlAction(
   }
 }
 
-export async function generateProgramPreviewFromBriefAction(input: {
+// Step 1 of the brief-upload flow: read the document and extract only the
+// high-level metadata (title, difficulty, duration, focus areas, schedule).
+// Schedule (daysPerWeek/preferredWeekdays) is the one piece that actually
+// gets baked into the generated program's day assignments — if the document
+// didn't state it, the trainer needs to confirm it BEFORE generation runs,
+// not after, since editing it afterward wouldn't move anything. The caller
+// checks `metadata.inferredFields` for "estimatedDaysPerWeek" /
+// "preferredWeekdays" to decide whether to show a confirmation step before
+// calling generateProgramPreviewFromBriefAction.
+export async function extractProgramMetadataFromBriefAction(input: {
   fileUrl: string;
   fileName: string;
 }) {
@@ -420,7 +431,30 @@ export async function generateProgramPreviewFromBriefAction(input: {
 
   try {
     const rawText = await extractProgramBriefText(input.fileUrl, input.fileName);
-    const parsed = await parseProgramBriefFlexible(rawText);
+    if (!rawText.trim()) {
+      return { success: false as const, error: "The document appears to be empty or unreadable." };
+    }
+    const metadata = await extractBriefMetadata(rawText);
+    return { success: true as const, data: { metadata, rawText } };
+  } catch (error) {
+    console.error("Failed to extract program metadata from brief:", error);
+    return { success: false as const, error: "Failed to read this document" };
+  }
+}
+
+export async function generateProgramPreviewFromBriefAction(input: {
+  rawText: string;
+  // The trainer's confirmed metadata from extractProgramMetadataFromBriefAction
+  // (with schedule fields edited if they needed correcting). Passing it in
+  // skips re-guessing metadata and, critically, means generation uses the
+  // trainer-confirmed schedule instead of the AI's original guess.
+  metadata: BriefMetadata;
+}) {
+  const user = await getTrainerUser();
+  if (!user) return { success: false as const, error: "Unauthorized" };
+
+  try {
+    const parsed = await parseProgramBrief(input.rawText, input.metadata);
     if (!parsed.ok) {
       return { success: false as const, error: parsed.errors.join("\n") };
     }
@@ -440,10 +474,6 @@ export async function generateProgramPreviewFromBriefAction(input: {
       })),
       difficultyLevel: brief.difficultyLevel,
       preferredWeekdays: brief.preferredWeekdays,
-      additionalNotes: brief.additionalNotes,
-      subjective: brief.subjective,
-      trainerPrompt: brief.trainerPrompt,
-      preferredExerciseNames: brief.preferredExerciseNames,
       sessionBlueprint: brief.sessionBlueprint,
     };
 
@@ -455,6 +485,10 @@ export async function generateProgramPreviewFromBriefAction(input: {
         aiPlan,
         params,
         parsed: brief,
+        // The same exercise/inferred-field warning can repeat once per week for a
+        // multi-week program (identical sessions recur) — de-dupe before showing
+        // the trainer, so a 4-week program doesn't show the same line 4 times.
+        warnings: Array.from(new Set([...(brief.warnings ?? []), ...(aiPlan.warnings ?? [])])),
       },
     };
   } catch (error) {

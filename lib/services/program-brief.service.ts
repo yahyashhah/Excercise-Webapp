@@ -7,24 +7,6 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const REQUIRED_HEADERS = [
-  "PROGRAM_TITLE",
-  "FOCUS_AREAS",
-  "DIFFICULTY",
-  "DURATION_MINUTES",
-  "DAYS_PER_WEEK",
-  "PREFERRED_WEEKDAYS",
-  "CIRCUITS",
-] as const;
-
-const OPTIONAL_HEADERS = [
-  "SUBJECTIVE",
-  "TRAINER_INSTRUCTIONS",
-  "ADDITIONAL_NOTES",
-] as const;
-
-const ALL_HEADERS = [...REQUIRED_HEADERS, ...OPTIONAL_HEADERS];
-
 const ALLOWED_DIFFICULTY = ["BEGINNER", "INTERMEDIATE", "ADVANCED"] as const;
 
 const ALLOWED_CIRCUIT_FOCUS = [
@@ -49,18 +31,6 @@ const WEEKDAYS = [
   "Sunday",
 ] as const;
 
-const WEEKDAY_FALLBACK_ORDER = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-] as const;
-
-type HeaderKey = (typeof ALL_HEADERS)[number];
-
 type CircuitConfig = {
   name: string;
   focusType: string;
@@ -73,19 +43,32 @@ export type ExerciseBlueprint = {
   sets?: number;
   reps?: number;
   durationSeconds?: number;
+  notes?: string;
 };
 
-type BlockBlueprint = {
+export type BlockBlueprint = {
   name: string;
-  sets?: number;
+  focusType: string;
   exercises: ExerciseBlueprint[];
 };
 
-type SessionBlueprint = {
+export type SessionBlueprint = {
   dayIndex: number;
   weekIndex?: number;
   title: string;
   blocks: BlockBlueprint[];
+};
+
+export type RawSession = {
+  weekLabel: string | null;
+  dayLabel: string | null;
+  title: string;
+  blocks: BlockBlueprint[];
+};
+
+export type ChunkExtractionResult = {
+  sessions: RawSession[];
+  warnings: string[];
 };
 
 export type ProgramBriefParsed = {
@@ -96,11 +79,12 @@ export type ProgramBriefParsed = {
   daysPerWeek: number;
   preferredWeekdays: string[];
   circuits: CircuitConfig[];
-  preferredExerciseNames?: string[];
   sessionBlueprint?: SessionBlueprint[];
-  subjective?: string;
-  trainerPrompt?: string;
-  additionalNotes?: string;
+  warnings?: string[];
+  // Which of the fields above were not explicitly stated in the document and
+  // had to be inferred — the trainer-facing preview uses this to highlight
+  // those specific fields as editable, rather than a generic text warning.
+  inferredFields?: string[];
 };
 
 export type ProgramBriefParseResult =
@@ -111,494 +95,324 @@ function normalizeText(raw: string) {
   return raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
 }
 
-function splitCommaList(value: string): string[] {
-  return value
-    .split(",")
-    .map((s) => s.trim())
+const CHUNK_SIZE_CEILING = 8000; // characters — keeps each AI extraction call comfortably small
+
+export function splitIntoChunks(text: string): string[] {
+  const paragraphs = normalizeText(text)
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
     .filter(Boolean);
-}
 
-function parseHeaderSections(text: string): Record<HeaderKey, string[]> {
-  const lines = normalizeText(text).split("\n");
-  const sections = {} as Record<HeaderKey, string[]>;
-  let current: HeaderKey | null = null;
+  if (!paragraphs.length) return [];
 
-  for (const line of lines) {
-    const match = line.match(/^([A-Z_ ]+):\s*(.*)$/);
-    const headerKey = match?.[1]?.trim().replace(/\s+/g, "_") as HeaderKey | undefined;
+  // Broad section-boundary heuristic: "Week 1", "Phase 2", "Cycle 3", etc.
+  // This is a splitting hint only — it never has to be exhaustive, because the
+  // per-chunk AI extraction (Task 5) is what actually identifies sessions.
+  const boundaryPattern = /^(week|phase|month|cycle|block)\s+\d+/i;
+  const boundaryIndices = paragraphs.reduce<number[]>((acc, p, i) => {
+    if (boundaryPattern.test(p)) acc.push(i);
+    return acc;
+  }, []);
 
-    if (headerKey && ALL_HEADERS.includes(headerKey)) {
-      current = headerKey;
-      sections[current] = [];
-      const rest = match?.[2]?.trim();
-      if (rest) sections[current].push(rest);
-      continue;
+  let groups: string[][];
+  if (boundaryIndices.length >= 2) {
+    groups = [];
+    if (boundaryIndices[0] > 0) {
+      groups.push(paragraphs.slice(0, boundaryIndices[0]));
     }
-
-    if (current) {
-      sections[current].push(line);
+    for (let g = 0; g < boundaryIndices.length; g++) {
+      const start = boundaryIndices[g];
+      const end = g + 1 < boundaryIndices.length ? boundaryIndices[g + 1] : paragraphs.length;
+      groups.push(paragraphs.slice(start, end));
     }
+  } else {
+    // No reliable section boundaries — treat the whole document as one group,
+    // then let the size ceiling below break it into paragraph-aligned chunks.
+    groups = [paragraphs];
   }
 
-  return sections;
-}
+  const chunks: string[] = [];
+  for (const group of groups) {
+    let current: string[] = [];
+    let currentSize = 0;
+    for (const para of group) {
+      // Calculate size if we add this paragraph (including separator overhead)
+      const separatorSize = current.length > 0 ? 2 : 0;
+      const potentialSize = currentSize + separatorSize + para.length;
 
-function parseCircuits(lines: string[]): CircuitConfig[] {
-  return lines
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => l.replace(/^[-*]\s*/, ""))
-    .map((l) => l.split("|").map((s) => s.trim()))
-    .filter((parts) => parts.length >= 3)
-    .map(([name, focusType, exerciseCount, rounds]) => {
-      const ft = focusType.toUpperCase();
-      const parsedRounds = rounds !== undefined ? Number.parseInt(rounds, 10) : undefined;
-      return {
-        name,
-        focusType: ft,
-        exerciseCount: Number.parseInt(exerciseCount, 10),
-        rounds: parsedRounds && !Number.isNaN(parsedRounds) ? parsedRounds
-          : ft === "WARMUP" || ft === "COOLDOWN" ? 1
-          : 3,
-      };
-    });
-}
-
-function normalizeWeekday(value: string) {
-  const lower = value.trim().toLowerCase();
-  const match = WEEKDAYS.find((d) => d.toLowerCase() === lower);
-  return match ?? null;
-}
-
-function normalizeName(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/https?:\/\/\S+/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function parseExerciseFromLine(line: string): ExerciseBlueprint | null {
-  const cleaned = line.replace(/https?:\/\/\S+/g, "").trim();
-  if (!cleaned) return null;
-  if (/^(day|block)\b/i.test(cleaned)) return null;
-  if (/^[-–—]+$/.test(cleaned)) return null;
-  // Skip bare or labelled rest lines (e.g. "A3: rest", "B4: rest", "rest")
-  if (/^[A-Z]\d\s*:\s*rest\s*$/i.test(cleaned)) return null;
-  if (/^\s*rest\s*$/i.test(cleaned)) return null;
-  // Skip instruction/description lines (e.g. "do exercise A1 then A2...")
-  if (/^do\s+exercise\b/i.test(cleaned)) return null;
-  if (/^rest\s+period\s+is\b/i.test(cleaned)) return null;
-
-  // Extract sets × reps before stripping (e.g. "4x10", "4 x 8/side")
-  let sets: number | undefined;
-  let reps: number | undefined;
-  let durationSeconds: number | undefined;
-
-  const setsRepsMatch = cleaned.match(/\b(\d+)\s*x\s*(\d+)/i);
-  if (setsRepsMatch) {
-    sets = Number.parseInt(setsRepsMatch[1], 10);
-    reps = Number.parseInt(setsRepsMatch[2], 10);
-  }
-
-  // Extract duration (e.g. "30sec", "30 sec") — only if no reps found
-  const secMatch = cleaned.match(/\b(\d+)\s*sec/i);
-  if (secMatch && reps === undefined) {
-    durationSeconds = Number.parseInt(secMatch[1], 10);
-  }
-
-  const colonMatch = cleaned.match(/^[A-Z]\d\s*:\s*(.+)$/i);
-  let name = colonMatch ? colonMatch[1].trim() : cleaned;
-
-  name = name
-    .replace(/\s+\d+\s*x\s*[^,]*/gi, "")
-    .replace(/\s+x\s*\d+[^,]*/gi, "")
-    .replace(/\s+\d+\s*sec[^,]*/gi, "")
-    .replace(/\s+\d+\s*yards?[^,]*/gi, "")
-    .replace(/\s+\d+\s*each[^,]*/gi, "")
-    .replace(/\/side[^,]*/gi, "")
-    .replace(/\s+\d+\s*reps?[^,]*/gi, "")
-    .replace(/\s+\d+\s*sets?[^,]*/gi, "")
-    .trim();
-
-  if (!name) return null;
-
-  return {
-    name,
-    ...(sets !== undefined && { sets }),
-    ...(reps !== undefined && { reps }),
-    ...(durationSeconds !== undefined && { durationSeconds }),
-  };
-}
-
-function inferFocusAreasFromText(text: string) {
-  const lower = text.toLowerCase();
-  const areas: string[] = [];
-  if (lower.includes("lower body") || /\blower\b/.test(lower)) areas.push("lower body");
-  if (lower.includes("upper body") || /\bupper\b/.test(lower)) areas.push("upper body");
-  if (lower.includes("full body")) areas.push("full body");
-  if (lower.includes("core")) areas.push("core");
-  if (lower.includes("balance")) areas.push("balance");
-  if (lower.includes("plyometric") || lower.includes("plyometrics")) areas.push("plyometrics");
-  return Array.from(new Set(areas));
-}
-
-function inferCircuitFocusType(name: string) {
-  const lower = name.toLowerCase();
-  if (lower.includes("warm")) return "WARMUP";
-  if (lower.includes("cool") || lower.includes("recover") || lower.includes("stretch")) return "COOLDOWN";
-  if (lower.includes("plyo") || lower.includes("jump") || lower.includes("sprint") || lower.includes("speed") || lower.includes("cardio") || lower.includes("conditioning")) return "CARDIO";
-  if (lower.includes("lower") || lower.includes("leg") || lower.includes("squat") || lower.includes("hip") || lower.includes("glute")) return "LOWER_BODY";
-  if (lower.includes("upper") || lower.includes("push") || lower.includes("pull") || lower.includes("press") || lower.includes("row") || lower.includes("shoulder") || lower.includes("arm")) return "UPPER_BODY";
-  if (lower.includes("core") || lower.includes("ab") || lower.includes("trunk")) return "CORE";
-  if (lower.includes("balance") || lower.includes("stability") || lower.includes("propriocep")) return "BALANCE";
-  if (lower.includes("mobility") || lower.includes("flex")) return "FLEXIBILITY";
-  if (lower.includes("med ball") || lower.includes("power") || lower.includes("full")) return "FULL_BODY";
-  return "FULL_BODY";
-}
-
-// ─── Block-header patterns ────────────────────────────────────────────────────
-// A "block header" is a line that starts a named section within a session.
-// We deliberately require "series", ":", or end-of-line after section keywords
-// so that session titles like "Acceleration Day B" are NOT confused with the
-// "Acceleration series:" block header.
-const BLOCK_HEADER_PATTERNS = [
-  /^block\s*[a-z]\b/i,
-  /^plyometric[s]?\s*(series|warm[\s-]?up|:|\s*$)/i,
-  /^plyo\s*(series|:|\s*$)/i,
-  /^med[\s-]?ball[s]?\s*(series|warm[\s-]?up|:|\s*$)/i,
-  /^medball[s]?\s*(series|:|\s*$)/i,
-  /^mobility\s*(series|:|\s*$)/i,
-  /^acceleration\s*(series|:|\s*$)/i,
-  /^speed\s*(series|:|\s*$)/i,
-  /^cooldown[s]?\s*[:]?(\s|$)/i,
-  /^warm[\s-]?up[s]?\s*[:]?(\s|$)/i,
-];
-
-function isKnownBlockHeader(line: string): boolean {
-  const t = line.trim();
-  return BLOCK_HEADER_PATTERNS.some((r) => r.test(t));
-}
-
-// Normalise a block header line into a canonical block name
-function blockNameFromHeader(line: string): string {
-  const t = line.trim().toLowerCase();
-  if (/^block\s*([a-z])\b/i.test(line.trim())) {
-    const m = line.trim().match(/^block\s*([a-z])\b/i);
-    return `Block ${m![1].toUpperCase()}`;
-  }
-  if (/plyometric|^plyo\b/i.test(t)) return "Plyometrics";
-  if (/med[\s-]?ball|medball/i.test(t)) return "Med Ball";
-  if (/mobility/i.test(t)) return "Mobility";
-  if (/acceleration/i.test(t)) return "Acceleration";
-  if (/speed/i.test(t)) return "Speed";
-  if (/cooldown/i.test(t)) return "Cooldown";
-  if (/warm[\s-]?up/i.test(t)) return "Warm Up";
-  return line.trim().replace(/:\s*$/, "").trim() || "General";
-}
-
-function isSeparatorLine(line: string): boolean {
-  const t = line.trim();
-  return t.length >= 3 && /^[-—–=_]+$/.test(t);
-}
-
-// An "exercise-like" line: labelled exercise (A1: or A3 without colon), has sets×reps, or has a URL
-function looksLikeExercise(line: string): boolean {
-  const t = line.trim();
-  return (
-    /^[A-Z]\d[\s:]/i.test(t) ||   // A1: chin ups  OR  A3 deep chest stretch (no colon)
-    /\b\d+\s*x\s*\d+\b/i.test(t) ||
-    /https?:\/\//i.test(t)
-  );
-}
-
-// Heuristic: a short line (≤ 8 words), no exercise-movement verbs, no "x N" pattern
-// AND followed within 12 non-empty lines by a block header → it's a session title.
-function isSessionTitleLine(lineIdx: number, lines: string[]): boolean {
-  const line = lines[lineIdx].trim();
-  if (!line || line.length > 80) return false;
-  if (isKnownBlockHeader(line)) return false;
-  if (looksLikeExercise(line)) return false;
-  if (isSeparatorLine(line)) return false;
-  if (/^day\s*\d+/i.test(line)) return false;
-
-  // Brief-format header lines (e.g. "PREFERRED_WEEKDAYS: Monday", "PROGRAM_TITLE:", "SUBJECTIVE:")
-  if (/^[A-Z_]{4,}\s*:/.test(line)) return false;
-  // Pipe-separated lines are CIRCUITS brief format ("- Main Circuit | LOWER_BODY | 6")
-  if (/\|/.test(line)) return false;
-  // Any line containing "/" is either a prescription ratio ("90/90s", "5/side") or a
-  // schedule description ("3 days / week — Monday, Wednesday, Friday") — not a session title.
-  if (line.includes('/')) return false;
-
-  const wordCount = line.replace(/\([^)]*\)/g, "").split(/\s+/).filter(Boolean).length;
-  if (wordCount < 2) return false; // Single words like "Butterfly" or "90/90s" are not session titles
-  if (wordCount > 9) return false;
-  // Contains common movement/exercise words → likely a drill or exercise name, not a session title
-  if (/\b(hops?|jumps?|skips?|bounds?|sprints?|throws?|toss(?:es)?|slams?|planks?|dribblers?|walks?|stretch(?:es)?|passes?|curls?|raises?|swings?|rotations?)\b/i.test(line)) return false;
-  // Has "x N" pattern (with or without units like "60sec", "5m") — exercise prescription
-  if (/\bx\s*\d/i.test(line)) return false;
-
-  // Look ahead for a block header within 12 non-empty lines
-  for (let j = lineIdx + 1; j < Math.min(lineIdx + 14, lines.length); j++) {
-    const next = lines[j].trim();
-    if (!next) continue;
-    if (isKnownBlockHeader(next)) return true;
-    if (looksLikeExercise(next)) return false;
-    if (isSeparatorLine(next)) return false;
-  }
-  return false;
-}
-
-function extractSessionBlueprint(text: string) {
-  const lines = normalizeText(text).split("\n");
-
-  // ── Step 1: collect all session-start positions ──────────────────────────
-  const sessionStarts: { index: number; title: string }[] = [];
-  const usedLines = new Set<number>();
-
-  // Pass A – explicit DAY N headers
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    const dayMatch = line.match(/^day\s*(\d+)\b\s*(.*)$/i);
-    if (!dayMatch) continue;
-
-    const dayNum = Number.parseInt(dayMatch[1], 10);
-    let title = dayMatch[2]?.replace(/^[/|\s]+/, "").trim() || "";
-    usedLines.add(i);
-
-    // Look ahead for an inline subtitle (next non-empty, non-block, non-exercise line)
-    if (!title) {
-      for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
-        const next = lines[j].trim();
-        if (!next) { usedLines.add(j); continue; }
-        if (
-          !isKnownBlockHeader(next) &&
-          !looksLikeExercise(next) &&
-          !isSeparatorLine(next) &&
-          !/^day\s*\d+/i.test(next)
-        ) {
-          title = next.replace(/:$/, "").trim();
-          usedLines.add(j);
-        }
-        break;
-      }
-    }
-
-    sessionStarts.push({
-      index: i,
-      title: title ? `DAY ${dayNum} - ${title}` : `DAY ${dayNum}`,
-    });
-  }
-
-  // Pass B – separator lines (———) whose next non-empty line is a session title
-  for (let i = 0; i < lines.length; i++) {
-    if (usedLines.has(i) || !isSeparatorLine(lines[i])) continue;
-    usedLines.add(i);
-
-    for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
-      const next = lines[j].trim();
-      if (!next) { usedLines.add(j); continue; }
-      if (usedLines.has(j) || /^day\s*\d+/i.test(next)) break;
-      if (!isKnownBlockHeader(next) && !looksLikeExercise(next)) {
-        sessionStarts.push({ index: j, title: next.replace(/:$/, "").trim() });
-        usedLines.add(j);
-      }
-      break;
-    }
-  }
-
-  // Pass C – named session titles detected by look-ahead (no separator / DAY prefix)
-  // Track whether we have seen at least one exercise-like line before the current candidate.
-  // This prevents document metadata at the top (title, focus areas, schedule) from being
-  // treated as session boundaries when no exercises precede them.
-  let seenExerciseBeforeCandidate = false;
-  for (let i = 0; i < lines.length; i++) {
-    if (usedLines.has(i)) continue;
-    const line = lines[i].trim();
-    if (!line) continue;
-    if (looksLikeExercise(line)) {
-      seenExerciseBeforeCandidate = true;
-      continue;
-    }
-    if (!isSessionTitleLine(i, lines)) continue;
-    // Skip candidates that appear in a metadata cluster before the first exercise line
-    if (!seenExerciseBeforeCandidate && sessionStarts.length > 0) continue;
-    const already = sessionStarts.some((s) => Math.abs(s.index - i) <= 2);
-    if (!already) {
-      sessionStarts.push({ index: i, title: lines[i].trim().replace(/:$/, "").trim() });
-      usedLines.add(i);
-    }
-  }
-
-  sessionStarts.sort((a, b) => a.index - b.index);
-
-  // ── Step 2: shared block-parsing helper ──────────────────────────────────
-  function parseSegmentBlocks(segment: string[]) {
-    let currentBlock = "Warm Up";
-    let currentBlockSets: number | undefined;
-    const blocks = new Map<string, { sets?: number; exercises: ExerciseBlueprint[] }>();
-    const names: string[] = [];
-
-    function ensureBlock(name: string, bSets?: number) {
-      if (!blocks.has(name)) blocks.set(name, { sets: bSets, exercises: [] });
-      return blocks.get(name)!;
-    }
-
-    for (const rawLine of segment) {
-      const line = rawLine.trim();
-      if (!line || isSeparatorLine(line)) continue;
-
-      // Block A / B / C (with optional set-count)
-      const blockMatch = line.match(/^block\s*([A-Z])\b/i);
-      if (blockMatch) {
-        currentBlock = `Block ${blockMatch[1].toUpperCase()}`;
-        const setsMatch = line.match(/:\s*(\d+)\s*sets?/i);
-        currentBlockSets = setsMatch ? Number.parseInt(setsMatch[1], 10) : undefined;
-        ensureBlock(currentBlock, currentBlockSets);
-        continue;
+      if (potentialSize > CHUNK_SIZE_CEILING && current.length) {
+        chunks.push(current.join('\n\n'));
+        current = [];
+        currentSize = 0;
       }
 
-      // Named section headers (Plyometrics, Med Ball, Mobility, etc.)
-      if (isKnownBlockHeader(line)) {
-        currentBlock = blockNameFromHeader(line);
-        currentBlockSets = undefined;
-        const setsMatch = line.match(/:\s*(\d+)\s*sets?/i);
-        if (setsMatch) currentBlockSets = Number.parseInt(setsMatch[1], 10);
-        ensureBlock(currentBlock, currentBlockSets);
-        continue;
+      current.push(para);
+      if (current.length === 1) {
+        currentSize = para.length;
+      } else {
+        currentSize += 2 + para.length;
       }
-
-      const exercise = parseExerciseFromLine(line);
-      if (!exercise) continue;
-
-      if (exercise.sets === undefined && currentBlockSets !== undefined) {
-        exercise.sets = currentBlockSets;
-      }
-
-      ensureBlock(currentBlock, currentBlockSets).exercises.push(exercise);
-      names.push(exercise.name);
     }
+    if (current.length) chunks.push(current.join('\n\n'));
+  }
+  return chunks;
+}
 
-    const blocksArray = Array.from(blocks.entries())
-      .filter(([, b]) => b.exercises.length > 0)
-      .map(([name, b]) => ({ name, sets: b.sets, exercises: b.exercises }));
+export function mergeChunkSessions(
+  chunkResults: ChunkExtractionResult[],
+  fallbackDaysPerWeek: number
+): {
+  sessionBlueprint: SessionBlueprint[];
+  daysPerWeek: number;
+  warnings: string[];
+} {
+  const flatSessions = chunkResults.flatMap((c) => c.sessions);
+  const warnings = chunkResults.flatMap((c) => c.warnings);
 
-    return { blocksArray, names };
+  if (!flatSessions.length) {
+    return { sessionBlueprint: [], daysPerWeek: 1, warnings };
   }
 
-  // ── Step 3: single-session fallback (no session boundaries found) ─────────
-  if (!sessionStarts.length) {
-    const { blocksArray, names } = parseSegmentBlocks(lines);
-    if (!blocksArray.length) {
-      return { sessions: [] as SessionBlueprint[], exerciseNames: [] };
-    }
-    return {
-      sessions: [{ dayIndex: 0, title: "DAY 1", blocks: blocksArray }],
-      exerciseNames: names,
-    };
-  }
+  // Carry the last explicit weekLabel forward onto undecorated sessions — many
+  // real documents state "Week 2" once and don't repeat it for every day under it.
+  let lastWeekLabel: string | null = null;
+  const withCarriedLabel = flatSessions.map((s) => {
+    if (s.weekLabel) lastWeekLabel = s.weekLabel;
+    return { ...s, weekLabel: s.weekLabel ?? lastWeekLabel };
+  });
 
-  // ── Step 4: parse each detected session ──────────────────────────────────
-  const sessions: SessionBlueprint[] = [];
-  const exerciseNames: string[] = [];
+  const hasAnyWeekLabel = withCarriedLabel.some((s) => s.weekLabel !== null);
 
-  for (let i = 0; i < sessionStarts.length; i++) {
-    const current = sessionStarts[i];
-    const next = sessionStarts[i + 1];
-    // +1 to skip the title line itself (already used as the session title)
-    const start = current.index + 1;
-    const end = next ? next.index : lines.length;
-    const segment = lines.slice(start, end);
+  // When nothing in the document ever states a week boundary — e.g. a program
+  // that just cycles through named sessions ("Lower body A", "Upper body A",
+  // "Full body A", "Lower body B", ...) for many weeks with no numbering at all —
+  // there is no label to group by. Falling back to "one giant week" here would
+  // let daysPerWeek grow past 7, which later collides distinct sessions onto the
+  // same weekday slot. Instead, group into fixed-size weeks using the AI's
+  // holistic estimate of this program's actual training days/week.
+  const perWeek = Math.max(1, Math.min(7, Math.round(fallbackDaysPerWeek) || 1));
 
-    const { blocksArray, names } = parseSegmentBlocks(segment);
-    exerciseNames.push(...names);
+  const sessionBlueprint: SessionBlueprint[] = [];
+  let weekIndex = 0;
+  let dayIndex = 0;
+  let currentLabel: string | null = null;
+  let seenFirst = false;
 
-    if (blocksArray.length > 0) {
-      sessions.push({
-        dayIndex: i,
-        title: current.title,
-        blocks: blocksArray,
+  withCarriedLabel.forEach((s, i) => {
+    if (hasAnyWeekLabel) {
+      if (!seenFirst || s.weekLabel !== currentLabel) {
+        if (seenFirst) weekIndex += 1;
+        currentLabel = s.weekLabel;
+        dayIndex = 0;
+        seenFirst = true;
+      }
+      sessionBlueprint.push({ dayIndex, weekIndex, title: s.title, blocks: s.blocks });
+      dayIndex += 1;
+    } else {
+      sessionBlueprint.push({
+        dayIndex: i % perWeek,
+        weekIndex: Math.floor(i / perWeek),
+        title: s.title,
+        blocks: s.blocks,
       });
-    }
-  }
-
-  return { sessions, exerciseNames };
-}
-
-function inferDaysFromText(text: string) {
-  const matches = Array.from(text.matchAll(/\bday\s*(\d+)\b/gi));
-  const days = matches.map((m) => Number.parseInt(m[1], 10)).filter((n) => Number.isFinite(n));
-  const unique = Array.from(new Set(days)).sort((a, b) => a - b);
-  return unique.length ? unique.length : null;
-}
-
-function inferProgramTitle(text: string) {
-  const lines = normalizeText(text)
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  if (!lines.length) return "";
-
-  const firstNonDay = lines.find((l) => !/^day\s*\d+/i.test(l));
-  return firstNonDay || lines[0];
-}
-
-function inferDifficulty(text: string) {
-  const lower = text.toLowerCase();
-  if (/(advanced|plyometric|depth jump|barbell|chin up|copenhagen|med ball)/i.test(lower)) {
-    return "INTERMEDIATE";
-  }
-  if (/beginner|rehab|gentle|basic/i.test(lower)) return "BEGINNER";
-  if (/intermediate/i.test(lower)) return "INTERMEDIATE";
-  if (/advanced|elite/i.test(lower)) return "ADVANCED";
-  return "";
-}
-
-function inferDurationMinutes(text: string) {
-  const exerciseCount = Array.from(text.matchAll(/\b[A-Z]\d\s*:/g)).length;
-  if (exerciseCount <= 0) return null;
-  const estimate = Math.round(exerciseCount * 3.5);
-  return Math.min(120, Math.max(30, estimate));
-}
-
-function validate(parsed: ProgramBriefParsed): string[] {
-  const errors: string[] = [];
-
-  if (!parsed.programTitle) errors.push("PROGRAM_TITLE is required");
-  if (!parsed.focusAreas.length) errors.push("FOCUS_AREAS is required");
-  if (!ALLOWED_DIFFICULTY.includes(parsed.difficultyLevel as any)) {
-    errors.push("DIFFICULTY must be BEGINNER, INTERMEDIATE, or ADVANCED");
-  }
-  if (!Number.isFinite(parsed.durationMinutes) || parsed.durationMinutes <= 0) {
-    errors.push("DURATION_MINUTES must be a positive number");
-  }
-  if (!Number.isFinite(parsed.daysPerWeek) || parsed.daysPerWeek < 1 || parsed.daysPerWeek > 7) {
-    errors.push("DAYS_PER_WEEK must be between 1 and 7");
-  }
-  if (!parsed.preferredWeekdays.length) {
-    errors.push("PREFERRED_WEEKDAYS is required");
-  }
-  if (parsed.preferredWeekdays.length !== parsed.daysPerWeek) {
-    errors.push("PREFERRED_WEEKDAYS count must match DAYS_PER_WEEK");
-  }
-  if (!parsed.circuits.length) {
-    errors.push("CIRCUITS must include at least one circuit");
-  }
-
-  parsed.circuits.forEach((c, idx) => {
-    if (!c.name) errors.push(`CIRCUITS line ${idx + 1} missing name`);
-    if (!ALLOWED_CIRCUIT_FOCUS.includes(c.focusType as any)) {
-      errors.push(
-        `CIRCUITS line ${idx + 1} focus must be one of: ${ALLOWED_CIRCUIT_FOCUS.join(", ")}`
-      );
-    }
-    if (!Number.isFinite(c.exerciseCount) || c.exerciseCount < 1) {
-      errors.push(`CIRCUITS line ${idx + 1} exercise count must be >= 1`);
     }
   });
 
-  return errors;
+  const perWeekCount = new Map<number, number>();
+  for (const s of sessionBlueprint) {
+    const w = s.weekIndex ?? 0;
+    perWeekCount.set(w, (perWeekCount.get(w) ?? 0) + 1);
+  }
+  const daysPerWeek = Math.max(1, ...Array.from(perWeekCount.values()));
+
+  return { sessionBlueprint, daysPerWeek, warnings };
+}
+
+export function deriveCircuitsFromSessions(sessions: SessionBlueprint[]): CircuitConfig[] {
+  const byName = new Map<string, { focusType: string; exerciseCount: number }>();
+  for (const session of sessions) {
+    for (const block of session.blocks) {
+      const existing = byName.get(block.name);
+      const count = block.exercises.length;
+      if (!existing) {
+        byName.set(block.name, { focusType: block.focusType, exerciseCount: count });
+      } else if (count > existing.exerciseCount) {
+        existing.exerciseCount = count;
+      }
+    }
+  }
+  return Array.from(byName.entries()).map(([name, { focusType, exerciseCount }]) => ({
+    name,
+    focusType,
+    exerciseCount,
+    rounds: focusType === 'WARMUP' || focusType === 'COOLDOWN' ? 1 : 3,
+  }));
+}
+
+export type BriefMetadata = {
+  programTitle: string;
+  focusAreas: string[];
+  difficultyLevel: string;
+  durationMinutes: number;
+  preferredWeekdays: string[];
+  estimatedDaysPerWeek: number;
+  inferredFields: string[];
+};
+
+const BRIEF_METADATA_SCHEMA = {
+  name: 'brief_metadata',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      programTitle: { type: 'string' },
+      focusAreas: { type: 'array', items: { type: 'string' } },
+      difficultyLevel: { type: 'string', enum: [...ALLOWED_DIFFICULTY] },
+      durationMinutes: { type: 'number' },
+      preferredWeekdays: { type: 'array', items: { type: 'string', enum: [...WEEKDAYS] } },
+      estimatedDaysPerWeek: { type: 'number' },
+      inferredFields: { type: 'array', items: { type: 'string' } },
+    },
+    required: [
+      'programTitle',
+      'focusAreas',
+      'difficultyLevel',
+      'durationMinutes',
+      'preferredWeekdays',
+      'estimatedDaysPerWeek',
+      'inferredFields',
+    ],
+  },
+} as const;
+
+export async function extractBriefMetadata(text: string): Promise<BriefMetadata> {
+  const systemPrompt = `You extract high-level program metadata from an uploaded training/exercise program document. The document may be for any context — rehabilitation, athletic performance, strength & conditioning, general fitness — and may use any structure, formatting, or terminology.
+
+Return:
+- programTitle: the program's name/title.
+- focusAreas: 2-5 short focus area terms (e.g. "lower body", "power", "core").
+- difficultyLevel: BEGINNER, INTERMEDIATE, or ADVANCED.
+- durationMinutes: typical session length in minutes.
+- preferredWeekdays: which weekdays training happens on. If not explicitly stated, choose a sensible default set matching the number of training days per week you can infer from the document.
+- estimatedDaysPerWeek: how many distinct training days per week this program actually uses, as a whole number 1-7. Read the ENTIRE document to judge this holistically — if it has explicit "Week N" sections, use the typical number of sessions per week. If it has NO week numbering at all but repeats a cycle of named sessions (e.g. "Lower body A", "Upper body A", "Full body A", then "Lower body B", "Upper body B", "Full body B", then the cycle repeats with new focus variants), count the sessions in one cycle before it repeats or restarts — that is the days/week. This number matters even when it can't be stated explicitly elsewhere, since it's used to correctly split a many-session document into multiple weeks instead of one.
+- inferredFields: the field names above that were NOT explicitly stated in the document and had to be inferred. Leave empty if everything was explicit.
+
+Never invent specific exercises here — only these fields.`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    max_tokens: 1000,
+    response_format: { type: 'json_schema', json_schema: BRIEF_METADATA_SCHEMA },
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: text },
+    ],
+  });
+
+  const raw = response.choices[0].message.content ?? '{}';
+  const parsed = JSON.parse(raw) as BriefMetadata;
+  return {
+    ...parsed,
+    durationMinutes: Math.min(180, Math.max(10, parsed.durationMinutes || 45)),
+    estimatedDaysPerWeek: Math.min(7, Math.max(1, Math.round(parsed.estimatedDaysPerWeek) || 3)),
+  };
+}
+
+const CHUNK_EXTRACTION_SCHEMA = {
+  name: 'chunk_extraction',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      sessions: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            weekLabel: { type: ['string', 'null'] },
+            dayLabel: { type: ['string', 'null'] },
+            title: { type: 'string' },
+            blocks: {
+              type: 'array',
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  name: { type: 'string' },
+                  focusType: { type: 'string', enum: [...ALLOWED_CIRCUIT_FOCUS] },
+                  exercises: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      additionalProperties: false,
+                      properties: {
+                        name: { type: 'string' },
+                        sets: { type: ['number', 'null'] },
+                        reps: { type: ['number', 'null'] },
+                        durationSeconds: { type: ['number', 'null'] },
+                        notes: { type: ['string', 'null'] },
+                      },
+                      required: ['name', 'sets', 'reps', 'durationSeconds', 'notes'],
+                    },
+                  },
+                },
+                required: ['name', 'focusType', 'exercises'],
+              },
+            },
+          },
+          required: ['weekLabel', 'dayLabel', 'title', 'blocks'],
+        },
+      },
+      warnings: { type: 'array', items: { type: 'string' } },
+    },
+    required: ['sessions', 'warnings'],
+  },
+} as const;
+
+export async function extractChunkSessions(
+  chunk: string,
+  chunkIndex: number,
+  totalChunks: number,
+  continuityNote: string | null
+): Promise<ChunkExtractionResult> {
+  const systemPrompt = `You extract every distinct training session from an excerpt of a program document. The document may use any structure or terminology — tables, bullets, numbered lists, prose, or a fixed template.
+
+Rules:
+- Extract every session in this excerpt, in the exact order they appear. Do not skip or merge sessions.
+- For each session capture: weekLabel (verbatim label like "Week 1" or "Deload Week" if the excerpt states one for this session, else null), dayLabel (verbatim label like "Day 1" or "Monday" if stated, else null), title (the session's descriptive name), and blocks.
+- Each block is a named section of the session (e.g. "Warm Up", "Strength Block A", "Accessory") containing an ordered list of exercises. Use the document's own section names — do not rename them.
+- Classify each block's focusType as the closest match among: ${ALLOWED_CIRCUIT_FOCUS.join(', ')}.
+- For each exercise capture: name (exact name from the document, no bullet markers), sets, reps, durationSeconds (for holds/timed work, instead of reps), and notes. Use null for anything not explicitly stated — never invent numbers.
+- Do not include rest-period lines (e.g. "Rest: 45 sec") as exercises.
+- Add an entry to "warnings" for anything ambiguous you had to guess at.
+
+This is chunk ${chunkIndex + 1} of ${totalChunks}.${continuityNote ? ` ${continuityNote}` : ''} Continue any week/day numbering from where the previous chunk left off — do not restart it unless the document itself restarts it.`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    // A chunk can hold a dozen+ sessions once every exercise's sets/reps/notes
+    // are spelled out in full (strict JSON schema requires every property
+    // present, even when null). 4000 was too small and silently truncated
+    // mid-response for chunks with many sessions — raised close to gpt-4o's
+    // 16,384-token output ceiling so a full chunk's worth of sessions fits.
+    max_tokens: 16000,
+    response_format: { type: 'json_schema', json_schema: CHUNK_EXTRACTION_SCHEMA },
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: chunk },
+    ],
+  });
+
+  if (response.choices[0].finish_reason === 'length') {
+    throw new Error(`extractChunkSessions: response truncated at the token limit for chunk ${chunkIndex + 1} of ${totalChunks}`);
+  }
+
+  const raw = response.choices[0].message.content;
+  if (!raw) return { sessions: [], warnings: [] };
+  return JSON.parse(raw) as ChunkExtractionResult;
 }
 
 export async function extractProgramBriefText(fileUrl: string, fileName: string) {
@@ -616,237 +430,150 @@ export async function extractProgramBriefText(fileUrl: string, fileName: string)
 
   if (lowerName.endsWith(".docx")) {
     const buffer = Buffer.from(await res.arrayBuffer());
-    const parsed = await mammoth.extractRawText({ buffer });
-    return parsed.value || "";
+    // mammoth's extractRawText drops soft line breaks (<w:br/>) entirely, which
+    // collapses Word bullet lists authored with Shift+Enter into one unparseable
+    // line. Convert to HTML first so <br> and block tags can be turned into real
+    // newlines before stripping markup.
+    const converted = await mammoth.convertToHtml({ buffer });
+    return htmlToPlainText(converted.value || "");
   }
 
   return await res.text();
 }
 
-export function parseProgramBrief(text: string): ProgramBriefParseResult {
-  const sections = parseHeaderSections(text);
-  const missingRequired = REQUIRED_HEADERS.filter((h) => !sections[h]);
-  if (missingRequired.length) {
-    return {
-      ok: false,
-      errors: missingRequired.map((h) => `${h} section is required`),
-    };
+function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|h[1-6]|li|div|tr)>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+const MAX_CONCURRENT_CHUNKS = 4;
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await fn(items[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
+function sessionSummary(s: RawSession): string {
+  return `${s.weekLabel ?? 'no week label'}, ${s.dayLabel ?? s.title}`;
+}
+
+export async function parseProgramBrief(
+  text: string,
+  // Schedule (days/week, weekdays) actually gets baked into the generated
+  // program's day assignments during generation — editing it after the fact
+  // wouldn't move anything. So when it can't be read from the document, the
+  // trainer confirms it up front (see extractProgramMetadataFromBriefAction),
+  // and that confirmed metadata is passed in here instead of re-guessing.
+  metadataOverride?: BriefMetadata
+): Promise<ProgramBriefParseResult> {
+  if (!text.trim()) {
+    return { ok: false, errors: ['The document appears to be empty or unreadable.'] };
   }
 
-  const programTitle = (sections.PROGRAM_TITLE || []).join(" ").trim();
-  const focusAreas = splitCommaList((sections.FOCUS_AREAS || []).join(" "));
-  const difficultyLevel = (sections.DIFFICULTY || []).join(" ").trim().toUpperCase();
-  const durationMinutes = Number.parseInt((sections.DURATION_MINUTES || []).join(" "), 10);
-  const daysPerWeek = Number.parseInt((sections.DAYS_PER_WEEK || []).join(" "), 10);
-  const preferredWeekdays = splitCommaList((sections.PREFERRED_WEEKDAYS || []).join(" "))
-    .map(normalizeWeekday)
-    .filter((d) => d !== null) as string[];
+  const metadata = metadataOverride ?? (await extractBriefMetadata(text));
+  const chunks = splitIntoChunks(text);
 
-  const circuits = parseCircuits(sections.CIRCUITS || []);
+  if (!chunks.length) {
+    return { ok: false, errors: ['No content could be extracted from this document.'] };
+  }
 
-  const subjective = (sections.SUBJECTIVE || []).join("\n").trim() || undefined;
-  const trainerPrompt =
-    (sections.TRAINER_INSTRUCTIONS || []).join("\n").trim() || undefined;
-  const additionalNotes =
-    (sections.ADDITIONAL_NOTES || []).join("\n").trim() || undefined;
+  // Cost-visibility signal only — no cap on chunk count per the "no size limit" requirement.
+  if (chunks.length > 40) {
+    console.warn(`[program-brief] Unusually large document: ${chunks.length} chunks to process.`);
+  }
 
-  const parsed: ProgramBriefParsed = {
-    programTitle,
-    focusAreas,
-    difficultyLevel,
-    durationMinutes,
-    daysPerWeek,
-    preferredWeekdays,
-    circuits,
-    subjective,
-    trainerPrompt,
-    additionalNotes,
-  };
-
-  const errors = validate(parsed);
-  if (errors.length) return { ok: false, errors };
-
-  return { ok: true, data: parsed };
-}
-
-function normalizeInferred(parsed: ProgramBriefParsed): ProgramBriefParsed {
-  const difficultyRaw = parsed.difficultyLevel ?? "";
-  const difficulty = difficultyRaw ? difficultyRaw.toUpperCase() : "";
-  const safeDays = Number.isFinite(parsed.daysPerWeek)
-    ? Math.max(1, Math.min(parsed.daysPerWeek, 7))
-    : parsed.daysPerWeek;
-
-  return {
-    ...parsed,
-    difficultyLevel: difficulty,
-    durationMinutes: parsed.durationMinutes,
-    daysPerWeek: safeDays,
-    preferredWeekdays: (parsed.preferredWeekdays || [])
-      .map(normalizeWeekday)
-      .filter(Boolean) as string[],
-    circuits: parsed.circuits || [],
-  };
-}
-
-export async function parseProgramBriefFlexible(
-  text: string
-): Promise<ProgramBriefParseResult> {
-  const strict = parseProgramBrief(text);
-  if (strict.ok) return strict;
-
-  const systemPrompt = `You extract a structured exercise program brief from unstructured text. The program may be for any context: rehabilitation, athletic performance, strength & conditioning, general fitness, or sports-specific training.\n\nRules:\n- Always return valid JSON only, no markdown.\n- Infer all values from the text. Do NOT invent defaults. If a value cannot be inferred, set it to null or an empty array.\n- Required keys: programTitle, focusAreas, difficultyLevel, durationMinutes, daysPerWeek, preferredWeekdays, circuits.\n- difficultyLevel must be BEGINNER, INTERMEDIATE, or ADVANCED.\n- preferredWeekdays must be valid weekday names. If only day numbers exist, map Day 1..N to Monday.. for output.\n- circuits is an array: { name, focusType, exerciseCount }. Use the actual block/section names from the document (e.g. "Plyometrics", "Block A", "Med Ball Series", "Warm Up").\n- focusType must be one of: WARMUP, LOWER_BODY, UPPER_BODY, CORE, FULL_BODY, BALANCE, FLEXIBILITY, COOLDOWN, CARDIO.\n- exerciseCount should be consistent per session; infer from blocks or lists if present.\n- If days are listed (e.g. DAY 1, DAY 2), use that count for daysPerWeek. If no day headers, count = 1.\n- Infer durationMinutes from volume if not stated.\n- Keep focusAreas short (2-5 items). For athletic programs use terms like "plyometrics", "upper body", "lower body", "power", "conditioning".`;
-
-  const userPrompt = `Extract a program brief from this content:\n\n${text}`;
-
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    max_tokens: 2000,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
+  // Best-effort continuity hint for chunk N+1 — chunks run concurrently, so this
+  // may occasionally reflect a different chunk's completion order than strict
+  // document order. That's acceptable: correctness comes from mergeChunkSessions'
+  // weekLabel-based grouping, not from this hint.
+  let lastSessionNote: string | null = null;
+  const chunkResults = await mapWithConcurrency(chunks, MAX_CONCURRENT_CHUNKS, async (chunk, index) => {
+    const continuityNote = lastSessionNote
+      ? `The previous chunk's last session was: ${lastSessionNote}.`
+      : null;
+    try {
+      const result = await extractChunkSessions(chunk, index, chunks.length, continuityNote);
+      if (result.sessions.length) {
+        lastSessionNote = sessionSummary(result.sessions[result.sessions.length - 1]);
+      }
+      return result;
+    } catch {
+      try {
+        return await extractChunkSessions(chunk, index, chunks.length, continuityNote);
+      } catch {
+        return {
+          sessions: [],
+          warnings: [
+            `Couldn't parse part of the document (section ${index + 1} of ${chunks.length}) — please review that section manually.`,
+          ],
+        };
+      }
+    }
   });
 
-  const responseText = response.choices[0].message.content ?? "{}";
-  const inferred = JSON.parse(responseText) as ProgramBriefParsed;
-  const normalized = normalizeInferred(inferred);
+  const { sessionBlueprint, daysPerWeek, warnings: chunkWarnings } = mergeChunkSessions(
+    chunkResults,
+    metadata.estimatedDaysPerWeek
+  );
 
-  if (!normalized.programTitle) {
-    normalized.programTitle = inferProgramTitle(text);
+  if (!sessionBlueprint.length) {
+    return { ok: false, errors: ['No training sessions could be found in this document.'] };
   }
 
-  const blueprint = extractSessionBlueprint(text);
-  if (blueprint.sessions.length) {
-    if (!normalized.daysPerWeek || !Number.isFinite(normalized.daysPerWeek) || normalized.daysPerWeek > 7) {
-      // For multi-week programs (>7 sessions), cap at 7 so daysPerWeek stays valid.
-      // GPT-4o should have correctly inferred the per-week count from the document context;
-      // if it failed we fall back to the raw session count capped at 7.
-      normalized.daysPerWeek = Math.min(blueprint.sessions.length, 7);
-    }
+  const circuits = deriveCircuitsFromSessions(sessionBlueprint);
 
-    if (!normalized.programTitle) {
-      normalized.programTitle = blueprint.sessions[0].title;
-    }
+  let preferredWeekdays = metadata.preferredWeekdays.length
+    ? [...metadata.preferredWeekdays]
+    : WEEKDAYS.slice(0, daysPerWeek);
 
-    normalized.preferredExerciseNames = Array.from(
-      new Set(blueprint.exerciseNames)
-    );
-    normalized.sessionBlueprint = blueprint.sessions;
-
-    // Always derive circuits from the actual block structure in the brief.
-    // GPT-4o often mis-identifies the days themselves as circuits, so we
-    // override whatever it returned with the real block names (Warm Up, Block A, …).
-    {
-      const circuitCounts = new Map<string, number>();
-      blueprint.sessions.forEach((session) => {
-        session.blocks.forEach((block) => {
-          const count = block.exercises.length;
-          const current = circuitCounts.get(block.name) ?? 0;
-          if (count > current) circuitCounts.set(block.name, count);
-        });
-      });
-
-      if (circuitCounts.size > 0) {
-        normalized.circuits = Array.from(circuitCounts.entries()).map(
-          ([name, count]) => {
-            const ft = inferCircuitFocusType(name);
-            return {
-              name,
-              focusType: ft,
-              exerciseCount: count,
-              rounds: ft === "WARMUP" || ft === "COOLDOWN" ? 1 : 3,
-            };
-          }
-        );
-      }
-    }
-
-    const blueprintText = blueprint.sessions
-      .map((session) => {
-        const blocksText = session.blocks
-          .map((block) => {
-            const exerciseList = block.exercises
-              .map((e) => {
-                const rx =
-                  e.sets != null && e.reps != null
-                    ? ` ${e.sets}x${e.reps}`
-                    : e.sets != null && e.durationSeconds != null
-                      ? ` ${e.sets}x${e.durationSeconds}sec`
-                      : "";
-                return `${e.name}${rx}`;
-              })
-              .join(", ");
-            return `${block.name}${block.sets != null ? ` (${block.sets} sets)` : ""}: ${exerciseList}`;
-          })
-          .join("\n");
-        return `${session.title}\n${blocksText}`;
-      })
-      .join("\n\n");
-
-    const structurePrompt = `SESSION STRUCTURE (STRICT):\n- Treat each DAY as a session with the exact title shown.\n- Treat Block A/B/C and Warm Up as circuits.\n- Use EXACT exercise names listed for each day and block.\n- Do NOT add new exercises.\n- If a circuit requires more exercises than listed for a day, repeat the last listed exercise to reach the required count.\n\n${blueprintText}`;
-
-    normalized.trainerPrompt = [
-      normalized.trainerPrompt,
-      structurePrompt,
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-  }
-
-  if (!normalized.daysPerWeek || !Number.isFinite(normalized.daysPerWeek)) {
-    const inferredDays = inferDaysFromText(text);
-    if (inferredDays) normalized.daysPerWeek = inferredDays;
-  }
-
-  // Hard fallback: if daysPerWeek is still invalid, default to 1
-  if (!Number.isFinite(normalized.daysPerWeek) || normalized.daysPerWeek < 1) {
-    normalized.daysPerWeek = 1;
-  }
-
-  if (!normalized.preferredWeekdays.length) {
-    normalized.preferredWeekdays = WEEKDAY_FALLBACK_ORDER.slice(0, normalized.daysPerWeek);
-  }
-
-  // Trim or pad preferredWeekdays to always match daysPerWeek
-  if (normalized.preferredWeekdays.length !== normalized.daysPerWeek) {
-    if (normalized.preferredWeekdays.length > normalized.daysPerWeek) {
-      normalized.preferredWeekdays = normalized.preferredWeekdays.slice(0, normalized.daysPerWeek);
+  if (preferredWeekdays.length !== daysPerWeek) {
+    if (preferredWeekdays.length > daysPerWeek) {
+      preferredWeekdays = preferredWeekdays.slice(0, daysPerWeek);
     } else {
-      const existing = new Set(normalized.preferredWeekdays);
-      for (const day of WEEKDAY_FALLBACK_ORDER) {
-        if (normalized.preferredWeekdays.length >= normalized.daysPerWeek) break;
-        if (!existing.has(day)) normalized.preferredWeekdays.push(day);
+      const existing = new Set(preferredWeekdays);
+      for (const day of WEEKDAYS) {
+        if (preferredWeekdays.length >= daysPerWeek) break;
+        if (!existing.has(day)) preferredWeekdays.push(day);
       }
     }
   }
 
-  if (!normalized.difficultyLevel) {
-    normalized.difficultyLevel = inferDifficulty(text);
-  }
-
-  if (!normalized.focusAreas.length) {
-    normalized.focusAreas = inferFocusAreasFromText(text);
-  }
-
-  if (!normalized.durationMinutes || !Number.isFinite(normalized.durationMinutes)) {
-    const inferredDuration = inferDurationMinutes(text);
-    if (inferredDuration) normalized.durationMinutes = inferredDuration;
-  }
-
-  // Re-index sessions for multi-week programs: assign weekIndex and per-week dayIndex
-  if (normalized.sessionBlueprint?.length && normalized.daysPerWeek > 0) {
-    const dpw = normalized.daysPerWeek;
-    if (normalized.sessionBlueprint.length > dpw) {
-      normalized.sessionBlueprint = normalized.sessionBlueprint.map((s, i) => ({
-        ...s,
-        weekIndex: Math.floor(i / dpw),
-        dayIndex: i % dpw,
-      }));
-    }
-  }
-
-  const errors = validate(normalized);
-  if (errors.length) return { ok: false, errors };
-  return { ok: true, data: normalized };
+  return {
+    ok: true,
+    data: {
+      programTitle: metadata.programTitle || sessionBlueprint[0].title,
+      focusAreas: metadata.focusAreas,
+      difficultyLevel: metadata.difficultyLevel,
+      durationMinutes: metadata.durationMinutes,
+      daysPerWeek,
+      preferredWeekdays,
+      circuits,
+      sessionBlueprint,
+      warnings: chunkWarnings,
+      inferredFields: metadata.inferredFields,
+    },
+  };
 }
+

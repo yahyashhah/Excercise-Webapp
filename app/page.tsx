@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { motion, useInView, useScroll, useTransform, AnimatePresence } from "framer-motion";
+import { motion, useInView } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SiteNavbar } from "@/components/layout/site-navbar";
+import { SiteFooter } from "@/components/layout/site-footer";
+import { FadeUp, FadeIn } from "@/components/layout/scroll-reveal";
 import {
   Brain,
-  Activity,
   Users,
   MessageSquare,
   BarChart3,
@@ -23,59 +25,9 @@ import {
   Sparkles,
   Clock,
   HeartPulse,
-  Menu,
-  X,
 } from "lucide-react";
 
 // ── Animation helpers ───────────────────────────────────────────────────────
-
-function FadeUp({
-  children,
-  delay = 0,
-  className = "",
-}: {
-  children: React.ReactNode;
-  delay?: number;
-  className?: string;
-}) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-80px" });
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 32 }}
-      animate={isInView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-function FadeIn({
-  children,
-  delay = 0,
-  className = "",
-}: {
-  children: React.ReactNode;
-  delay?: number;
-  className?: string;
-}) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-60px" });
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0 }}
-      animate={isInView ? { opacity: 1 } : {}}
-      transition={{ duration: 0.7, delay }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-}
 
 // Animated counter
 function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string }) {
@@ -110,9 +62,9 @@ function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string
 const features = [
   {
     icon: Brain,
-    title: "AI Program Generation",
+    title: "PT-Inspired AI Programming",
     description:
-      "Generate personalised rehabilitation programs in under 2 minutes. Claude AI selects exercises from your curated library based on diagnosis, goals, and contraindications.",
+      "Our AI was designed by a Doctor of Physical Therapy to recommend appropriate exercises, progressions, regressions, and modifications based on your client's goals, experience, movement limitations, and available equipment.",
     gradient: "from-blue-500 to-indigo-500",
     bg: "bg-blue-50",
     iconColor: "text-blue-600",
@@ -286,110 +238,11 @@ const stats = [
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
-  const { scrollY } = useScroll();
-  const navOpacity = useTransform(scrollY, [0, 80], [0, 1]);
   const heroRef = useRef(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-white">
-
-      {/* ── Navbar ─────────────────────────────────────────────────────── */}
-      <nav className="fixed top-0 z-50 w-full">
-        <motion.div
-          className="absolute inset-0 border-b border-white/10 bg-[#0a0f1e]/90 backdrop-blur-xl"
-          style={{ opacity: navOpacity }}
-        />
-        <div className="relative mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          {/* Logo */}
-          <motion.div
-            className="flex items-center gap-2.5"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-blue-400 to-indigo-500 shadow-lg shadow-blue-500/30">
-              <Activity className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-lg font-bold tracking-tight text-white">INMOTUS RX</span>
-          </motion.div>
-
-          {/* Desktop links */}
-          <motion.div
-            className="hidden items-center gap-8 md:flex"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            {["Features", "How it Works", "Pricing"].map((label, i) => (
-              <a
-                key={label}
-                href={`#${label.toLowerCase().replace(/ /g, "-")}`}
-                className="text-sm text-slate-300 transition-colors hover:text-white"
-              >
-                {label}
-              </a>
-            ))}
-          </motion.div>
-
-          {/* CTA buttons */}
-          <motion.div
-            className="hidden items-center gap-3 md:flex"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <Button variant="ghost" size="sm" className="text-slate-300 hover:bg-white/10 hover:text-white" asChild>
-              <Link href="/sign-in">Sign In</Link>
-            </Button>
-            <Button size="sm" className="bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-lg shadow-blue-500/30 hover:from-blue-600 hover:to-indigo-600" asChild>
-              <Link href="/sign-up">Get Started</Link>
-            </Button>
-          </motion.div>
-
-          {/* Mobile menu toggle */}
-          <button
-            className="inline-flex items-center justify-center rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white md:hidden"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-        </div>
-
-        {/* Mobile menu */}
-        <AnimatePresence>
-          {mobileMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="relative border-t border-white/10 bg-[#0a0f1e]/95 backdrop-blur-xl md:hidden"
-            >
-              <div className="space-y-1 px-4 py-4">
-                {["Features", "How it Works", "Pricing"].map((label) => (
-                  <a
-                    key={label}
-                    href={`#${label.toLowerCase().replace(/ /g, "-")}`}
-                    className="block rounded-lg px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {label}
-                  </a>
-                ))}
-                <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4">
-                  <Button variant="outline" className="w-full border-white/20 text-slate-200 hover:bg-white/10" asChild>
-                    <Link href="/sign-in">Sign In</Link>
-                  </Button>
-                  <Button className="w-full bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white" asChild>
-                    <Link href="/sign-up">Get Started Free</Link>
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </nav>
+      <SiteNavbar />
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <section ref={heroRef} className="relative flex min-h-screen items-center overflow-hidden bg-[#0a0f1e] pt-16">
@@ -431,7 +284,7 @@ export default function LandingPage() {
             >
               <Badge className="mb-8 gap-1.5 border border-blue-400/30 bg-blue-500/10 px-4 py-1.5 text-sm text-blue-300 backdrop-blur-sm hover:bg-blue-500/20">
                 <Zap className="h-3.5 w-3.5 fill-current" />
-                AI Powered Rehab Platform
+                PT-Inspired Exercise Intelligence
               </Badge>
             </motion.div>
 
@@ -442,10 +295,10 @@ export default function LandingPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
             >
-              Rehab Programs That{" "}
+              Smarter Programming{" "}
               <span className="relative">
                 <span className="bg-linear-to-r from-blue-300 via-cyan-300 to-teal-300 bg-clip-text text-transparent">
-                  Actually Stick
+                  Starts Here.
                 </span>
               </span>
             </motion.h1>
@@ -457,8 +310,8 @@ export default function LandingPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.5 }}
             >
-              Trainers generate AI-powered home exercise programs in under 2 minutes.
-              Clients get guided sessions with video demos, set logging, and real-time feedback.
+              Built by a Doctor of Physical Therapy to help personal trainers create safer,
+              more personalized programs in minutes using AI-powered exercise intelligence.
             </motion.p>
 
             {/* CTA buttons */}
@@ -894,82 +747,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <footer className="border-t border-slate-200 bg-white py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-12 lg:grid-cols-5">
-            {/* Brand */}
-            <div className="lg:col-span-2">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-blue-500 to-indigo-500 shadow-md shadow-blue-500/20">
-                  <Activity className="h-4 w-4 text-white" />
-                </div>
-                <span className="text-lg font-bold text-slate-900">INMOTUS RX</span>
-              </div>
-              <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-500">
-                AI-powered home exercise programs for modern rehabilitation. Built for trainers, designed for clients.
-              </p>
-              <div className="mt-6 flex items-center gap-1.5 text-xs text-slate-400">
-                <Shield className="h-3.5 w-3.5 text-emerald-500" />
-                HIPAA Compliant · SOC 2 Type II
-              </div>
-            </div>
-
-            {/* Links */}
-            {[
-              {
-                title: "Product",
-                links: [
-                  { label: "Features", href: "#features" },
-                  { label: "Pricing", href: "#pricing" },
-                  { label: "How it Works", href: "#how-it-works" },
-                ],
-              },
-              {
-                title: "Company",
-                links: [
-                  { label: "About", href: "#" },
-                  { label: "Blog", href: "#" },
-                  { label: "Careers", href: "#" },
-                ],
-              },
-              {
-                title: "Legal",
-                links: [
-                  { label: "Privacy Policy", href: "#" },
-                  { label: "Terms of Service", href: "#" },
-                  { label: "HIPAA Compliance", href: "#" },
-                ],
-              },
-            ].map((col) => (
-              <div key={col.title}>
-                <h3 className="text-sm font-semibold text-slate-900">{col.title}</h3>
-                <ul className="mt-4 space-y-3">
-                  {col.links.map((link) => (
-                    <li key={link.label}>
-                      <a
-                        href={link.href}
-                        className="text-sm text-slate-500 transition-colors hover:text-slate-900"
-                      >
-                        {link.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-slate-100 pt-8 sm:flex-row">
-            <p className="text-sm text-slate-400">
-              &copy; {new Date().getFullYear()} INMOTUS RX. All rights reserved.
-            </p>
-            <p className="text-xs text-slate-400">
-              Made with ♥ for better rehabilitation outcomes
-            </p>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
