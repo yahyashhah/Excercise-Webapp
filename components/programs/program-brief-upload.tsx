@@ -18,11 +18,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   generateProgramBriefUploadUrlAction,
+  extractProgramMetadataFromBriefAction,
   generateProgramPreviewFromBriefAction,
   saveGeneratedProgramAction,
 } from "@/actions/program-actions";
+import type { BriefMetadata } from "@/lib/services/program-brief.service";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
+  CalendarClock,
   CheckCircle2,
   FileText,
   Loader2,
@@ -64,10 +68,35 @@ type PreviewState = {
     daysPerWeek: number;
     preferredWeekdays: string[];
     circuits: { name: string; focusType: string; exerciseCount: number }[];
-    subjective?: string;
-    trainerPrompt?: string;
-    additionalNotes?: string;
+    inferredFields?: string[];
   };
+  warnings: string[];
+};
+
+const DIFFICULTY_OPTIONS = ["BEGINNER", "INTERMEDIATE", "ADVANCED"];
+
+// Schedule is deliberately NOT in here — it gets baked into the generated
+// program's day assignments during generation, so it must be confirmed
+// BEFORE generation (see PendingSchedule below), not edited after the fact.
+type EditableFields = {
+  programTitle: string;
+  difficultyLevel: string;
+  durationMinutes: string;
+  focusAreas: string;
+};
+
+function toEditableFields(parsed: PreviewState["parsed"]): EditableFields {
+  return {
+    programTitle: parsed.programTitle,
+    difficultyLevel: parsed.difficultyLevel,
+    durationMinutes: String(parsed.durationMinutes),
+    focusAreas: parsed.focusAreas.join(", "),
+  };
+}
+
+type PendingSchedule = {
+  rawText: string;
+  metadata: BriefMetadata;
 };
 
 const ACCEPTED_EXTENSIONS = [".pdf", ".docx", ".txt", ".md"];
@@ -86,7 +115,11 @@ export function ProgramBriefUpload({ clients }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
+  const [editableFields, setEditableFields] = useState<EditableFields | null>(null);
+  const [pendingSchedule, setPendingSchedule] = useState<PendingSchedule | null>(null);
+  const [scheduleInput, setScheduleInput] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [confirmingSchedule, setConfirmingSchedule] = useState(false);
   const [assignClientId, setAssignClientId] = useState("");
   const [assignStartDate, setAssignStartDate] = useState(
     format(new Date(), "yyyy-MM-dd")
@@ -102,6 +135,18 @@ export function ProgramBriefUpload({ clients }: Props) {
     }
     setFile(next);
     setPreview(null);
+    setPendingSchedule(null);
+  }
+
+  async function runGeneration(rawText: string, metadata: BriefMetadata) {
+    const result = await generateProgramPreviewFromBriefAction({ rawText, metadata });
+    if (!result.success || !result.data) {
+      toast.error(result.error ?? "Failed to generate program from brief");
+      return;
+    }
+    setPreview(result.data);
+    setEditableFields(toEditableFields(result.data.parsed));
+    toast.success("Preview generated");
   }
 
   async function handleUploadAndGenerate() {
@@ -127,17 +172,30 @@ export function ProgramBriefUpload({ clients }: Props) {
         return;
       }
 
-      const result = await generateProgramPreviewFromBriefAction({
+      const metaResult = await extractProgramMetadataFromBriefAction({
         fileUrl,
         fileName: file.name,
       });
-      if (!result.success || !result.data) {
-        toast.error(result.error ?? "Failed to generate program from brief");
+      if (!metaResult.success || !metaResult.data) {
+        toast.error(metaResult.error ?? "Failed to read this document");
         return;
       }
 
-      setPreview(result.data);
-      toast.success("Preview generated");
+      const { metadata, rawText } = metaResult.data;
+      const scheduleIsInferred =
+        metadata.inferredFields.includes("preferredWeekdays") ||
+        metadata.inferredFields.includes("estimatedDaysPerWeek");
+
+      if (scheduleIsInferred) {
+        // Schedule gets baked into the generated program's day assignments
+        // during generation, so it has to be confirmed now, before the
+        // (slower) generation step runs — not edited afterward.
+        setPendingSchedule({ rawText, metadata });
+        setScheduleInput(metadata.preferredWeekdays.join(", "));
+        return;
+      }
+
+      await runGeneration(rawText, metadata);
     } catch (err) {
       console.error("[program-brief-upload]", err);
       toast.error("Upload failed. Please try again.");
@@ -146,8 +204,36 @@ export function ProgramBriefUpload({ clients }: Props) {
     }
   }
 
+  async function handleConfirmSchedule() {
+    if (!pendingSchedule) return;
+    const weekdays = scheduleInput
+      .split(",")
+      .map((d) => d.trim())
+      .filter(Boolean);
+    if (!weekdays.length) {
+      toast.error("Enter at least one training day");
+      return;
+    }
+
+    setConfirmingSchedule(true);
+    try {
+      const confirmedMetadata: BriefMetadata = {
+        ...pendingSchedule.metadata,
+        preferredWeekdays: weekdays,
+        estimatedDaysPerWeek: weekdays.length,
+        inferredFields: pendingSchedule.metadata.inferredFields.filter(
+          (f) => f !== "preferredWeekdays" && f !== "estimatedDaysPerWeek"
+        ),
+      };
+      await runGeneration(pendingSchedule.rawText, confirmedMetadata);
+      setPendingSchedule(null);
+    } finally {
+      setConfirmingSchedule(false);
+    }
+  }
+
   async function handleSave(isTemplate: boolean) {
-    if (!preview) return;
+    if (!preview || !editableFields) return;
     if (!isTemplate && !assignClientId) {
       toast.error("Select a client to assign");
       return;
@@ -155,9 +241,22 @@ export function ProgramBriefUpload({ clients }: Props) {
 
     setSaving(isTemplate ? "template" : "assign");
     try {
+      const editedTitle = editableFields.programTitle.trim() || preview.parsed.programTitle;
+      const editedFocusAreas = editableFields.focusAreas
+        .split(",")
+        .map((a) => a.trim())
+        .filter(Boolean);
+      const editedDuration = Number.parseInt(editableFields.durationMinutes, 10);
+
       const result = await saveGeneratedProgramAction({
-        aiPlan: preview.aiPlan,
-        params: preview.params,
+        aiPlan: { ...preview.aiPlan, name: editedTitle },
+        params: {
+          ...preview.params,
+          programTitle: editedTitle,
+          difficultyLevel: editableFields.difficultyLevel,
+          durationMinutes: Number.isFinite(editedDuration) ? editedDuration : preview.parsed.durationMinutes,
+          focusAreas: editedFocusAreas.length ? editedFocusAreas : preview.parsed.focusAreas,
+        },
         isTemplate,
         clientId: isTemplate ? null : assignClientId,
         startDate: isTemplate ? undefined : assignStartDate,
@@ -187,14 +286,14 @@ export function ProgramBriefUpload({ clients }: Props) {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm text-muted-foreground">
-                Freeform briefs are supported. AI infers missing fields from your content.
+                Any format works — tables, bullet lists, or plain prose. Not sure where to start?
               </p>
               <Link
                 className="text-sm text-blue-600 hover:underline"
                 href="/templates/program-brief-template.txt"
                 target="_blank"
               >
-                Download template
+                See an example document
               </Link>
             </div>
             <Badge variant="outline" className="w-fit">
@@ -243,7 +342,37 @@ export function ProgramBriefUpload({ clients }: Props) {
         </CardContent>
       </Card>
 
-      {preview && (
+      {pendingSchedule && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5 text-amber-600" />
+              Confirm Schedule
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This document doesn&apos;t state which days of the week training happens on. This
+              determines which day each session lands on, so please confirm it before the program
+              is generated.
+            </p>
+            <div className="space-y-2">
+              <Label>Training days (comma separated)</Label>
+              <Input
+                value={scheduleInput}
+                onChange={(e) => setScheduleInput(e.target.value)}
+                placeholder="Monday, Wednesday, Friday"
+              />
+            </div>
+            <Button onClick={handleConfirmSchedule} disabled={confirmingSchedule} className="gap-2">
+              {confirmingSchedule ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {confirmingSchedule ? "Generating..." : "Continue"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {preview && editableFields && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -252,36 +381,95 @@ export function ProgramBriefUpload({ clients }: Props) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Program Title</Label>
-                <div className="text-sm font-medium">
-                  {preview.parsed.programTitle}
+            {preview.warnings.length > 0 && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                <div className="flex items-center gap-2 font-medium">
+                  <AlertTriangle className="h-4 w-4" />
+                  Review before saving
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Difficulty</Label>
-                <div className="text-sm font-medium">
-                  {preview.parsed.difficultyLevel}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Focus Areas</Label>
-                <div className="flex flex-wrap gap-1">
-                  {preview.parsed.focusAreas.map((area) => (
-                    <Badge key={area} variant="secondary">
-                      {area}
-                    </Badge>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  {preview.warnings.map((warning, idx) => (
+                    <li key={idx}>{warning}</li>
                   ))}
-                </div>
+                </ul>
               </div>
-              <div className="space-y-2">
-                <Label>Schedule</Label>
-                <div className="text-sm">
-                  {preview.parsed.daysPerWeek} days / week — {preview.parsed.preferredWeekdays.join(", ")}
+            )}
+            {(() => {
+              const inferred = new Set(preview.parsed.inferredFields ?? []);
+              const inferredNote = (
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  Not stated in the document — please confirm.
+                </p>
+              );
+              return (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Program Title</Label>
+                    <Input
+                      value={editableFields.programTitle}
+                      onChange={(e) =>
+                        setEditableFields((f) => (f ? { ...f, programTitle: e.target.value } : f))
+                      }
+                      className={inferred.has("programTitle") ? "border-amber-400" : undefined}
+                    />
+                    {inferred.has("programTitle") && inferredNote}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Difficulty</Label>
+                    <Select
+                      value={editableFields.difficultyLevel}
+                      onValueChange={(v) =>
+                        setEditableFields((f) => (f ? { ...f, difficultyLevel: v ?? f.difficultyLevel } : f))
+                      }
+                    >
+                      <SelectTrigger className={inferred.has("difficultyLevel") ? "border-amber-400" : undefined}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DIFFICULTY_OPTIONS.map((d) => (
+                          <SelectItem key={d} value={d}>
+                            {d}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {inferred.has("difficultyLevel") && inferredNote}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Focus Areas (comma separated)</Label>
+                    <Input
+                      value={editableFields.focusAreas}
+                      onChange={(e) =>
+                        setEditableFields((f) => (f ? { ...f, focusAreas: e.target.value } : f))
+                      }
+                      className={inferred.has("focusAreas") ? "border-amber-400" : undefined}
+                    />
+                    {inferred.has("focusAreas") && inferredNote}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Schedule</Label>
+                    <div className="text-sm font-medium">
+                      {preview.parsed.daysPerWeek} days/week — {preview.parsed.preferredWeekdays.join(", ")}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Confirmed before generation — already reflected in the sessions below.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Session Length (minutes)</Label>
+                    <Input
+                      type="number"
+                      value={editableFields.durationMinutes}
+                      onChange={(e) =>
+                        setEditableFields((f) => (f ? { ...f, durationMinutes: e.target.value } : f))
+                      }
+                      className={inferred.has("durationMinutes") ? "border-amber-400" : undefined}
+                    />
+                    {inferred.has("durationMinutes") && inferredNote}
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })()}
 
             <div className="space-y-2">
               <Label>Generated Sessions</Label>

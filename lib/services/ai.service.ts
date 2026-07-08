@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { prisma } from "@/lib/prisma";
-import type { BodyRegion } from "@prisma/client";
+import type { BodyRegion, Exercise } from "@prisma/client";
 import type { ClinicalPlan, ClinicalPlanParams, WeekPlan } from '@/lib/ai/types/program-generation'
 import { filterByEquipment } from '@/lib/ai/utils/exercise-pool'
 
@@ -53,15 +53,13 @@ interface GenerateWorkoutParams {
   trainerPrompt?: string;
   programTitle?: string;
   preferredWeekdays?: string[];
-  preferredExerciseNames?: string[];
   sessionBlueprint?: {
     dayIndex: number;
     weekIndex?: number;
     title: string;
     blocks: {
       name: string;
-      sets?: number;
-      exercises: { name: string; sets?: number; reps?: number; durationSeconds?: number }[];
+      exercises: { name: string; sets?: number; reps?: number; durationSeconds?: number; notes?: string }[];
     }[];
   }[];
   weekPlan?: WeekPlan[]
@@ -88,6 +86,7 @@ interface GeneratedPlan {
   description: string;
   sessions: { dayOfWeek: number; weekIndex?: number; name: string }[];
   exercises: GeneratedExercise[];
+  warnings?: string[];
 }
 
 /** Map user-facing focus area strings to BodyRegion enum values */
@@ -268,6 +267,31 @@ async function pickClosestExerciseNameAI(
   const payload = response.choices[0].message.content ?? "{}";
   const parsed = JSON.parse(payload) as { bestName?: string };
   return parsed.bestName || "";
+}
+
+export async function resolveExerciseByName(
+  name: string,
+  candidates: Exercise[]
+): Promise<{ exercise: Exercise | null; matchType: "exact" | "fuzzy" | "none" }> {
+  const normalizedTarget = normalizeExerciseName(name);
+  const exact = candidates.find(
+    (e) => normalizeExerciseName(e.name) === normalizedTarget
+  );
+  if (exact) return { exercise: exact, matchType: "exact" };
+
+  const ranked = candidates
+    .map((e) => ({
+      exercise: e,
+      score: scoreNameSimilarity(normalizeExerciseName(e.name), normalizedTarget),
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  if (!ranked.length) return { exercise: null, matchType: "none" };
+
+  const top = ranked.slice(0, 20).map((r) => r.exercise.name);
+  const aiPick = await pickClosestExerciseNameAI(name, top);
+  const best = candidates.find((e) => e.name === aiPick) ?? ranked[0].exercise;
+  return { exercise: best, matchType: "fuzzy" };
 }
 
 export async function generateWorkoutPlan(
@@ -546,6 +570,114 @@ ${jsonFormat}`
   }
   // === END multi-week path ===
 
+  if (params.sessionBlueprint?.length) {
+    const circuits = params.circuits || [];
+    const circuitNameMap = new Map(
+      circuits.map((c, idx) => [normalizeExerciseName(c.name), idx])
+    );
+
+    const allBriefExercises = await prisma.exercise.findMany({
+      where: { isActive: true },
+    });
+
+    const warnings: string[] = [];
+
+    // Map per-week dayIndex (0,1,2) → actual weekday index using preferredWeekdays
+    // e.g. ["Monday","Wednesday","Friday"] → [0,2,4], so dayIndex 1 → Wednesday (2) not Tuesday (1)
+    const preferredDayIndices = (params.preferredWeekdays ?? [])
+      .map((d) => weekdayToIndex[d.toLowerCase().trim()])
+      .filter((d): d is number => Number.isInteger(d));
+
+    function toActualDayOfWeek(dayIndex: number): number {
+      if (preferredDayIndices.length === 0) return dayIndex;
+      return preferredDayIndices[dayIndex % preferredDayIndices.length];
+    }
+
+    const sessions = params.sessionBlueprint.map((s) => ({
+      dayOfWeek: toActualDayOfWeek(s.dayIndex),
+      weekIndex: s.weekIndex ?? 0,
+      name: s.title,
+    }));
+
+    const exercisesOutput: GeneratedExercise[] = [];
+
+    for (const session of params.sessionBlueprint) {
+      let orderIndex = 0;
+      for (let blockIdx = 0; blockIdx < session.blocks.length; blockIdx += 1) {
+        const block = session.blocks[blockIdx];
+        const blockKey = normalizeExerciseName(block.name);
+        const circuitIndex =
+          circuitNameMap.get(blockKey) ?? Math.min(blockIdx, Math.max(0, circuits.length - 1));
+
+        for (const exerciseBp of block.exercises) {
+          // Only flag exercises with NO library match at all — a document with
+          // any real amount of content produces a fuzzy match for nearly every
+          // exercise (different naming conventions are the norm, not the
+          // exception), so confirming each one would bury the trainer in noise.
+          const { exercise } = await resolveExerciseByName(exerciseBp.name, allBriefExercises);
+          if (!exercise) {
+            warnings.push(
+              `"${exerciseBp.name}" has no matching exercise in the library and was skipped from "${session.title}".`
+            );
+            continue;
+          }
+
+          // Prefer sets/reps from the brief; fall back to library defaults
+          const sets = exerciseBp.sets ?? exercise.defaultSets ?? 3;
+          const hasDuration =
+            exerciseBp.durationSeconds != null ||
+            (exerciseBp.reps == null && exercise.defaultHoldSeconds != null);
+          const reps = hasDuration ? undefined : (exerciseBp.reps ?? exercise.defaultReps ?? 10);
+          const durationSeconds =
+            exerciseBp.durationSeconds ??
+            (hasDuration ? (exercise.defaultHoldSeconds ?? undefined) : undefined);
+
+          const focusType = circuits[circuitIndex]?.focusType?.toUpperCase();
+          const phase =
+            focusType === "WARMUP"
+              ? "WARMUP"
+              : focusType === "COOLDOWN"
+                ? "COOLDOWN"
+                : focusType === "FLEXIBILITY"
+                  ? "MOBILITY"
+                  : focusType === "CARDIO"
+                    ? "ACTIVATION"
+                    : focusType === "BALANCE"
+                      ? "ACTIVATION"
+                      : "STRENGTHENING";
+
+          exercisesOutput.push({
+            exerciseId: exercise.id,
+            exerciseName: exercise.name,
+            phase,
+            circuitIndex,
+            sets,
+            reps,
+            durationSeconds,
+            restSeconds: undefined,
+            weekIndex: session.weekIndex ?? 0,
+            dayOfWeek: toActualDayOfWeek(session.dayIndex),
+            orderIndex: orderIndex++,
+            notes: exerciseBp.notes ?? undefined,
+          });
+        }
+      }
+    }
+
+    const programTitle =
+      params.programTitle ||
+      params.trainerPrompt?.split("\n")?.[0]?.replace(/^Program title:\s*/i, "").trim() ||
+      "Athletic Program";
+
+    return {
+      title: programTitle,
+      description: "Generated from uploaded brief",
+      sessions,
+      exercises: exercisesOutput,
+      warnings,
+    };
+  }
+
   // Fetch exercises with enriched fields
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allExercises = (await (prisma.exercise.findMany as any)({
@@ -600,155 +732,15 @@ ${jsonFormat}`
     );
   });
 
-  let filteredForBrief = filtered;
-  const preferredNames = (params.preferredExerciseNames || [])
-    .map((n) => n.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim())
-    .filter(Boolean);
-
-  if (preferredNames.length) {
-    filteredForBrief = filtered.filter((e) => {
-      const exerciseName = e.name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-      if (!exerciseName) return false;
-      return preferredNames.some(
-        (n) => exerciseName === n || exerciseName.includes(n) || n.includes(exerciseName)
-      );
-    });
-  }
-
   // Pool must be large enough so the AI can pick unique exercises across all days
   const exercisesPerSession = params.circuits?.length
     ? params.circuits.reduce((sum, c) => sum + c.exerciseCount, 0)
     : (params.exercisesPerSession ?? 15);
   const exercisePoolLimit = Math.max(80, params.daysPerWeek * exercisesPerSession);
-  const exercises = filteredForBrief.slice(0, exercisePoolLimit);
+  const exercises = filtered.slice(0, exercisePoolLimit);
 
   if (exercises.length === 0) {
-    throw new Error(
-      preferredNames.length
-        ? "No exercises from the brief matched your library. Please check exercise names."
-        : "No suitable exercises found for the given focus areas and client profile."
-    );
-  }
-
-  if (params.sessionBlueprint?.length) {
-    const circuits = params.circuits || [];
-    const circuitNameMap = new Map(
-      circuits.map((c, idx) => [normalizeExerciseName(c.name), idx])
-    );
-
-    const allBriefExercises = await prisma.exercise.findMany({
-      where: { isActive: true },
-    });
-
-    async function resolveExerciseByName(name: string) {
-      const normalizedTarget = normalizeExerciseName(name);
-      const exact = allBriefExercises.find(
-        (e) => normalizeExerciseName(e.name) === normalizedTarget
-      );
-      if (exact) return exact;
-
-      const ranked = allBriefExercises
-        .map((e) => ({
-          exercise: e,
-          score: scoreNameSimilarity(normalizeExerciseName(e.name), normalizedTarget),
-        }))
-        .sort((a, b) => b.score - a.score);
-
-      if (!ranked.length) return null;
-
-      const top = ranked.slice(0, 20).map((r) => r.exercise.name);
-      const aiPick = await pickClosestExerciseNameAI(name, top);
-      const best = allBriefExercises.find((e) => e.name === aiPick);
-      return best ?? ranked[0].exercise;
-    }
-
-    // Map per-week dayIndex (0,1,2) → actual weekday index using preferredWeekdays
-    // e.g. ["Monday","Wednesday","Friday"] → [0,2,4], so dayIndex 1 → Wednesday (2) not Tuesday (1)
-    const preferredDayIndices = (params.preferredWeekdays ?? [])
-      .map((d) => weekdayToIndex[d.toLowerCase().trim()])
-      .filter((d): d is number => Number.isInteger(d));
-
-    function toActualDayOfWeek(dayIndex: number): number {
-      if (preferredDayIndices.length === 0) return dayIndex;
-      return preferredDayIndices[dayIndex % preferredDayIndices.length];
-    }
-
-    const sessions = params.sessionBlueprint.map((s) => ({
-      dayOfWeek: toActualDayOfWeek(s.dayIndex),
-      weekIndex: s.weekIndex ?? 0,
-      name: s.title,
-    }));
-
-    const exercisesOutput: GeneratedExercise[] = [];
-
-    for (const session of params.sessionBlueprint) {
-      let orderIndex = 0;
-      for (let blockIdx = 0; blockIdx < session.blocks.length; blockIdx += 1) {
-        const block = session.blocks[blockIdx];
-        const blockKey = normalizeExerciseName(block.name);
-        const circuitIndex =
-          circuitNameMap.get(blockKey) ?? Math.min(blockIdx, Math.max(0, circuits.length - 1));
-
-        for (const exerciseBp of block.exercises) {
-          const exercise = await resolveExerciseByName(exerciseBp.name);
-          if (!exercise) {
-            console.warn(`[Brief] No exercises in library, skipping: ${exerciseBp.name}`);
-            continue;
-          }
-
-          // Prefer sets/reps from the brief; fall back to library defaults
-          const sets = exerciseBp.sets ?? exercise.defaultSets ?? 3;
-          const hasDuration =
-            exerciseBp.durationSeconds != null ||
-            (exerciseBp.reps == null && exercise.defaultHoldSeconds != null);
-          const reps = hasDuration ? undefined : (exerciseBp.reps ?? exercise.defaultReps ?? 10);
-          const durationSeconds =
-            exerciseBp.durationSeconds ??
-            (hasDuration ? (exercise.defaultHoldSeconds ?? undefined) : undefined);
-
-          const focusType = circuits[circuitIndex]?.focusType?.toUpperCase();
-          const phase =
-            focusType === "WARMUP"
-              ? "WARMUP"
-              : focusType === "COOLDOWN"
-                ? "COOLDOWN"
-                : focusType === "FLEXIBILITY"
-                  ? "MOBILITY"
-                  : focusType === "CARDIO"
-                    ? "ACTIVATION"
-                    : focusType === "BALANCE"
-                      ? "ACTIVATION"
-                      : "STRENGTHENING";
-
-          exercisesOutput.push({
-            exerciseId: exercise.id,
-            exerciseName: exercise.name,
-            phase,
-            circuitIndex,
-            sets,
-            reps,
-            durationSeconds,
-            restSeconds: undefined,
-            weekIndex: session.weekIndex ?? 0,
-            dayOfWeek: toActualDayOfWeek(session.dayIndex),
-            orderIndex: orderIndex++,
-            notes: undefined,
-          });
-        }
-      }
-    }
-
-    const programTitle =
-      params.programTitle ||
-      params.trainerPrompt?.split("\n")?.[0]?.replace(/^Program title:\s*/i, "").trim() ||
-      "Athletic Program";
-
-    return {
-      title: programTitle,
-      description: "Generated from uploaded brief",
-      sessions,
-      exercises: exercisesOutput,
-    };
+    throw new Error("No suitable exercises found for the given focus areas and client profile.");
   }
 
   const systemPrompt = `You are an expert exercise professional with deep knowledge in physical therapy, strength & conditioning, athletic performance, and general fitness. Create structured exercise programs that adapt to any program context — rehabilitation, athletic development, sports performance, or general fitness.
@@ -963,6 +955,7 @@ export interface GeneratedProgram {
   name: string;
   description?: string;
   workouts: GeneratedProgramWorkout[];
+  warnings?: string[];
 }
 
 function circuitFocusToBlockType(focusType: string): string {
@@ -1087,6 +1080,7 @@ export async function generateProgram(
     name: generatedPlan.title || "AI Generated Program",
     description: generatedPlan.description,
     workouts,
+    warnings: generatedPlan.warnings,
   };
 }
 

@@ -13,7 +13,10 @@
       "Bash(npm test *)",
       "Bash(npx vitest *)",
       "Bash(bash *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(git add *)",
+      "Read(//Users/yahyashah/Desktop/**)",
+      "Bash(find / -maxdepth 4 -iname \"*Screenshot 2026-07-08*\")"
     ]
   },
   "worktree": {

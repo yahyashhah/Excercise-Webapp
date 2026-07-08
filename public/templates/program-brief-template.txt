@@ -1,17 +1,67 @@
-PROGRAM_TITLE: Example Knee Rehab - 4 Week Plan
-FOCUS_AREAS: lower body, core, balance
-DIFFICULTY: BEGINNER
-DURATION_MINUTES: 30
-DAYS_PER_WEEK: 3
-PREFERRED_WEEKDAYS: Monday, Wednesday, Friday
-CIRCUITS:
-- Warm Up | WARMUP | 4
-- Main Circuit | LOWER_BODY | 6
-- Core Stability | CORE | 3
-- Cool Down | COOLDOWN | 2
-SUBJECTIVE:
-Patient reports anterior knee pain with stairs and prolonged sitting. Pain 4/10. Avoid deep knee flexion.
-CLINICIAN_INSTRUCTIONS:
-Prioritize quad activation, hip stability, and pain-free ROM. Keep pain <= 3/10.
-ADDITIONAL_NOTES:
-No equipment beyond resistance bands and bodyweight.
+This is an example of a well-organized program document. You do NOT have to follow this exact format — any layout works (tables, bullet lists, prose, your own template), as long as it's clear which exercises belong to which day. This example just shows a layout that extracts cleanly.
+
+Beginner Knee Rehab & Lower Body Program
+3 days per week, 30-45 minutes per session
+
+Week 1
+
+Day 1: Lower Body A
+Warm Up:
+- Marching in place x 1 minute
+- Ankle circles x 10 each direction
+- Glute bridges x 12
+
+Main Circuit: 3 sets
+- Bodyweight squats x 10
+- Step-ups (low box) x 8 each side
+- Standing hip abduction x 12 each side
+
+Core Stability: 2 sets
+- Dead bug x 8 each side
+- Bird dog x 8 each side
+
+Cool Down:
+- Quad stretch 30 sec each side
+- Hamstring stretch 30 sec each side
+
+Day 2: Balance & Core
+Warm Up:
+- Marching in place x 1 minute
+- Cat-cow x 8
+
+Main Circuit: 3 sets
+- Single-leg balance x 30 sec each side
+- Wall sit x 20 sec
+- Clamshells x 12 each side
+
+Core Stability: 2 sets
+- Plank x 20 sec
+- Side plank x 15 sec each side
+
+Cool Down:
+- Child's pose 30 sec
+- Hip flexor stretch 30 sec each side
+
+Day 3: Lower Body B
+Warm Up:
+- Marching in place x 1 minute
+- Leg swings x 10 each direction
+
+Main Circuit: 3 sets
+- Sit-to-stand x 10
+- Lateral band walks x 10 each side
+- Calf raises x 15
+
+Core Stability: 2 sets
+- Dead bug x 8 each side
+- Pelvic tilts x 12
+
+Cool Down:
+- Quad stretch 30 sec each side
+- Calf stretch 30 sec each side
+
+Week 2
+
+(repeats the same 3 sessions, progressing reps or adding light resistance as tolerated)
+
+Notes: patient reports mild anterior knee pain with stairs — avoid deep knee flexion, keep pain at or below 3/10 during exercise.
