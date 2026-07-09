@@ -9,6 +9,7 @@ export const NOTIFICATION_TYPES = {
   MISSED_SESSION: "MISSED_SESSION",
   NEW_RESPONSE: "NEW_RESPONSE",
   NEW_MESSAGE: "NEW_MESSAGE",
+  EXERCISE_NOTE: "EXERCISE_NOTE",
 } as const;
 
 export type NotificationType =

@@ -91,101 +91,9 @@ export function ClientSessionCalendar({ sessions }: Props) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* Calendar grid with grid lines */}
-        <div className="rounded-lg border border-border/40 overflow-hidden">
-          {/* Day-of-week headers */}
-          <div className="grid grid-cols-7 bg-muted/40 border-b border-border/40">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, idx) => (
-              <div
-                key={d}
-                className={cn(
-                  "text-[10px] font-semibold uppercase tracking-wide text-muted-foreground py-1.5 text-center",
-                  idx < 6 && "border-r border-border/40"
-                )}
-              >
-                {d}
-              </div>
-            ))}
-          </div>
-
-          {/* Day cells */}
-          <div className="grid grid-cols-7">
-            {Array.from({ length: paddedStart }).map((_, i) => (
-              <div
-                key={`pad-${i}`}
-                className={cn(
-                  "min-h-[44px] border-b border-border/40",
-                  i % 7 < 6 && "border-r border-border/40"
-                )}
-              />
-            ))}
-            {days.map((day) => {
-            const daySessions = getSessionsForDay(day);
-            const hasSession = daySessions.length > 0;
-            const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
-            const isFutureDay = isAfter(startOfDay(day), today);
-            const isCurrentDay = isToday(day);
-
-            return (
-              <button
-                key={day.toISOString()}
-                type="button"
-                onClick={() => {
-                  if (hasSession) {
-                    setSelectedDate(isSelected ? null : day);
-                  }
-                }}
-                disabled={!hasSession}
-                className={cn(
-                  "relative flex flex-col items-center justify-start p-1 py-1.5 transition-colors min-h-[44px]",
-                  "border-b border-border/40",
-                  (paddedStart + days.indexOf(day)) % 7 < 6 && "border-r border-border/40",
-                  !hasSession && "cursor-default",
-                  hasSession && !isSelected && "cursor-pointer hover:bg-muted/60",
-                  isSelected && "bg-primary text-primary-foreground",
-                  isCurrentDay && !isSelected && "ring-2 ring-primary ring-inset rounded-[4px]",
-                  isFutureDay && hasSession && "opacity-50"
-                )}
-              >
-                <span className={cn("text-xs font-medium", isSelected ? "text-primary-foreground" : "text-foreground")}>
-                  {format(day, "d")}
-                </span>
-                {hasSession && (
-                  <div className="flex gap-0.5 mt-0.5">
-                    {daySessions.slice(0, 3).map((s) => (
-                      <div
-                        key={s.id}
-                        className={cn(
-                          "h-1 w-1 rounded-full",
-                          isSelected ? "bg-primary-foreground/80" : STATUS_DOT[s.status] ?? "bg-muted-foreground"
-                        )}
-                      />
-                    ))}
-                  </div>
-                )}
-              </button>
-            );
-          })}
-          </div>   {/* closes grid grid-cols-7 (day cells) */}
-        </div>     {/* closes rounded-lg border wrapper */}
-
-        {/* Legend */}
-        <div className="flex items-center gap-4 pt-1">
-          {[
-            { color: "bg-blue-500", label: "Scheduled" },
-            { color: "bg-amber-500", label: "In Progress" },
-            { color: "bg-emerald-500", label: "Completed" },
-          ].map((l) => (
-            <div key={l.label} className="flex items-center gap-1.5">
-              <div className={cn("h-2 w-2 rounded-full", l.color)} />
-              <span className="text-[10px] text-muted-foreground">{l.label}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Selected day detail */}
+        {/* Selected day detail — surfaced above the calendar so it's visible without scrolling */}
         {selectedDate && selectedSessions.length > 0 && (
-          <div className="border-t pt-4 space-y-3">
+          <div className="pb-3 space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {isToday(selectedDate) ? "Today" : format(selectedDate, "EEEE, MMMM d")}
             </p>
@@ -248,6 +156,98 @@ export function ClientSessionCalendar({ sessions }: Props) {
             })}
           </div>
         )}
+
+        {/* Calendar grid with grid lines */}
+        <div className="rounded-lg border border-border overflow-hidden">
+          {/* Day-of-week headers */}
+          <div className="grid grid-cols-7 bg-muted/40 border-b border-border">
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, idx) => (
+              <div
+                key={d}
+                className={cn(
+                  "text-[10px] font-semibold uppercase tracking-wide text-muted-foreground py-1.5 text-center",
+                  idx < 6 && "border-r border-border"
+                )}
+              >
+                {d}
+              </div>
+            ))}
+          </div>
+
+          {/* Day cells */}
+          <div className="grid grid-cols-7">
+            {Array.from({ length: paddedStart }).map((_, i) => (
+              <div
+                key={`pad-${i}`}
+                className={cn(
+                  "min-h-[44px] border-b border-border",
+                  i % 7 < 6 && "border-r border-border"
+                )}
+              />
+            ))}
+            {days.map((day) => {
+            const daySessions = getSessionsForDay(day);
+            const hasSession = daySessions.length > 0;
+            const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
+            const isFutureDay = isAfter(startOfDay(day), today);
+            const isCurrentDay = isToday(day);
+
+            return (
+              <button
+                key={day.toISOString()}
+                type="button"
+                onClick={() => {
+                  if (hasSession) {
+                    setSelectedDate(isSelected ? null : day);
+                  }
+                }}
+                disabled={!hasSession}
+                className={cn(
+                  "relative flex flex-col items-center justify-start p-1 py-1.5 transition-colors min-h-[44px]",
+                  "border-b border-border",
+                  (paddedStart + days.indexOf(day)) % 7 < 6 && "border-r border-border",
+                  !hasSession && "cursor-default",
+                  hasSession && !isSelected && "cursor-pointer hover:bg-muted/60",
+                  isSelected && "bg-primary text-primary-foreground",
+                  isCurrentDay && !isSelected && "ring-2 ring-primary ring-inset rounded-[4px]",
+                  isFutureDay && hasSession && "opacity-50"
+                )}
+              >
+                <span className={cn("text-xs font-medium", isSelected ? "text-primary-foreground" : "text-foreground")}>
+                  {format(day, "d")}
+                </span>
+                {hasSession && (
+                  <div className="flex gap-0.5 mt-0.5">
+                    {daySessions.slice(0, 3).map((s) => (
+                      <div
+                        key={s.id}
+                        className={cn(
+                          "h-1 w-1 rounded-full",
+                          isSelected ? "bg-primary-foreground/80" : STATUS_DOT[s.status] ?? "bg-muted-foreground"
+                        )}
+                      />
+                    ))}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+          </div>   {/* closes grid grid-cols-7 (day cells) */}
+        </div>     {/* closes rounded-lg border wrapper */}
+
+        {/* Legend */}
+        <div className="flex items-center gap-4 pt-1">
+          {[
+            { color: "bg-blue-500", label: "Scheduled" },
+            { color: "bg-amber-500", label: "In Progress" },
+            { color: "bg-emerald-500", label: "Completed" },
+          ].map((l) => (
+            <div key={l.label} className="flex items-center gap-1.5">
+              <div className={cn("h-2 w-2 rounded-full", l.color)} />
+              <span className="text-[10px] text-muted-foreground">{l.label}</span>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );

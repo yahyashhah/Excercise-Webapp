@@ -9,6 +9,7 @@ import type {
 const programListInclude = {
   trainer: { select: { id: true, firstName: true, lastName: true } },
   client: { select: { id: true, firstName: true, lastName: true } },
+  workouts: { select: { id: true, name: true } },
   _count: { select: { workouts: true } },
 } satisfies Prisma.ProgramInclude;
 
@@ -121,7 +122,14 @@ export async function getPrograms(
     ...(filters.isTemplate !== undefined && { isTemplate: filters.isTemplate }),
     ...(filters.clientId && { clientId: filters.clientId }),
     ...(filters.search && {
-      name: { contains: filters.search, mode: "insensitive" as const },
+      OR: [
+        { name: { contains: filters.search, mode: "insensitive" as const } },
+        {
+          workouts: {
+            some: { name: { contains: filters.search, mode: "insensitive" as const } },
+          },
+        },
+      ],
     }),
   };
 

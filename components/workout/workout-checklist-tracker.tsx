@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { updateSetLogV2Action, completeSessionV2Action, updateExerciseActualSetsAction } from "@/actions/session-v2-actions";
+import { updateSetLogV2Action, completeSessionV2Action, updateExerciseActualSetsAction, updateExerciseClientNoteAction } from "@/actions/session-v2-actions";
+import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,7 @@ type SessionExerciseLog = {
   blockExerciseId: string;
   status: string;
   actualSets?: number | null;
+  clientNote?: string | null;
   setLogs: { id: string; setIndex: number; actualReps?: number | null; actualWeight?: number | null; actualDuration?: number | null }[];
 };
 type BlockExercise = {
@@ -165,6 +167,24 @@ export function WorkoutChecklistTracker({
     }
     return result;
   });
+
+  // Client's own note per exercise, auto-saved as they type
+  const [clientNotes, setClientNotes] = useState<Record<string, string>>(() => {
+    const result: Record<string, string> = {};
+    for (const log of session.exerciseLogs) {
+      if (log.clientNote) result[log.blockExerciseId] = log.clientNote;
+    }
+    return result;
+  });
+
+  const saveClientNote = useDebouncedCallback((blockExerciseId: string, note: string) => {
+    updateExerciseClientNoteAction(session.id, blockExerciseId, note);
+  }, 600);
+
+  function handleClientNoteChange(blockExerciseId: string, note: string) {
+    setClientNotes((prev) => ({ ...prev, [blockExerciseId]: note }));
+    saveClientNote(blockExerciseId, note);
+  }
 
   const [loggingKey, setLoggingKey] = useState<string | null>(null);
 
@@ -851,6 +871,20 @@ export function WorkoutChecklistTracker({
                               <Plus className="h-3 w-3" />
                               Add Set
                             </Button>
+                          </div>
+
+                          {/* Client note */}
+                          <div className="space-y-1.5">
+                            <Label htmlFor={`client-note-${ex.id}`} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                              Your Notes
+                            </Label>
+                            <Textarea
+                              id={`client-note-${ex.id}`}
+                              placeholder="Anything you want your trainer to know about this exercise..."
+                              value={clientNotes[ex.id] ?? ""}
+                              onChange={(e) => handleClientNoteChange(ex.id, e.target.value)}
+                              className="min-h-[64px] text-sm resize-none bg-background"
+                            />
                           </div>
                         </div>
                       )}
