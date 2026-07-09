@@ -49,6 +49,7 @@ import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
 import { VoiceMemoPlayer } from "@/components/voice-memo/VoiceMemoPlayer";
 import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
 import type { VoiceMemoData } from "@/actions/voice-memo-actions";
+import { cn } from "@/lib/utils";
 
 
 interface ProgramDetailViewProps {
@@ -60,6 +61,7 @@ interface ProgramDetailViewProps {
   trainerName?: string;
   adminMode?: boolean;
   editHref?: string;
+  initialWorkoutId?: string;
   assignAction?: (input: {
     programId: string;
     clientId: string;
@@ -76,6 +78,7 @@ export function ProgramDetailView({
   trainerName: trainerNameProp,
   adminMode = false,
   editHref,
+  initialWorkoutId,
   assignAction,
 }: ProgramDetailViewProps) {
   const router = useRouter();
@@ -86,7 +89,10 @@ export function ProgramDetailView({
   const trainerData = program.trainer as { firstName?: string; lastName?: string } | null;
   const trainerName = trainerNameProp ?? (trainerData ? `${trainerData.firstName ?? ""} ${trainerData.lastName ?? ""}`.trim() : "Trainer");
   const [expandedWorkouts, setExpandedWorkouts] = useState<Set<string>>(
-    new Set()
+    new Set(initialWorkoutId ? [initialWorkoutId] : [])
+  );
+  const [highlightedWorkoutId, setHighlightedWorkoutId] = useState<string | null>(
+    initialWorkoutId ?? null
   );
 
   function summarizeSets(sets: Record<string, unknown>[]): string {
@@ -129,7 +135,13 @@ export function ProgramDetailView({
     });
   }
 
-  const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set([0]));
+  const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(() => {
+    if (initialWorkoutId) {
+      const target = workouts.find((w) => (w.id as string) === initialWorkoutId);
+      if (target) return new Set([(target.weekIndex as number) ?? 0]);
+    }
+    return new Set([0]);
+  });
 
   function toggleWeek(week: number) {
     setExpandedWeeks((prev) => {
@@ -146,6 +158,23 @@ export function ProgramDetailView({
     return acc;
   }, {});
   const weekNumbers = Object.keys(weekGroups).map(Number).sort((a, b) => a - b);
+
+  useEffect(() => {
+    if (!initialWorkoutId) return;
+    // Delay so this runs after Next.js' own post-navigation scroll reset,
+    // which otherwise races this scroll and wins.
+    const scrollTimer = setTimeout(() => {
+      document
+        .getElementById(`workout-${initialWorkoutId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+    const timer = setTimeout(() => setHighlightedWorkoutId(null), 3000);
+    return () => {
+      clearTimeout(scrollTimer);
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialWorkoutId]);
 
   const client = program.client as Record<string, string> | null;
   const clientId = program.clientId as string | null;
@@ -361,7 +390,14 @@ export function ProgramDetailView({
                           const scheduledDate = workout.scheduledDate as string | null | undefined;
 
                           return (
-                            <div key={wId}>
+                            <div
+                              key={wId}
+                              id={`workout-${wId}`}
+                              className={cn(
+                                "transition-colors duration-1000",
+                                highlightedWorkoutId === wId && "bg-primary/10 ring-1 ring-inset ring-primary/40"
+                              )}
+                            >
                               {/* Session row */}
                               <div className="flex items-center hover:bg-muted/30 transition-colors">
                                 <button

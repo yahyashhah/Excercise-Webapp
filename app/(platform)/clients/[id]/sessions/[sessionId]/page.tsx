@@ -119,11 +119,13 @@ export default async function SessionReviewPage({ params }: Props) {
 
   // Build a lookup from blockExerciseId → setLogs for O(1) access in render.
   const setLogsByBlockExerciseId = new Map<string, SetLog[]>();
+  const clientNoteByBlockExerciseId = new Map<string, string>();
   for (const log of session.exerciseLogs) {
     setLogsByBlockExerciseId.set(
       log.blockExerciseId,
       [...log.setLogs].sort((a, b) => a.setIndex - b.setIndex)
     );
+    if (log.clientNote) clientNoteByBlockExerciseId.set(log.blockExerciseId, log.clientNote);
   }
 
   // Summary stats
@@ -222,6 +224,7 @@ export default async function SessionReviewPage({ params }: Props) {
                 const setLogs =
                   setLogsByBlockExerciseId.get(exercise.id) ?? [];
                 const completion = getExerciseCompletion(setCount, setLogs);
+                const clientNote = clientNoteByBlockExerciseId.get(exercise.id);
 
                 return (
                   <Card key={exercise.id}>
@@ -232,6 +235,14 @@ export default async function SessionReviewPage({ params }: Props) {
                       <CompletionBadge completion={completion} />
                     </CardHeader>
                     <CardContent className="p-0">
+                      {clientNote && (
+                        <div className="flex items-start gap-2 border-b border-border/60 bg-blue-50 px-4 py-3">
+                          <span className="mt-0.5 shrink-0 text-[10px] font-bold uppercase tracking-widest text-blue-500">
+                            Client note
+                          </span>
+                          <p className="text-sm italic text-blue-700">{clientNote}</p>
+                        </div>
+                      )}
                       <SetTable
                         block={block}
                         exercise={exercise}

@@ -58,6 +58,7 @@ interface ProgramListItem {
   clientId?: string | null;
   trainer: { id: string; firstName: string; lastName: string } | null;
   client: { id: string; firstName: string; lastName: string } | null;
+  workouts: { id: string; name: string }[];
   _count: { workouts: number };
 }
 
@@ -67,7 +68,28 @@ interface GlobalProgramItem {
   description?: string | null;
   tags: string[];
   globalUpdatedAt?: Date | null;
+  workouts: { id: string; name: string }[];
   _count: { workouts: number };
+}
+
+function findMatchedWorkoutId(
+  program: { workouts: { id: string; name: string }[] },
+  search: string
+): string | null {
+  if (!search) return null;
+  const query = search.toLowerCase();
+  const match = program.workouts.find((w) => w.name.toLowerCase().includes(query));
+  return match?.id ?? null;
+}
+
+function matchesSearch(
+  program: { name: string; workouts: { id: string; name: string }[] },
+  search: string
+) {
+  return (
+    program.name.toLowerCase().includes(search.toLowerCase()) ||
+    findMatchedWorkoutId(program, search) !== null
+  );
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -85,6 +107,7 @@ function ProgramCard({
   onDuplicate,
   onArchive,
   typeBadge,
+  search,
 }: {
   program: ProgramListItem;
   role?: string;
@@ -92,14 +115,19 @@ function ProgramCard({
   onDuplicate: (id: string) => void;
   onArchive: (id: string) => void;
   typeBadge?: "clinical";
+  search?: string;
 }) {
   const router = useRouter();
   const status = statusConfig[program.status] ?? { label: program.status, className: "bg-muted text-muted-foreground border-border" };
+  const matchedWorkoutId = search ? findMatchedWorkoutId(program, search) : null;
+  const detailHref = matchedWorkoutId
+    ? `/programs/${program.id}?workoutId=${matchedWorkoutId}`
+    : `/programs/${program.id}`;
   return (
     <Card className="group flex flex-col border-0 shadow-sm ring-1 ring-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:ring-border">
       <CardContent className="flex flex-1 flex-col p-5">
         <div className="flex items-start justify-between gap-2">
-          <Link href={`/programs/${program.id}`} className="flex-1 min-w-0">
+          <Link href={detailHref} className="flex-1 min-w-0">
             <h3 className="truncate text-base font-semibold leading-tight transition-colors group-hover:text-primary">
               {program.name}
             </h3>
@@ -177,10 +205,10 @@ function ProgramCard({
               Updated {formatDistanceToNow(new Date(program.updatedAt), { addSuffix: true })}
             </p>
             <Link
-              href={`/programs/${program.id}`}
+              href={detailHref}
               className="text-[11px] font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100"
             >
-              View →
+              {matchedWorkoutId ? "View workout →" : "View →"}
             </Link>
           </div>
         </div>
@@ -282,7 +310,7 @@ export function ProgramListClient({
 
   // Programs tab: non-template programs
   const filteredPrograms = programs.filter((p) => {
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !matchesSearch(p, search)) return false;
     if (statusFilter !== "all" && p.status !== statusFilter) return false;
     return true;
   });
@@ -291,7 +319,7 @@ export function ProgramListClient({
   const filteredClinical =
     activeTab === "templates" && typeFilter !== "global"
       ? programs.filter((p) => {
-          if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+          if (search && !matchesSearch(p, search)) return false;
           if (statusFilter !== "all" && p.status !== statusFilter) return false;
           return true;
         })
@@ -301,7 +329,7 @@ export function ProgramListClient({
   const filteredGlobal =
     activeTab === "templates" && typeFilter !== "clinical"
       ? globalPrograms.filter((p) => {
-          if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+          if (search && !matchesSearch(p, search)) return false;
           return true;
         })
       : [];
@@ -376,7 +404,7 @@ export function ProgramListClient({
           <div className="relative flex-1 min-w-48 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder={activeTab === "templates" ? "Search templates..." : "Search programs..."}
+              placeholder={activeTab === "templates" ? "Search templates or workouts..." : "Search programs or workouts..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -460,6 +488,7 @@ export function ProgramListClient({
                 updatableSet={updatableSet}
                 onDuplicate={handleDuplicate}
                 onArchive={handleArchive}
+                search={search}
               />
             ))}
           </div>
@@ -511,6 +540,7 @@ export function ProgramListClient({
                 onDuplicate={handleDuplicate}
                 onArchive={handleArchive}
                 typeBadge="clinical"
+                search={search}
               />
             ))}
             {filteredGlobal.map((prog) => (

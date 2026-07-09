@@ -62,6 +62,58 @@ async function notifyTrainerOnCompletion(
   });
 }
 
+// Notifies the trainer once, at Finish Workout, if the client left a note on
+// any exercise — avoids firing a notification per debounced keystroke.
+async function notifyTrainerOfClientNotes(
+  sessionId: string,
+  client: { id: string; firstName: string; lastName: string }
+) {
+  const session = await prisma.workoutSessionV2.findUnique({
+    where: { id: sessionId },
+    include: {
+      workout: {
+        include: {
+          program: {
+            include: {
+              trainer: { select: { id: true } },
+            },
+          },
+        },
+      },
+      exerciseLogs: { where: { clientNote: { not: null } } },
+    },
+  });
+
+  const notedLogs = session?.exerciseLogs.filter(
+    (l) => l.clientNote && l.clientNote.trim().length > 0
+  );
+  if (!session?.workout.program.trainer || !notedLogs || notedLogs.length === 0) return;
+
+  const { trainer } = session.workout.program;
+  const clientName = `${client.firstName} ${client.lastName}`;
+  const workoutName = session.workout.name;
+
+  const blockExercises = await prisma.blockExerciseV2.findMany({
+    where: { id: { in: notedLogs.map((l) => l.blockExerciseId) } },
+    include: { exercise: { select: { name: true } } },
+  });
+  const exerciseNameById = new Map(blockExercises.map((be) => [be.id, be.exercise.name]));
+  const exerciseNames = notedLogs.map((l) => exerciseNameById.get(l.blockExerciseId) ?? "an exercise");
+  const summary = exerciseNames.length === 1 ? exerciseNames[0] : `${exerciseNames.length} exercises`;
+
+  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://inmotusrx.vercel.app";
+  const link = `${appBaseUrl}/clients/${client.id}/sessions/${sessionId}`;
+
+  await createNotification({
+    userId: trainer.id,
+    type: NOTIFICATION_TYPES.EXERCISE_NOTE,
+    title: "New exercise note",
+    body: `${clientName} left a note on ${summary} in "${workoutName}".`,
+    link,
+    metadata: { clientId: client.id, clientName, workoutName, sessionId, exerciseCount: exerciseNames.length },
+  });
+}
+
 export async function startSessionV2Action(sessionId: string) {
   const { userId } = await auth();
   if (!userId) return { success: false, error: "Unauthorized" };
@@ -196,6 +248,48 @@ export async function updateExerciseActualSetsAction(
   }
 }
 
+export async function updateExerciseClientNoteAction(
+  sessionId: string,
+  blockExerciseId: string,
+  clientNote: string
+) {
+  const { userId } = await auth();
+  if (!userId) return { success: false, error: "Unauthorized" };
+
+  try {
+    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!dbUser) return { success: false, error: "User not found" };
+
+    const session = await prisma.workoutSessionV2.findUnique({
+      where: { id: sessionId, clientId: dbUser.id },
+    });
+    if (!session) return { success: false, error: "Session not found" };
+
+    const trimmedNote = clientNote.trim() || null;
+
+    const exerciseLog = await prisma.sessionExerciseLog.findFirst({
+      where: { sessionId, blockExerciseId },
+    });
+
+    if (exerciseLog) {
+      await prisma.sessionExerciseLog.update({
+        where: { id: exerciseLog.id },
+        data: { clientNote: trimmedNote },
+      });
+    } else {
+      const blockEx = await prisma.blockExerciseV2.findUnique({ where: { id: blockExerciseId } });
+      await prisma.sessionExerciseLog.create({
+        data: { sessionId, blockExerciseId, orderIndex: blockEx?.orderIndex ?? 0, status: "PENDING", clientNote: trimmedNote },
+      });
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error(error);
+    return { success: false, error: "Failed to save note" };
+  }
+}
+
 export async function completeSessionV2Action(
   sessionId: string,
   overallRPE?: number,
@@ -213,7 +307,7 @@ export async function completeSessionV2Action(
       data: { status: "COMPLETED", completedAt: new Date(), overallRPE, overallNotes },
     });
 
-    // Fire trainer notification — non-blocking, failures must not break completion
+    // Fire trainer notifications — non-blocking, failures must not break completion
     try {
       await notifyTrainerOnCompletion(sessionId, {
         id: dbUser.id,
@@ -222,6 +316,16 @@ export async function completeSessionV2Action(
       });
     } catch (notifyErr) {
       console.error("Completion notification failed (non-fatal):", notifyErr);
+    }
+
+    try {
+      await notifyTrainerOfClientNotes(sessionId, {
+        id: dbUser.id,
+        firstName: dbUser.firstName,
+        lastName: dbUser.lastName,
+      });
+    } catch (notifyErr) {
+      console.error("Exercise note notification failed (non-fatal):", notifyErr);
     }
 
     revalidatePath("/dashboard");

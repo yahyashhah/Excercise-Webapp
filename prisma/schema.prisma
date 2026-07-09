@@ -503,6 +503,7 @@ model SessionExerciseLog {
   orderIndex      Int
   status          String           @default("PENDING")
   actualSets      Int?
+  clientNote      String?
   completedAt     DateTime?
   setLogs         SetLog[]
 }

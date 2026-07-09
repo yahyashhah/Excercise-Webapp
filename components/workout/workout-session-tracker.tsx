@@ -7,7 +7,9 @@ import {
   startSessionV2Action,
   updateSetLogV2Action,
   completeSessionV2Action,
+  updateExerciseClientNoteAction,
 } from "@/actions/session-v2-actions";
+import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +42,7 @@ type BaseExercise = {
 };
 type SetLog = { id: string; setIndex: number; actualReps?: number | null; actualWeight?: number | null; actualDuration?: number | null };
 type BlockExerciseSet = { id: string; orderIndex: number; targetReps?: number | null; targetDuration?: number | null; targetWeight?: number | null; restAfter?: number | null };
-type SessionExerciseLog = { id: string; blockExerciseId: string; status: string; setLogs: SetLog[] };
+type SessionExerciseLog = { id: string; blockExerciseId: string; status: string; clientNote?: string | null; setLogs: SetLog[] };
 type BlockExercise = { id: string; exerciseId: string; notes?: string | null; exercise: BaseExercise; sets: BlockExerciseSet[] };
 type WorkoutBlock = {
   id: string;
@@ -218,6 +220,24 @@ export function WorkoutSessionTracker({
   const [restCountdown, setRestCountdown] = useState<number | null>(null);
   const [activeSetLogs, setActiveSetLogs] = useState<Record<number, SetLogState>>({});
   const [loggingSet, setLoggingSet] = useState<number | null>(null);
+
+  // Client's own note per exercise, auto-saved as they type
+  const [clientNotes, setClientNotes] = useState<Record<string, string>>(() => {
+    const result: Record<string, string> = {};
+    for (const log of session.exerciseLogs) {
+      if (log.clientNote) result[log.blockExerciseId] = log.clientNote;
+    }
+    return result;
+  });
+
+  const saveClientNote = useDebouncedCallback((blockExerciseId: string, note: string) => {
+    updateExerciseClientNoteAction(session.id, blockExerciseId, note);
+  }, 600);
+
+  function handleClientNoteChange(blockExerciseId: string, note: string) {
+    setClientNotes((prev) => ({ ...prev, [blockExerciseId]: note }));
+    saveClientNote(blockExerciseId, note);
+  }
 
   const totalItems = flatItems.length;
   const totalExerciseItems = exerciseItems.length;
@@ -710,6 +730,20 @@ export function WorkoutSessionTracker({
                   })}
                 </div>
               )}
+
+              {/* Client note */}
+              <div className="space-y-1.5">
+                <Label htmlFor={`client-note-${blockExercise.id}`} className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Your Notes
+                </Label>
+                <Textarea
+                  id={`client-note-${blockExercise.id}`}
+                  placeholder="Anything you want your trainer to know about this exercise..."
+                  value={clientNotes[blockExercise.id] ?? ""}
+                  onChange={(e) => handleClientNoteChange(blockExercise.id, e.target.value)}
+                  className="min-h-[64px] text-sm resize-none"
+                />
+              </div>
 
               {/* Video */}
               {(blockExercise.exercise.videoUrl || blockExercise.exercise.media.length > 0) && (
