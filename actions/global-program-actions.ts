@@ -8,9 +8,10 @@ import { revalidatePath } from "next/cache";
 import { generateProgram } from "@/lib/services/ai.service";
 import { prisma } from "@/lib/prisma";
 import type { WeekPlan } from "@/lib/ai/types/program-generation";
+import { logAudit, diffFields, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 
 export async function createGlobalProgramAction(input: CreateProgramInput) {
-  await requireSuperAdmin();
+  const admin = await requireSuperAdmin();
 
   const parsed = createProgramSchema.safeParse(input);
   if (!parsed.success) {
@@ -19,6 +20,16 @@ export async function createGlobalProgramAction(input: CreateProgramInput) {
 
   try {
     const program = await programService.createGlobalProgram(parsed.data);
+    await logAudit({
+      actorId: admin.id,
+      actorType: "SUPER_ADMIN",
+      actorName: `${admin.firstName} ${admin.lastName}`,
+      action: AUDIT_ACTIONS.GLOBAL_PROGRAM_CREATED,
+      targetType: "Program",
+      targetId: program.id,
+      targetLabel: program.name,
+      orgId: null,
+    });
     revalidatePath("/admin/global-programs");
     return { success: true as const, data: { id: program.id } };
   } catch (error) {
@@ -31,7 +42,20 @@ export async function updateGlobalProgramAction(
   programId: string,
   input: UpdateProgramInput
 ) {
-  await requireSuperAdmin();
+  const admin = await requireSuperAdmin();
+
+  // Informational only (used for the audit diff/label), not an authorization
+  // gate — requireSuperAdmin() above already gates access to this action.
+  // A failure here must not turn a successful mutation into a reported failure.
+  const existing = await prisma.program
+    .findUnique({
+      where: { id: programId },
+      select: { name: true, description: true, status: true },
+    })
+    .catch((error) => {
+      console.error("Failed to fetch existing global program for audit diff:", error);
+      return null;
+    });
 
   const parsed = updateProgramSchema.safeParse(input);
   if (!parsed.success) {
@@ -40,6 +64,24 @@ export async function updateGlobalProgramAction(
 
   try {
     const updated = await programService.updateGlobalProgram(programId, parsed.data);
+    const diff = existing
+      ? diffFields(
+          existing as unknown as Record<string, unknown>,
+          parsed.data as unknown as Record<string, unknown>,
+          ["name", "description", "status"]
+        )
+      : undefined;
+    await logAudit({
+      actorId: admin.id,
+      actorType: "SUPER_ADMIN",
+      actorName: `${admin.firstName} ${admin.lastName}`,
+      action: AUDIT_ACTIONS.GLOBAL_PROGRAM_UPDATED,
+      targetType: "Program",
+      targetId: updated.id,
+      targetLabel: updated.name,
+      orgId: null,
+      metadata: diff,
+    });
     revalidatePath("/admin/global-programs");
     revalidatePath(`/admin/global-programs/${programId}/edit`);
     return { success: true as const, data: { id: updated.id } };
@@ -63,10 +105,30 @@ export async function pushGlobalProgramUpdateAction(programId: string) {
 }
 
 export async function deleteGlobalProgramAction(programId: string) {
-  await requireSuperAdmin();
+  const admin = await requireSuperAdmin();
+
+  // Informational only (used for the audit target label), not an authorization
+  // gate. A failure here must not turn a successful mutation into a reported
+  // failure, so it degrades gracefully to an undefined label.
+  const existing = await prisma.program
+    .findUnique({ where: { id: programId }, select: { name: true } })
+    .catch((error) => {
+      console.error("Failed to fetch existing global program for audit label:", error);
+      return null;
+    });
 
   try {
     await programService.deleteGlobalProgram(programId);
+    await logAudit({
+      actorId: admin.id,
+      actorType: "SUPER_ADMIN",
+      actorName: `${admin.firstName} ${admin.lastName}`,
+      action: AUDIT_ACTIONS.GLOBAL_PROGRAM_DELETED,
+      targetType: "Program",
+      targetId: programId,
+      targetLabel: existing?.name,
+      orgId: null,
+    });
     revalidatePath("/admin/global-programs");
     return { success: true as const };
   } catch (error) {

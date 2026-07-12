@@ -4,6 +4,7 @@ import { WebhookEvent } from "@clerk/nextjs/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { logAudit, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 
 export async function POST(req: Request) {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
@@ -102,6 +103,24 @@ export async function POST(req: Request) {
       where: { clerkId: public_user_data.user_id },
       data: { clerkOrgId: null },
     });
+  }
+
+  if (evt.type === "session.created" || evt.type === "session.ended") {
+    const sessionData = evt.data as { user_id?: string };
+    const clerkUserId = sessionData.user_id;
+
+    if (clerkUserId) {
+      const dbUser = await prisma.user.findUnique({ where: { clerkId: clerkUserId } });
+      if (dbUser) {
+        await logAudit({
+          actorId: dbUser.id,
+          actorType: deriveActorType(dbUser),
+          actorName: `${dbUser.firstName} ${dbUser.lastName}`,
+          action: evt.type === "session.created" ? AUDIT_ACTIONS.LOGIN : AUDIT_ACTIONS.LOGOUT,
+          orgId: dbUser.clerkOrgId,
+        });
+      }
+    }
   }
 
   return new NextResponse("OK", { status: 200 });

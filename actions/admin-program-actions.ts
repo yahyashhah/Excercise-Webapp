@@ -6,16 +6,17 @@ import { updateProgramSchema, assignProgramSchema } from "@/lib/validators/progr
 import type { UpdateProgramInput } from "@/lib/validators/program";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { logAudit, diffFields, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 
 export async function updateAdminProgramAction(
   programId: string,
   input: UpdateProgramInput
 ) {
-  await requireSuperAdmin();
+  const admin = await requireSuperAdmin();
 
   const existing = await prisma.program.findUnique({
     where: { id: programId },
-    select: { isGlobal: true },
+    select: { isGlobal: true, name: true, description: true, status: true, trainer: { select: { clerkOrgId: true } } },
   });
   if (!existing) {
     return { success: false as const, error: "Program not found" };
@@ -34,6 +35,22 @@ export async function updateAdminProgramAction(
 
   try {
     const updated = await programService.updateProgram(programId, parsed.data);
+    const diff = diffFields(
+      existing as unknown as Record<string, unknown>,
+      parsed.data as unknown as Record<string, unknown>,
+      ["name", "description", "status"]
+    );
+    await logAudit({
+      actorId: admin.id,
+      actorType: "SUPER_ADMIN",
+      actorName: `${admin.firstName} ${admin.lastName}`,
+      action: AUDIT_ACTIONS.PROGRAM_UPDATED,
+      targetType: "Program",
+      targetId: programId,
+      targetLabel: updated.name,
+      orgId: existing.trainer?.clerkOrgId ?? null,
+      metadata: diff,
+    });
     revalidatePath("/admin/programs");
     revalidatePath(`/admin/programs/${programId}`);
     return { success: true as const, data: updated };

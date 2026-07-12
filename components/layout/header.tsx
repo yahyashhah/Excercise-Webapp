@@ -38,6 +38,7 @@ function getPageTitle(pathname: string): string {
     "/habits": "Habits",
     "/settings": "Settings",
     "/settings/billing": "Billing & Subscription",
+    "/settings/audit-log": "Audit Log",
     "/settings/clinic": "Organization Settings",
   };
 
