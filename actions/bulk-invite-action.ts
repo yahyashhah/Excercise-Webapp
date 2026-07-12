@@ -4,6 +4,7 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/current-user";
 import { revalidatePath } from "next/cache";
+import { logAudit, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 
 export interface InviteEmailResult {
   email: string;
@@ -29,9 +30,10 @@ export async function bulkInviteAction(
 
   let orgId: string;
   let isAdmin = false;
+  let actorUser: { id: string; firstName: string; lastName: string; email: string; role: "TRAINER" | "CLIENT" };
 
   if (clerkOrgId) {
-    await requireSuperAdmin(); // redirects if not authorized
+    actorUser = await requireSuperAdmin(); // redirects if not authorized
     orgId = clerkOrgId;
     isAdmin = true;
   } else {
@@ -40,6 +42,7 @@ export async function bulkInviteAction(
     if (dbUser.role !== "TRAINER") return { success: false, error: "Forbidden" };
     if (!dbUser.clerkOrgId) return { success: false, error: "Organization not set up" };
     orgId = dbUser.clerkOrgId;
+    actorUser = dbUser;
   }
 
   const uniqueEmails = [...new Set(emails)];
@@ -56,6 +59,16 @@ export async function bulkInviteAction(
         redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/onboarding/client`,
       });
       results.push({ email, success: true });
+
+      await logAudit({
+        actorId: actorUser.id,
+        actorType: isAdmin ? "SUPER_ADMIN" : deriveActorType(actorUser),
+        actorName: `${actorUser.firstName} ${actorUser.lastName}`,
+        action: AUDIT_ACTIONS.USER_INVITED,
+        targetType: "User",
+        targetLabel: email,
+        orgId,
+      });
     } catch (err: unknown) {
       let message = "Failed to send invitation";
       if (err && typeof err === "object" && "errors" in err) {

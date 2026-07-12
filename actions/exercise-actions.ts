@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { isSuperAdmin } from "@/lib/current-user";
 import { createExerciseSchema, updateExerciseSchema } from "@/lib/validators/exercise";
 import * as exerciseService from "@/lib/services/exercise.service";
+import { logAudit, diffFields, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import type { BodyRegion, DifficultyLevel, ExercisePhase } from "@prisma/client";
 
 export async function createExerciseAction(input: {
@@ -49,6 +50,17 @@ export async function createExerciseAction(input: {
         isPublic: parsed.data.isPublic ?? true,
       });
 
+      await logAudit({
+        actorId: dbUser.id,
+        actorType: deriveActorType(dbUser),
+        actorName: `${dbUser.firstName} ${dbUser.lastName}`,
+        action: AUDIT_ACTIONS.EXERCISE_CREATED,
+        targetType: "Exercise",
+        targetId: exercise.id,
+        targetLabel: exercise.name,
+        orgId: organizationOrgId,
+      });
+
       revalidatePath("/exercises");
       return { success: true as const, data: exercise };
     } catch (error) {
@@ -74,7 +86,34 @@ export async function updateExerciseAction(
   }
 
   try {
+    // Fetching the "before" snapshot is purely informational, used only to enrich the
+    // audit log's diff — it is not an authorization gate (the role check already
+    // happened above). A failure here must never abort the update or turn a
+    // successful save into a reported failure, so it degrades to "no diff" instead.
+    const existing = await prisma.exercise.findUnique({ where: { id: exerciseId } }).catch((err) => {
+      console.error("Failed to fetch existing exercise for audit diff:", err);
+      return null;
+    });
+
     const exercise = await exerciseService.updateExercise(exerciseId, parsed.data as Parameters<typeof exerciseService.updateExercise>[1]);
+    const diff = existing
+      ? diffFields(
+          existing as unknown as Record<string, unknown>,
+          parsed.data as unknown as Record<string, unknown>,
+          ["name", "bodyRegion", "difficultyLevel", "isPublic"]
+        )
+      : undefined;
+    await logAudit({
+      actorId: dbUser.id,
+      actorType: deriveActorType(dbUser),
+      actorName: `${dbUser.firstName} ${dbUser.lastName}`,
+      action: AUDIT_ACTIONS.EXERCISE_UPDATED,
+      targetType: "Exercise",
+      targetId: exerciseId,
+      targetLabel: exercise.name,
+      orgId: existing?.organizationId ?? null,
+      metadata: diff,
+    });
     revalidatePath("/exercises");
     revalidatePath(`/exercises/${exerciseId}`);
     return { success: true as const, data: exercise };
@@ -160,7 +199,21 @@ export async function deleteExerciseAction(exerciseId: string) {
   }
 
   try {
+    // Delete first, then log — the `exercise` fields needed for the audit entry were
+    // already fetched above for the authorization check, so there's no need to log
+    // before deleting. This ensures a failed delete never produces a false "deleted"
+    // audit entry.
     await exerciseService.deleteExercise(exerciseId);
+    await logAudit({
+      actorId: dbUser.id,
+      actorType: superAdmin ? "SUPER_ADMIN" : deriveActorType(dbUser),
+      actorName: `${dbUser.firstName} ${dbUser.lastName}`,
+      action: AUDIT_ACTIONS.EXERCISE_DELETED,
+      targetType: "Exercise",
+      targetId: exerciseId,
+      targetLabel: exercise.name,
+      orgId: exercise.organizationId ?? null,
+    });
     revalidatePath("/exercises");
     revalidatePath("/admin/exercises");
     return { success: true as const };

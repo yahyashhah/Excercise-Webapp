@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { BodyRegion, DifficultyLevel, ExercisePhase } from "@prisma/client";
+import { logAudit, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { isYouTubeUrl, extractYouTubeId, getYouTubeThumbnail } from "@/lib/utils/video";
 import type { CsvExerciseRow } from "@/lib/validators/csv-exercise";
 
@@ -66,6 +67,16 @@ export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) 
         })
       )
     );
+
+    await logAudit({
+      actorId: dbUser.id,
+      actorType: deriveActorType(dbUser),
+      actorName: `${dbUser.firstName} ${dbUser.lastName}`,
+      action: AUDIT_ACTIONS.EXERCISE_CREATED,
+      targetType: "Exercise",
+      orgId: dbUser.clerkOrgId,
+      metadata: { count: created.length, names: created.slice(0, 20).map((e) => e.name) },
+    });
 
     revalidatePath("/exercises");
     return { success: true as const, count: created.length };
@@ -138,6 +149,16 @@ export async function importExercisesFromCsvAction(rows: CsvExerciseRow[]) {
         });
       })
     );
+
+    await logAudit({
+      actorId: dbUser.id,
+      actorType: deriveActorType(dbUser),
+      actorName: `${dbUser.firstName} ${dbUser.lastName}`,
+      action: AUDIT_ACTIONS.EXERCISE_CREATED,
+      targetType: "Exercise",
+      orgId: dbUser.clerkOrgId,
+      metadata: { count: created.length, names: created.slice(0, 20).map((e) => e.name), source: "csv_import" },
+    });
 
     revalidatePath("/admin/exercises");
     return { success: true as const, count: created.length };

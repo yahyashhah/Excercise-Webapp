@@ -30,17 +30,20 @@ export async function createClinicalNoteAction(
   }
 
   try {
-    const note = await noteService.createNote({
-      clientId,
-      trainerId: trainer.id,
-      sessionId: data.sessionId,
-      appointmentDate: new Date(data.appointmentDate),
-      subjective: data.subjective,
-      objective: data.objective,
-      assessment: data.assessment,
-      plan: data.plan,
-      privateNotes: data.privateNotes,
-    });
+    const note = await noteService.createNote(
+      {
+        clientId,
+        trainerId: trainer.id,
+        sessionId: data.sessionId,
+        appointmentDate: new Date(data.appointmentDate),
+        subjective: data.subjective,
+        objective: data.objective,
+        assessment: data.assessment,
+        plan: data.plan,
+        privateNotes: data.privateNotes,
+      },
+      { id: trainer.id, name: `${trainer.firstName} ${trainer.lastName}`, actorType: "TRAINER", orgId: trainer.clerkOrgId }
+    );
     revalidatePath(`/clients/${clientId}/progress`);
     return { success: true as const, data: note };
   } catch (error) {
@@ -73,7 +76,11 @@ export async function updateClinicalNoteAction(
       sessionId: data.sessionId,
     };
 
-    const note = await noteService.updateNote(noteId, trainer.id, updateData);
+    const note = await noteService.updateNote(noteId, trainer.id, updateData, {
+      name: `${trainer.firstName} ${trainer.lastName}`,
+      actorType: "TRAINER",
+      orgId: trainer.clerkOrgId,
+    });
     revalidatePath(`/clients/${clientId}/progress`);
     return { success: true as const, data: note };
   } catch (error) {
@@ -93,7 +100,10 @@ export async function deleteClinicalNoteAction(
   const trainer = await requireRole("TRAINER");
 
   try {
-    await noteService.deleteNote(noteId, trainer.id);
+    await noteService.deleteNote(noteId, trainer.id, trainer.clerkOrgId, {
+      name: `${trainer.firstName} ${trainer.lastName}`,
+      actorType: "TRAINER",
+    });
     revalidatePath(`/clients/${clientId}/progress`);
     return { success: true as const };
   } catch (error) {

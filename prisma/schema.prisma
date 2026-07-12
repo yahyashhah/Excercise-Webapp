@@ -102,6 +102,13 @@ enum ExerciseSource {
   ORGANIZATION @map("CLINIC")
 }
 
+enum AuditActorType {
+  SUPER_ADMIN
+  TRAINER
+  CLIENT
+  SYSTEM
+}
+
 model User {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   clerkId     String   @unique
@@ -118,35 +125,56 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  clientProfile   ClientProfile?
-  plansAsClient   WorkoutPlan[]          @relation("ClientPlans")
-  plansCreated     WorkoutPlan[]          @relation("CreatedPlans")
+  clientProfile    ClientProfile?
+  plansAsClient    WorkoutPlan[]      @relation("ClientPlans")
+  plansCreated     WorkoutPlan[]      @relation("CreatedPlans")
   feedbackGiven    ExerciseFeedback[]
   sessions         WorkoutSession[]
-  sentMessages     Message[]              @relation("SentMessages")
-  receivedMessages Message[]              @relation("ReceivedMessages")
-  assessments      Assessment[]           @relation("ClientAssessments")
-  assessedBy       Assessment[]           @relation("AssessedBy")
+  sentMessages     Message[]          @relation("SentMessages")
+  receivedMessages Message[]          @relation("ReceivedMessages")
+  assessments      Assessment[]       @relation("ClientAssessments")
+  assessedBy       Assessment[]       @relation("AssessedBy")
   exercisesCreated Exercise[]
 
-  programsCreated    Program[]            @relation("ProgramsCreated")
-  programsAssigned   Program[]            @relation("ProgramsAssigned")
-  sessionsV2         WorkoutSessionV2[]   @relation("SessionsV2")
-  checkInTemplates   CheckInTemplate[]    @relation("CheckInTemplatesCreated")
-  checkInAssignments CheckInAssignment[]  @relation("CheckInAssignments")
-  checkInResponses   CheckInResponse[]    @relation("CheckInResponses")
-  bodyMetrics        BodyMetric[]         @relation("BodyMetrics")
-  progressPhotos     ProgressPhoto[]      @relation("ProgressPhotos")
-  habits             HabitDefinition[]    @relation("Habits")
-  nutritionTarget    NutritionTarget?     @relation("NutritionTarget")
-  nutritionLogs      NutritionLog[]       @relation("NutritionLogs")
-  notifications      Notification[]       @relation("Notifications")
-  packages           CoachPackage[]       @relation("Packages")
-  subscriptions      ClientSubscription[] @relation("Subscriptions")
-  branding           CoachBranding?       @relation("Branding")
-  clinicalNotesAsClient    ClinicalNote[] @relation("ClinicalNotesClient")
-  clinicalNotesAsTrainer  ClinicalNote[] @relation("ClinicalNotesTrainer")
-  trainerSubscription      TrainerSubscription? @relation("TrainerSubscription")
+  programsCreated        Program[]            @relation("ProgramsCreated")
+  programsAssigned       Program[]            @relation("ProgramsAssigned")
+  sessionsV2             WorkoutSessionV2[]   @relation("SessionsV2")
+  checkInTemplates       CheckInTemplate[]    @relation("CheckInTemplatesCreated")
+  checkInAssignments     CheckInAssignment[]  @relation("CheckInAssignments")
+  checkInResponses       CheckInResponse[]    @relation("CheckInResponses")
+  bodyMetrics            BodyMetric[]         @relation("BodyMetrics")
+  progressPhotos         ProgressPhoto[]      @relation("ProgressPhotos")
+  habits                 HabitDefinition[]    @relation("Habits")
+  nutritionTarget        NutritionTarget?     @relation("NutritionTarget")
+  nutritionLogs          NutritionLog[]       @relation("NutritionLogs")
+  notifications          Notification[]       @relation("Notifications")
+  packages               CoachPackage[]       @relation("Packages")
+  subscriptions          ClientSubscription[] @relation("Subscriptions")
+  branding               CoachBranding?       @relation("Branding")
+  clinicalNotesAsClient  ClinicalNote[]       @relation("ClinicalNotesClient")
+  clinicalNotesAsTrainer ClinicalNote[]       @relation("ClinicalNotesTrainer")
+  trainerSubscription    TrainerSubscription? @relation("TrainerSubscription")
+}
+
+model AuditLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now())
+
+  actorId   String?        @db.ObjectId
+  actorType AuditActorType
+  actorName String
+
+  action      String
+  targetType  String?
+  targetId    String?
+  targetLabel String?
+
+  orgId    String?
+  metadata Json?
+
+  @@index([orgId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
 }
 
 model ClientProfile {
@@ -172,7 +200,6 @@ model ClientProfile {
 
   @@map("patientProfile")
 }
-
 
 model Exercise {
   id                 String          @id @default(auto()) @map("_id") @db.ObjectId
@@ -235,9 +262,9 @@ model ExerciseMedia {
 
 model WorkoutPlan {
   id                 String     @id @default(auto()) @map("_id") @db.ObjectId
-  clientId          String?    @map("patientId") @db.ObjectId
+  clientId           String?    @map("patientId") @db.ObjectId
   createdById        String     @db.ObjectId
-  client            User?      @relation("ClientPlans", fields: [clientId], references: [id], onDelete: SetNull)
+  client             User?      @relation("ClientPlans", fields: [clientId], references: [id], onDelete: SetNull)
   createdBy          User       @relation("CreatedPlans", fields: [createdById], references: [id])
   title              String
   description        String?
@@ -308,24 +335,24 @@ model BlockExercise {
 }
 
 model ExerciseFeedback {
-  id                String         @id @default(auto()) @map("_id") @db.ObjectId
-  planExerciseId    String         @db.ObjectId
-  clientId         String         @map("patientId") @db.ObjectId
-  planExercise      PlanExercise   @relation(fields: [planExerciseId], references: [id], onDelete: Cascade)
-  client           User           @relation(fields: [clientId], references: [id])
-  rating            FeedbackRating
-  comment           String?
+  id              String         @id @default(auto()) @map("_id") @db.ObjectId
+  planExerciseId  String         @db.ObjectId
+  clientId        String         @map("patientId") @db.ObjectId
+  planExercise    PlanExercise   @relation(fields: [planExerciseId], references: [id], onDelete: Cascade)
+  client          User           @relation(fields: [clientId], references: [id])
+  rating          FeedbackRating
+  comment         String?
   trainerResponse String?
-  respondedAt       DateTime?
-  createdAt         DateTime       @default(now())
+  respondedAt     DateTime?
+  createdAt       DateTime       @default(now())
 }
 
 model WorkoutSession {
   id               String        @id @default(auto()) @map("_id") @db.ObjectId
   planId           String        @db.ObjectId
-  clientId        String        @map("patientId") @db.ObjectId
+  clientId         String        @map("patientId") @db.ObjectId
   plan             WorkoutPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
-  client          User          @relation(fields: [clientId], references: [id])
+  client           User          @relation(fields: [clientId], references: [id])
   scheduledDate    DateTime?
   startedAt        DateTime      @default(now())
   completedAt      DateTime?
@@ -352,9 +379,9 @@ model SessionExercise {
 
 model Assessment {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  clientId      String   @map("patientId") @db.ObjectId
+  clientId       String   @map("patientId") @db.ObjectId
   assessedById   String?  @db.ObjectId
-  client        User     @relation("ClientAssessments", fields: [clientId], references: [id], onDelete: Cascade)
+  client         User     @relation("ClientAssessments", fields: [clientId], references: [id], onDelete: Cascade)
   assessedByUser User?    @relation("AssessedBy", fields: [assessedById], references: [id])
   assessmentType String
   value          Float
@@ -378,32 +405,31 @@ model Message {
   createdAt      DateTime      @default(now())
 }
 
-
 // --- Phase 1 Models ---
 
 model Program {
-  id               String     @id @default(auto()) @map("_id") @db.ObjectId
-  name             String
-  description      String?
-  isTemplate       Boolean    @default(false)
-  isGlobal         Boolean    @default(false)
-  globalUpdatedAt  DateTime?
-  sourceTemplateId String?    @db.ObjectId
-  trainerId      String?    @map("clinicianId") @db.ObjectId
-  trainer        User?      @relation("ProgramsCreated", fields: [trainerId], references: [id])
-  clientId        String?    @map("patientId") @db.ObjectId
-  client          User?      @relation("ProgramsAssigned", fields: [clientId], references: [id])
-  status           PlanStatus @default(DRAFT)
-  durationWeeks    Int?
-  daysPerWeek      Int?
-  tags             String[]
-  equipmentRequired String[] @default([])
-  organizationIds  String[] @default([])
+  id                 String     @id @default(auto()) @map("_id") @db.ObjectId
+  name               String
+  description        String?
+  isTemplate         Boolean    @default(false)
+  isGlobal           Boolean    @default(false)
+  globalUpdatedAt    DateTime?
+  sourceTemplateId   String?    @db.ObjectId
+  trainerId          String?    @map("clinicianId") @db.ObjectId
+  trainer            User?      @relation("ProgramsCreated", fields: [trainerId], references: [id])
+  clientId           String?    @map("patientId") @db.ObjectId
+  client             User?      @relation("ProgramsAssigned", fields: [clientId], references: [id])
+  status             PlanStatus @default(DRAFT)
+  durationWeeks      Int?
+  daysPerWeek        Int?
+  tags               String[]
+  equipmentRequired  String[]   @default([])
+  organizationIds    String[]   @default([])
   aiGenerationParams Json?
-  startDate        DateTime?
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
-  workouts         Workout[]
+  startDate          DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  workouts           Workout[]
 
   @@index([trainerId])
   @@index([clientId])
@@ -411,35 +437,35 @@ model Program {
 }
 
 model Workout {
-  id               String           @id @default(auto()) @map("_id") @db.ObjectId
-  programId        String           @db.ObjectId
-  program          Program          @relation(fields: [programId], references: [id], onDelete: Cascade)
+  id               String             @id @default(auto()) @map("_id") @db.ObjectId
+  programId        String             @db.ObjectId
+  program          Program            @relation(fields: [programId], references: [id], onDelete: Cascade)
   name             String
   description      String?
   dayIndex         Int
-  weekIndex        Int              @default(0)
+  weekIndex        Int                @default(0)
   orderIndex       Int
   estimatedMinutes Int?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
   blocks           WorkoutBlockV2[]
   sessions         WorkoutSessionV2[]
   voiceMemos       VoiceMemo[]
 }
 
 model WorkoutBlockV2 {
-  id                String           @id @default(auto()) @map("_id") @db.ObjectId
-  workoutId         String           @db.ObjectId
-  workout           Workout          @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  workoutId         String            @db.ObjectId
+  workout           Workout           @relation(fields: [workoutId], references: [id], onDelete: Cascade)
   name              String?
-  type              String           @default("NORMAL")
+  type              String            @default("NORMAL")
   orderIndex        Int
-  rounds            Int              @default(1)
+  rounds            Int               @default(1)
   restBetweenRounds Int?
   timeCap           Int?
   notes             String?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
   exercises         BlockExerciseV2[]
 }
 
@@ -459,36 +485,36 @@ model BlockExerciseV2 {
 }
 
 model ExerciseSet {
-  id              String          @id @default(auto()) @map("_id") @db.ObjectId
-  blockExerciseId String          @db.ObjectId
-  blockExercise   BlockExerciseV2 @relation(fields: [blockExerciseId], references: [id], onDelete: Cascade)
-  orderIndex      Int
-  setType         String          @default("NORMAL")
-  targetReps      Int?
-  targetWeight    Float?
-  targetDuration  Int?
-  targetDistance   Float?
-  targetRPE       Int?
+  id                  String          @id @default(auto()) @map("_id") @db.ObjectId
+  blockExerciseId     String          @db.ObjectId
+  blockExercise       BlockExerciseV2 @relation(fields: [blockExerciseId], references: [id], onDelete: Cascade)
+  orderIndex          Int
+  setType             String          @default("NORMAL")
+  targetReps          Int?
+  targetWeight        Float?
+  targetDuration      Int?
+  targetDistance      Float?
+  targetRPE           Int?
   targetPercentage1RM Float?
-  tempo           String?
-  restAfter       Int?
+  tempo               String?
+  restAfter           Int?
 }
 
 model WorkoutSessionV2 {
-  id              String              @id @default(auto()) @map("_id") @db.ObjectId
-  workoutId       String              @db.ObjectId
-  workout         Workout             @relation(fields: [workoutId], references: [id], onDelete: Cascade)
-  clientId       String              @map("patientId") @db.ObjectId
-  client         User                @relation("SessionsV2", fields: [clientId], references: [id])
+  id              String               @id @default(auto()) @map("_id") @db.ObjectId
+  workoutId       String               @db.ObjectId
+  workout         Workout              @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  clientId        String               @map("patientId") @db.ObjectId
+  client          User                 @relation("SessionsV2", fields: [clientId], references: [id])
   scheduledDate   DateTime
   startedAt       DateTime?
   completedAt     DateTime?
-  status          String              @default("SCHEDULED")
+  status          String               @default("SCHEDULED")
   overallRPE      Int?
   overallNotes    String?
   durationMinutes Int?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
   exerciseLogs    SessionExerciseLog[]
   feedback        SessionFeedback[]
 
@@ -522,15 +548,15 @@ model SetLog {
 }
 
 model SessionFeedback {
-  id                String           @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId         String           @db.ObjectId
-  session           WorkoutSessionV2 @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  clientId         String           @map("patientId") @db.ObjectId
-  rating            FeedbackRating
-  comment           String?
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId       String           @db.ObjectId
+  session         WorkoutSessionV2 @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  clientId        String           @map("patientId") @db.ObjectId
+  rating          FeedbackRating
+  comment         String?
   trainerResponse String?
-  respondedAt       DateTime?
-  createdAt         DateTime         @default(now())
+  respondedAt     DateTime?
+  createdAt       DateTime         @default(now())
 }
 
 model VoiceMemo {
@@ -549,18 +575,18 @@ model VoiceMemo {
 // --- Phase 3 Models ---
 
 model CheckInTemplate {
-  id           String              @id @default(auto()) @map("_id") @db.ObjectId
-  trainerId  String              @map("clinicianId") @db.ObjectId
-  trainer    User                @relation("CheckInTemplatesCreated", fields: [trainerId], references: [id])
-  name         String
-  description  String?
-  frequency    String              @default("WEEKLY")
-  customDays   Int?
-  isActive     Boolean             @default(true)
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  questions    CheckInQuestion[]
-  assignments  CheckInAssignment[]
+  id          String              @id @default(auto()) @map("_id") @db.ObjectId
+  trainerId   String              @map("clinicianId") @db.ObjectId
+  trainer     User                @relation("CheckInTemplatesCreated", fields: [trainerId], references: [id])
+  name        String
+  description String?
+  frequency   String              @default("WEEKLY")
+  customDays  Int?
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  questions   CheckInQuestion[]
+  assignments CheckInAssignment[]
 }
 
 model CheckInQuestion {
@@ -578,9 +604,9 @@ model CheckInAssignment {
   id          String            @id @default(auto()) @map("_id") @db.ObjectId
   templateId  String            @db.ObjectId
   template    CheckInTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  clientId   String            @map("patientId") @db.ObjectId
-  client     User              @relation("CheckInAssignments", fields: [clientId], references: [id])
-  trainerId String            @map("clinicianId") @db.ObjectId
+  clientId    String            @map("patientId") @db.ObjectId
+  client      User              @relation("CheckInAssignments", fields: [clientId], references: [id])
+  trainerId   String            @map("clinicianId") @db.ObjectId
   startDate   DateTime
   endDate     DateTime?
   isActive    Boolean           @default(true)
@@ -593,8 +619,8 @@ model CheckInResponse {
   id           String            @id @default(auto()) @map("_id") @db.ObjectId
   assignmentId String            @db.ObjectId
   assignment   CheckInAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  clientId    String            @map("patientId") @db.ObjectId
-  client      User              @relation("CheckInResponses", fields: [clientId], references: [id])
+  clientId     String            @map("patientId") @db.ObjectId
+  client       User              @relation("CheckInResponses", fields: [clientId], references: [id])
   submittedAt  DateTime          @default(now())
   answers      Json
   aiSummary    String?
@@ -607,8 +633,8 @@ model CheckInResponse {
 
 model BodyMetric {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  clientId  String   @map("patientId") @db.ObjectId
-  client    User     @relation("BodyMetrics", fields: [clientId], references: [id])
+  clientId   String   @map("patientId") @db.ObjectId
+  client     User     @relation("BodyMetrics", fields: [clientId], references: [id])
   metricType String
   value      Float
   unit       String
@@ -620,8 +646,8 @@ model BodyMetric {
 
 model ProgressPhoto {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  clientId  String   @map("patientId") @db.ObjectId
-  client    User     @relation("ProgressPhotos", fields: [clientId], references: [id])
+  clientId   String   @map("patientId") @db.ObjectId
+  client     User     @relation("ProgressPhotos", fields: [clientId], references: [id])
   imageUrl   String
   angle      String?
   notes      String?
@@ -630,17 +656,17 @@ model ProgressPhoto {
 }
 
 model HabitDefinition {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  clientId   String    @map("patientId") @db.ObjectId
-  client     User      @relation("Habits", fields: [clientId], references: [id])
-  trainerId String?   @map("clinicianId") @db.ObjectId
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  clientId    String     @map("patientId") @db.ObjectId
+  client      User       @relation("Habits", fields: [clientId], references: [id])
+  trainerId   String?    @map("clinicianId") @db.ObjectId
   name        String
   icon        String?
   targetValue Float?
   unit        String?
-  frequency   String    @default("DAILY")
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
+  frequency   String     @default("DAILY")
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
   logs        HabitLog[]
 }
 
@@ -661,8 +687,8 @@ model HabitLog {
 
 model NutritionTarget {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  clientId String   @unique @db.ObjectId
-  client   User     @relation("NutritionTarget", fields: [clientId], references: [id])
+  clientId  String   @unique @db.ObjectId
+  client    User     @relation("NutritionTarget", fields: [clientId], references: [id])
   calories  Int?
   proteinG  Int?
   carbsG    Int?
@@ -674,8 +700,8 @@ model NutritionTarget {
 
 model NutritionLog {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  clientId   String   @map("patientId") @db.ObjectId
-  client     User     @relation("NutritionLogs", fields: [clientId], references: [id])
+  clientId    String   @map("patientId") @db.ObjectId
+  client      User     @relation("NutritionLogs", fields: [clientId], references: [id])
   date        DateTime
   mealType    String
   description String
@@ -707,18 +733,18 @@ model Notification {
 }
 
 model CoachPackage {
-  id             String              @id @default(auto()) @map("_id") @db.ObjectId
-  trainerId    String              @map("clinicianId") @db.ObjectId
-  trainer      User                @relation("Packages", fields: [trainerId], references: [id])
+  id             String               @id @default(auto()) @map("_id") @db.ObjectId
+  trainerId      String               @map("clinicianId") @db.ObjectId
+  trainer        User                 @relation("Packages", fields: [trainerId], references: [id])
   name           String
   description    String?
   priceInCents   Int
-  currency       String              @default("usd")
-  intervalMonths Int                 @default(1)
-  isActive       Boolean             @default(true)
+  currency       String               @default("usd")
+  intervalMonths Int                  @default(1)
+  isActive       Boolean              @default(true)
   stripePriceId  String?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
   subscriptions  ClientSubscription[]
 }
 
@@ -726,9 +752,9 @@ model ClientSubscription {
   id                   String       @id @default(auto()) @map("_id") @db.ObjectId
   packageId            String       @db.ObjectId
   package              CoachPackage @relation(fields: [packageId], references: [id])
-  clientId            String       @map("patientId") @db.ObjectId
-  client              User         @relation("Subscriptions", fields: [clientId], references: [id])
-  trainerId          String       @map("clinicianId") @db.ObjectId
+  clientId             String       @map("patientId") @db.ObjectId
+  client               User         @relation("Subscriptions", fields: [clientId], references: [id])
+  trainerId            String       @map("clinicianId") @db.ObjectId
   status               String       @default("ACTIVE")
   stripeSubscriptionId String?
   stripeCustomerId     String?
@@ -758,10 +784,10 @@ model Invoice {
 
 model ClinicalNote {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  clientId       String   @map("patientId") @db.ObjectId
-  client         User     @relation("ClinicalNotesClient", fields: [clientId], references: [id])
-  trainerId     String   @map("clinicianId") @db.ObjectId
-  trainer       User     @relation("ClinicalNotesTrainer", fields: [trainerId], references: [id])
+  clientId        String   @map("patientId") @db.ObjectId
+  client          User     @relation("ClinicalNotesClient", fields: [clientId], references: [id])
+  trainerId       String   @map("clinicianId") @db.ObjectId
+  trainer         User     @relation("ClinicalNotesTrainer", fields: [trainerId], references: [id])
   sessionId       String?  @db.ObjectId
   appointmentDate DateTime @default(now())
   subjective      String?
@@ -778,8 +804,8 @@ model ClinicalNote {
 
 model CoachBranding {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  trainerId    String   @unique @db.ObjectId
-  trainer      User     @relation("Branding", fields: [trainerId], references: [id])
+  trainerId      String   @unique @db.ObjectId
+  trainer        User     @relation("Branding", fields: [trainerId], references: [id])
   primaryColor   String   @default("#2563eb")
   accentColor    String   @default("#f59e0b")
   fontFamily     String   @default("Inter")

@@ -3,6 +3,7 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { logAudit, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 
 export async function inviteClientAction(clientEmail: string) {
   const { userId } = await auth();
@@ -24,6 +25,16 @@ export async function inviteClientAction(clientEmail: string) {
       emailAddress: trimmedEmail,
       role: "org:member",
       redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/onboarding/client`,
+    });
+
+    await logAudit({
+      actorId: dbUser.id,
+      actorType: deriveActorType(dbUser),
+      actorName: `${dbUser.firstName} ${dbUser.lastName}`,
+      action: AUDIT_ACTIONS.USER_INVITED,
+      targetType: "User",
+      targetLabel: trimmedEmail,
+      orgId: dbUser.clerkOrgId,
     });
 
     revalidatePath("/clients");

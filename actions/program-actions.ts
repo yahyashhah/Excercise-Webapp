@@ -34,6 +34,7 @@ import type {
   UpdateProgramInput,
 } from "@/lib/validators/program";
 import type { WeekPlan } from "@/lib/ai/types/program-generation";
+import { logAudit, diffFields, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 
 async function getTrainerUser() {
   const { userId } = await auth();
@@ -177,6 +178,16 @@ export async function createProgramAction(input: CreateProgramInput) {
 
   try {
     const program = await programService.createProgram(user.id, parsed.data);
+    await logAudit({
+      actorId: user.id,
+      actorType: deriveActorType(user),
+      actorName: `${user.firstName} ${user.lastName}`,
+      action: AUDIT_ACTIONS.PROGRAM_CREATED,
+      targetType: "Program",
+      targetId: program.id,
+      targetLabel: program.name,
+      orgId: user.clerkOrgId,
+    });
     revalidatePath("/programs");
     return { success: true as const, data: program };
   } catch (error) {
@@ -194,7 +205,7 @@ export async function updateProgramAction(
 
   const program = await prisma.program.findUnique({
     where: { id: programId },
-    select: { trainerId: true },
+    select: { trainerId: true, name: true, description: true, status: true },
   });
   if (!program || program.trainerId !== user.id) {
     return { success: false as const, error: "Forbidden" };
@@ -207,6 +218,22 @@ export async function updateProgramAction(
 
   try {
     const updated = await programService.updateProgram(programId, parsed.data);
+    const diff = diffFields(
+      program as unknown as Record<string, unknown>,
+      parsed.data as unknown as Record<string, unknown>,
+      ["name", "description", "status"]
+    );
+    await logAudit({
+      actorId: user.id,
+      actorType: deriveActorType(user),
+      actorName: `${user.firstName} ${user.lastName}`,
+      action: AUDIT_ACTIONS.PROGRAM_UPDATED,
+      targetType: "Program",
+      targetId: programId,
+      targetLabel: updated.name,
+      orgId: user.clerkOrgId,
+      metadata: diff,
+    });
     revalidatePath("/programs");
     revalidatePath(`/programs/${programId}`);
     return { success: true as const, data: updated };
@@ -222,7 +249,7 @@ export async function deleteProgramAction(programId: string) {
 
   const program = await prisma.program.findUnique({
     where: { id: programId },
-    select: { trainerId: true },
+    select: { trainerId: true, name: true },
   });
   if (!program || program.trainerId !== user.id) {
     return { success: false as const, error: "Forbidden" };
@@ -230,6 +257,16 @@ export async function deleteProgramAction(programId: string) {
 
   try {
     await programService.deleteProgram(programId);
+    await logAudit({
+      actorId: user.id,
+      actorType: deriveActorType(user),
+      actorName: `${user.firstName} ${user.lastName}`,
+      action: AUDIT_ACTIONS.PROGRAM_DELETED,
+      targetType: "Program",
+      targetId: programId,
+      targetLabel: program.name,
+      orgId: user.clerkOrgId,
+    });
     revalidatePath("/programs");
     return { success: true as const };
   } catch (error) {
