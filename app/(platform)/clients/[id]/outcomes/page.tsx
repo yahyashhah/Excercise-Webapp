@@ -5,7 +5,9 @@ import { getAssessments } from "@/lib/services/outcome.service";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
+import { ArrowLeft, ClipboardList } from "lucide-react";
 import { formatDate } from "@/lib/utils/formatting";
 
 interface Props {
@@ -30,23 +32,29 @@ export default async function ClientOutcomesPage({ params }: Props) {
   }, {});
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
+    <div className="space-y-8">
+      <div className="space-y-4">
+        <Button variant="ghost" size="sm" asChild className="-ml-2">
           <Link href={`/clients/${id}`}>
             <ArrowLeft className="mr-1 h-4 w-4" />
             Back
           </Link>
         </Button>
-        <h2 className="text-xl font-bold">
-          Outcomes: {client.firstName} {client.lastName}
-        </h2>
+        <PageHeader
+          title="Outcomes"
+          description={`${client.firstName} ${client.lastName}`}
+          className="pb-0"
+        />
       </div>
 
       {assessments.length === 0 ? (
         <Card>
-          <CardContent className="p-12 text-center">
-            <p className="text-muted-foreground">No assessments recorded yet.</p>
+          <CardContent>
+            <EmptyState
+              icon={ClipboardList}
+              title="No assessments yet"
+              description="Recorded outcome measures and assessments for this client will appear here."
+            />
           </CardContent>
         </Card>
       ) : (

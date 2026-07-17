@@ -33,7 +33,7 @@ export async function markRead(senderId: string, recipientId: string) {
       recipientId,
       isRead: false,
     },
-    data: { isRead: true },
+    data: { isRead: true, readAt: new Date() },
   });
 }
 

@@ -5,6 +5,7 @@ import { GenerateProgramForm } from "@/components/programs/generate-program-form
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const maxDuration = 120; // parallel per-week LLM calls can take up to ~30s; 120s gives headroom for larger programs
 
@@ -70,19 +71,17 @@ export default async function GenerateProgramPage({
   }))
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Button variant="ghost" size="sm" asChild className="mb-2">
-          <Link href="/programs">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Back to Programs
-          </Link>
-        </Button>
-        <h2 className="text-2xl font-bold">Generate Program</h2>
-        <p className="text-muted-foreground">
-          Use AI to create a personalised program for a client.
-        </p>
-      </div>
+    <div>
+      <Button variant="ghost" size="sm" asChild className="mb-2">
+        <Link href="/programs">
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Back to Programs
+        </Link>
+      </Button>
+      <PageHeader
+        title="Generate Program"
+        description="Use AI to create a personalised program for a client."
+      />
 
       <div className="max-w-2xl mx-auto">
         <GenerateProgramForm clients={clients} initialClientId={clientId} />

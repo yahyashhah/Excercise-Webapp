@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/current-user";
 import * as programService from "@/lib/services/program.service";
 import { ProgramListClient } from "@/components/programs/program-list-client";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface Props {
   searchParams: Promise<{
@@ -44,19 +45,15 @@ export default async function ProgramsPage({ searchParams }: Props) {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {user.role === "TRAINER" ? "Programs" : "My Programs"}
-          </h1>
-          <p className="text-muted-foreground">
-            {user.role === "TRAINER"
-              ? "Create, manage, and assign training programs to your clients."
-              : `You have ${programs.length} programs assigned.`}
-          </p>
-        </div>
-      </div>
+    <div>
+      <PageHeader
+        title={user.role === "TRAINER" ? "Programs" : "My Programs"}
+        description={
+          user.role === "TRAINER"
+            ? "Create, manage, and assign training programs to your clients."
+            : `You have ${programs.length} programs assigned.`
+        }
+      />
       <ProgramListClient
         programs={programs}
         globalPrograms={globalPrograms}

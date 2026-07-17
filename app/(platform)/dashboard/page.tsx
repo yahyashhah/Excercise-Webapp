@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { TrainerDashboard } from "@/components/dashboard/trainer-dashboard";
 import { ClientDashboard } from "@/components/dashboard/client-dashboard";
 import * as sessionService from "@/lib/services/session.service";
+import * as messageService from "@/lib/services/message.service";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
+import { getDashboardInsights } from "@/lib/services/dashboard-insights.service";
 import { startOfWeek, endOfWeek, startOfDay } from "date-fns";
 
 export default async function DashboardPage() {
@@ -22,6 +24,8 @@ export default async function DashboardPage() {
       recentFeedback,
       activePrograms,
       upcomingSessions,
+      insights,
+      inboxThreads,
     ] = await Promise.all([
       getClientIdsForTrainer(user.id),
       prisma.workoutPlan.count({
@@ -52,6 +56,8 @@ export default async function DashboardPage() {
         from: weekStart,
         to: weekEnd,
       }),
+      getDashboardInsights(user.id, now),
+      messageService.getInboxThreads(user.id),
     ]);
 
     return (
@@ -64,6 +70,11 @@ export default async function DashboardPage() {
         lowAdherenceClients={[]}
         activePrograms={activePrograms}
         upcomingSessions={upcomingSessions}
+        priorities={insights.priorities}
+        clientsNeedingAttention={insights.clientsNeedingAttention}
+        sessionsDueToday={insights.sessionsDueToday}
+        clientMetrics={insights.clientMetrics}
+        recentMessages={inboxThreads.slice(0, 5)}
       />
     );
   }

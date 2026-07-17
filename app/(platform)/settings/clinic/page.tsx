@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/current-user";
 import { getOrganizationProfile } from "@/actions/organization-actions";
 import { OrganizationProfileForm } from "@/components/settings/organization-profile-form";
+import { PageHeader } from "@/components/shared/page-header";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -18,8 +19,11 @@ export default async function OrganizationSettingsPage() {
             Back to Settings
           </Link>
         </Button>
-        <h2 className="text-2xl font-bold tracking-tight">Organization Profile</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Customize your organization branding for PDF exports</p>
+        <PageHeader
+          title="Organization Profile"
+          description="Customize your organization branding for PDF exports"
+          className="pb-0"
+        />
       </div>
       <OrganizationProfileForm initialData={profile ?? undefined} />
     </div>

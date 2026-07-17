@@ -10,7 +10,7 @@ type: project
 - **Auth:** Clerk v7 (`@clerk/nextjs ^7.0.4`)
 - **Database:** MongoDB Atlas via Prisma v6 (`@prisma/client ^6.19.2`, `prisma ^6.19.2`)
 - **UI:** shadcn/ui v4 with base-ui (NOT Radix) — `@base-ui/react`
-- **AI:** Anthropic Claude via `@anthropic-ai/sdk`
+- **AI:** Vercel `ai` SDK (v6). Both `@ai-sdk/anthropic` (e.g. `app/api/ai/generate-program` uses `anthropic("claude-3-haiku-20240307")`) and `@ai-sdk/openai` (e.g. `lib/services/ai.service.ts`, `generate-exercise-metadata` use `gpt-4o`) are wired up. Use `generateObject`/`streamObject` from `ai`.
 - **Styling:** Tailwind v4 with `tw-animate-css`
 - **Validation:** Zod v4
 

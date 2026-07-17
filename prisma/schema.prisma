@@ -402,6 +402,7 @@ model Message {
   planExercise   PlanExercise? @relation(fields: [planExerciseId], references: [id])
   content        String
   isRead         Boolean       @default(false)
+  readAt         DateTime?
   createdAt      DateTime      @default(now())
 }
 

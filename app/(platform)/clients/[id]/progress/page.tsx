@@ -33,10 +33,10 @@ export default async function ClientProgressPage({ params }: Props) {
   ]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Back navigation */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
+      <div>
+        <Button variant="ghost" size="sm" asChild className="-ml-2">
           <Link href={`/clients/${id}`}>
             <ArrowLeft className="mr-1 h-4 w-4" />
             Back to Client
@@ -46,7 +46,7 @@ export default async function ClientProgressPage({ params }: Props) {
 
       {/* Client header */}
       <Card className="border-0 shadow-sm ring-1 ring-border/50">
-        <CardContent className="flex items-center gap-5 p-5">
+        <CardContent className="flex items-center gap-5 p-6">
           <Avatar className="h-14 w-14">
             <AvatarImage src={client.imageUrl ?? undefined} />
             <AvatarFallback className="text-base">
@@ -88,14 +88,14 @@ export default async function ClientProgressPage({ params }: Props) {
         {/* ---------------------------------------------------------------- */}
         {/* Photos tab                                                        */}
         {/* ---------------------------------------------------------------- */}
-        <TabsContent value="photos" className="mt-5">
+        <TabsContent value="photos" className="mt-6">
           <PhotosTab photos={photos} clientId={client.id} />
         </TabsContent>
 
         {/* ---------------------------------------------------------------- */}
         {/* Body metrics tab                                                  */}
         {/* ---------------------------------------------------------------- */}
-        <TabsContent value="metrics" className="mt-5">
+        <TabsContent value="metrics" className="mt-6">
           <MetricsTab
             metrics={metrics}
             metricTypes={metricTypes}
@@ -106,7 +106,7 @@ export default async function ClientProgressPage({ params }: Props) {
         {/* ---------------------------------------------------------------- */}
         {/* SOAP notes tab                                                    */}
         {/* ---------------------------------------------------------------- */}
-        <TabsContent value="notes" className="mt-5">
+        <TabsContent value="notes" className="mt-6">
           <SoapNotesTab notes={notes} clientId={client.id} />
         </TabsContent>
       </Tabs>

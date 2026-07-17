@@ -9,6 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Users, ChevronRight, Mail } from "lucide-react";
 import { AddClientDialog } from "@/components/clients/add-client-dialog";
 import { ClientSearch } from "@/components/clients/client-search";
+import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
 
 interface Props {
   searchParams: Promise<{ q?: string }>;
@@ -42,48 +44,38 @@ export default async function ClientsPage({ searchParams }: Props) {
     : allClients;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Clients</h2>
-          <p className="text-muted-foreground">
-            {allClients.length} client{allClients.length !== 1 ? "s" : ""} in your organization
-          </p>
-        </div>
-        <AddClientDialog />
+    <div className="space-y-8">
+      <div>
+        <PageHeader
+          title="Clients"
+          description={`${allClients.length} client${allClients.length !== 1 ? "s" : ""} in your organization`}
+          action={<AddClientDialog />}
+        />
+        <Suspense fallback={<Skeleton className="h-10 w-full max-w-sm" />}>
+          <ClientSearch />
+        </Suspense>
       </div>
 
-      {/* Search */}
-      <Suspense fallback={<Skeleton className="h-10 w-full max-w-sm" />}>
-        <ClientSearch />
-      </Suspense>
-
-      {/* Grid */}
       {clients.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-16 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
-            <Users className="h-8 w-8 text-muted-foreground/50" />
-          </div>
-          <h3 className="mt-5 text-lg font-semibold">
-            {q ? "No clients match your search" : "No clients yet"}
-          </h3>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-            {q
+        <EmptyState
+          icon={Users}
+          title={q ? "No clients match your search" : "No clients yet"}
+          description={
+            q
               ? `No results for "${q}". Try a different name or email.`
-              : "Click \"Invite Client\" above to send an invitation. The client will receive an email to join your organization."}
-          </p>
-        </div>
+              : 'Click "Invite Client" above to send an invitation. The client will receive an email to join your organization.'
+          }
+        />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {clients.map((client) => {
             const gradient = getAvatarGradient(client.firstName);
             const initials = `${client.firstName[0]}${client.lastName[0]}`;
 
             return (
               <Link key={client.id} href={`/clients/${client.id}`}>
-                <Card className="group border-0 shadow-sm ring-1 ring-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:ring-border">
-                  <CardContent className="flex items-center gap-4 p-5">
+                <Card className="group border-0 shadow-sm ring-1 ring-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-border">
+                  <CardContent className="flex items-center gap-4 p-6">
                     <Avatar className="h-12 w-12 shrink-0 ring-2 ring-white shadow-md">
                       <AvatarImage src={client.imageUrl || undefined} />
                       <AvatarFallback

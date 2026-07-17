@@ -2,7 +2,10 @@ import { getCurrentUser } from "@/lib/current-user";
 import { getInboxThreads } from "@/lib/services/message.service";
 import { getClientsForTrainer, getTrainersForClient } from "@/lib/services/client.service";
 import { NewMessageDialog } from "@/components/messages/new-message-dialog";
+import { BroadcastMessageDialog } from "@/components/messages/broadcast-message-dialog";
 import { MessagesInboxClient } from "@/components/messages/messages-inbox-client";
+import { MessagesTabNav } from "@/components/messages/messages-tab-nav";
+import { PageHeader } from "@/components/shared/page-header";
 import { MessageSquare } from "lucide-react";
 
 export default async function MessagesPage() {
@@ -16,17 +19,22 @@ export default async function MessagesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Messages</h2>
-          <p className="text-muted-foreground">
-            {threads.length > 0
-              ? `${threads.length} conversation${threads.length !== 1 ? "s" : ""}`
-              : "Your conversations"}
-          </p>
-        </div>
-        <NewMessageDialog contacts={contacts} />
-      </div>
+      <PageHeader
+        title="Messages"
+        description={
+          threads.length > 0
+            ? `${threads.length} conversation${threads.length !== 1 ? "s" : ""}`
+            : "Your conversations"
+        }
+        action={
+          <>
+            {user.role === "TRAINER" && <BroadcastMessageDialog contacts={contacts} />}
+            <NewMessageDialog contacts={contacts} />
+          </>
+        }
+      />
+
+      {user.role === "TRAINER" && <MessagesTabNav active="/messages" />}
 
       {threads.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-16 text-center">

@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/current-user";
 import { getClientDetail } from "@/lib/services/client.service";
 import * as sessionService from "@/lib/services/session.service";
 import * as programService from "@/lib/services/program.service";
+import * as messageService from "@/lib/services/message.service";
 import { getExercisesForPicker } from "@/lib/services/exercise.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlanStatusBadge } from "@/components/workout/plan-status-badge";
 import { ArrowLeft, BarChart3, Activity, MessageSquare, TrendingUp } from "lucide-react";
 import { ClientCalendar } from "@/components/calendar/client-calendar";
+import { ClientAdherenceSummary } from "@/components/clients/client-adherence-summary";
+import { MessageThread } from "@/components/messages/message-thread";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -30,12 +33,18 @@ export default async function ClientDetailPage({ params }: Props) {
 
   if (!client) notFound();
 
-  // Fetch V2 sessions, programs, and exercise library for the calendar
-  const [v2Sessions, assignedPrograms, exerciseLibrary] = await Promise.all([
-    sessionService.getSessionsForClient(client.id),
-    programService.getProgramsForClient(client.id),
-    getExercisesForPicker(organizationOrgId),
-  ]);
+  // Fetch V2 sessions, programs, exercise library, adherence history, and the
+  // trainer↔client message thread for the tabs on this page.
+  const [v2Sessions, assignedPrograms, exerciseLibrary, pastSessions, threadMessages] =
+    await Promise.all([
+      sessionService.getSessionsForClient(client.id),
+      programService.getProgramsForClient(client.id),
+      getExercisesForPicker(organizationOrgId),
+      sessionService.getClientPastSessions(client.id),
+      messageService.getThread(user.id, client.id),
+    ]);
+
+  const adherence = sessionService.computeAdherenceStats(pastSessions);
 
   // Transform sessions to the shape the calendar expects
   const calendarSessions = v2Sessions.map((s) => ({
@@ -52,7 +61,7 @@ export default async function ClientDetailPage({ params }: Props) {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
           <Link href="/clients">
@@ -63,7 +72,7 @@ export default async function ClientDetailPage({ params }: Props) {
       </div>
 
       {/* Client info */}
-      <Card>
+      <Card className="shadow-sm ring-1 ring-border/50">
         <CardContent className="flex items-center gap-6 p-6">
           <Avatar className="h-16 w-16">
             <AvatarImage src={client.imageUrl || undefined} />
@@ -72,7 +81,7 @@ export default async function ClientDetailPage({ params }: Props) {
             </AvatarFallback>
           </Avatar>
           <div>
-            <h2 className="text-xl font-bold">
+            <h2 className="text-2xl font-bold tracking-tight">
               {client.firstName} {client.lastName}
             </h2>
             <p className="text-muted-foreground">{client.email}</p>
@@ -111,7 +120,7 @@ export default async function ClientDetailPage({ params }: Props) {
 
       {/* Client profile */}
       {client.clientProfile && (
-        <Card>
+        <Card className="shadow-sm ring-1 ring-border/50">
           <CardHeader>
             <CardTitle className="text-base">Clinical Profile</CardTitle>
           </CardHeader>
@@ -223,11 +232,22 @@ export default async function ClientDetailPage({ params }: Props) {
         </Card>
       )}
 
-      {/* Tabbed content: Calendar (default), Programs, Plans */}
+      {/* At-a-glance adherence summary (full breakdown lives on the Sessions page) */}
+      <ClientAdherenceSummary
+        clientId={id}
+        completionRate={adherence.completionRate}
+        completed={adherence.completed}
+        missedOrSkipped={adherence.missed + adherence.skipped}
+        avgRPE={adherence.avgRPE}
+        total={adherence.total}
+      />
+
+      {/* Tabbed content: Calendar (default), Programs, Messages */}
       <Tabs defaultValue="calendar">
         <TabsList>
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
           <TabsTrigger value="programs">Programs ({assignedPrograms.length})</TabsTrigger>
+          <TabsTrigger value="messages">Messages</TabsTrigger>
           </TabsList>
 
         <TabsContent value="calendar" className="mt-4">
@@ -241,7 +261,7 @@ export default async function ClientDetailPage({ params }: Props) {
         </TabsContent>
 
         <TabsContent value="programs" className="mt-4">
-          <Card>
+          <Card className="shadow-sm ring-1 ring-border/50">
             <CardHeader>
               <CardTitle className="text-base">Assigned Programs</CardTitle>
             </CardHeader>
@@ -281,7 +301,18 @@ export default async function ClientDetailPage({ params }: Props) {
           </Card>
         </TabsContent>
 
-        
+        <TabsContent value="messages" className="mt-4">
+          <Card className="overflow-hidden p-0 shadow-sm ring-1 ring-border/50">
+            <div className="h-[640px]">
+              <MessageThread
+                messages={threadMessages}
+                currentUserId={user.id}
+                recipientId={client.id}
+                recipientName={`${client.firstName} ${client.lastName}`}
+              />
+            </div>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );

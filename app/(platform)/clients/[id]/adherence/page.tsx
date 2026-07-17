@@ -2,11 +2,15 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireRole } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
+import { getClientPastSessions, computeAdherenceStats } from "@/lib/services/session.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft } from "lucide-react";
+import { StatCard } from "@/components/shared/stat-card";
+import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
+import { ArrowLeft, Target, CheckCircle2, XCircle, Gauge, ClipboardList } from "lucide-react";
 import { format } from "date-fns";
 
 interface Props {
@@ -14,7 +18,7 @@ interface Props {
 }
 
 const statusColors: Record<string, string> = {
-  COMPLETED:   "bg-emerald-100 text-emerald-700",
+  COMPLETED:   "bg-success/10 text-success",
   IN_PROGRESS: "bg-amber-100 text-amber-700",
   SCHEDULED:   "bg-blue-100 text-blue-700",
   MISSED:      "bg-red-100 text-red-700",
@@ -28,79 +32,36 @@ export default async function ClientAdherencePage({ params }: Props) {
   const client = await prisma.user.findUnique({ where: { id } });
   if (!client) notFound();
 
-  const sessions = await prisma.workoutSessionV2.findMany({
-    where: {
-      clientId: id,
-      scheduledDate: { lte: new Date() },
-    },
-    include: {
-      workout: {
-        select: {
-          name: true,
-          program: { select: { name: true } },
-        },
-      },
-    },
-    orderBy: { scheduledDate: "desc" },
-    take: 100,
-  });
-
-  const total     = sessions.length;
-  const completed = sessions.filter((s) => s.status === "COMPLETED").length;
-  const missed    = sessions.filter((s) => s.status === "MISSED").length;
-  const skipped   = sessions.filter((s) => s.status === "SKIPPED").length;
-  const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-  const sessionsWithRPE = sessions.filter((s) => s.overallRPE != null);
-  const avgRPE =
-    sessionsWithRPE.length > 0
-      ? Math.round(
-          (sessionsWithRPE.reduce((sum, s) => sum + (s.overallRPE ?? 0), 0) /
-            sessionsWithRPE.length) *
-            10
-        ) / 10
-      : null;
+  const sessions = await getClientPastSessions(id);
+  const { total, completed, missed, skipped, completionRate, avgRPE } =
+    computeAdherenceStats(sessions);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
+    <div className="space-y-8">
+      <div className="space-y-4">
+        <Button variant="ghost" size="sm" asChild className="-ml-2">
           <Link href={`/clients/${id}`}>
             <ArrowLeft className="mr-1 h-4 w-4" />
             Back
           </Link>
         </Button>
-        <h2 className="text-xl font-bold">
-          Sessions — {client.firstName} {client.lastName}
-        </h2>
+        <PageHeader
+          title="Sessions"
+          description={`${client.firstName} ${client.lastName}`}
+          className="pb-0"
+        />
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{completionRate}%</p>
-            <p className="text-sm text-muted-foreground">Completion Rate</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-emerald-600">{completed}</p>
-            <p className="text-sm text-muted-foreground">Completed</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-red-500">{missed + skipped}</p>
-            <p className="text-sm text-muted-foreground">Missed / Skipped</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{avgRPE != null ? `${avgRPE}/10` : "—"}</p>
-            <p className="text-sm text-muted-foreground">Avg RPE</p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-6 sm:grid-cols-4">
+        <StatCard label="Completion Rate" value={`${completionRate}%`} icon={Target} />
+        <StatCard label="Completed" value={completed} icon={CheckCircle2} />
+        <StatCard label="Missed / Skipped" value={missed + skipped} icon={XCircle} />
+        <StatCard
+          label="Avg RPE"
+          value={avgRPE != null ? `${avgRPE}/10` : "—"}
+          icon={Gauge}
+        />
       </div>
 
       {/* Completion bar */}
@@ -123,7 +84,11 @@ export default async function ClientAdherencePage({ params }: Props) {
         </CardHeader>
         <CardContent>
           {sessions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No sessions recorded yet.</p>
+            <EmptyState
+              icon={ClipboardList}
+              title="No sessions yet"
+              description="Sessions will appear here once this client has scheduled or completed workouts."
+            />
           ) : (
             <div className="space-y-2">
               {sessions.map((session) => (

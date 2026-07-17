@@ -1,9 +1,76 @@
 import { prisma } from "@/lib/prisma";
 
+/**
+ * How long after a session's scheduled date/time we wait before considering it
+ * "missed". `WorkoutSessionV2.scheduledDate` carries a real time component (the
+ * reminders cron in `app/api/reminders/route.ts` formats both the date and the
+ * time from it), so this grace period is measured from that exact instant.
+ *
+ * 24 hours is chosen deliberately:
+ *  - It mirrors the 24h window convention already used by the reminders route,
+ *    keeping the two scheduled jobs consistent.
+ *  - It gives a client the remainder of the scheduled day (and then some) to
+ *    complete a session before it is marked missed, which is forgiving of
+ *    late-in-the-day workouts.
+ *  - Being a fixed offset from the stored (UTC) instant, it avoids the
+ *    timezone ambiguity of an "end of the scheduled day" rule.
+ */
+export const MISSED_SESSION_GRACE_HOURS = 24;
+
+const ADHERENCE_SESSION_LIMIT = 100;
+
+export async function getClientPastSessions(clientId: string) {
+  return prisma.workoutSessionV2.findMany({
+    where: {
+      clientId,
+      scheduledDate: { lte: new Date() },
+    },
+    include: {
+      workout: {
+        select: {
+          name: true,
+          program: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: { scheduledDate: "desc" },
+    take: ADHERENCE_SESSION_LIMIT,
+  });
+}
+
+export function computeAdherenceStats(
+  sessions: { status: string; overallRPE: number | null }[]
+) {
+  const total = sessions.length;
+  const completed = sessions.filter((s) => s.status === "COMPLETED").length;
+  const missed = sessions.filter((s) => s.status === "MISSED").length;
+  const skipped = sessions.filter((s) => s.status === "SKIPPED").length;
+  const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  const sessionsWithRPE = sessions.filter((s) => s.overallRPE != null);
+  const avgRPE =
+    sessionsWithRPE.length > 0
+      ? Math.round(
+          (sessionsWithRPE.reduce((sum, s) => sum + (s.overallRPE ?? 0), 0) /
+            sessionsWithRPE.length) *
+            10
+        ) / 10
+      : null;
+
+  return { total, completed, missed, skipped, completionRate, avgRPE };
+}
+
 export async function getSessionsForClient(
   clientId: string,
   options?: { from?: Date; to?: Date }
 ) {
+  // Calendar list view: callers only need enough to render a session pill
+  // (id/date/status) and count exercises per workout block. Full session
+  // detail (sets, exercise records, exercise logs, feedback) is loaded lazily
+  // per-session via getSessionById/getSessionWithWorkout when a session is
+  // actually opened — fetching that depth for every session up front was
+  // the cause of a 44s+ page load with no benefit, since it was discarded
+  // unused by every caller.
   return prisma.workoutSessionV2.findMany({
     where: {
       clientId,
@@ -16,17 +83,18 @@ export async function getSessionsForClient(
           }
         : {}),
     },
-    include: {
+    select: {
+      id: true,
+      scheduledDate: true,
+      status: true,
       workout: {
-        include: {
-          program: { select: { id: true, name: true } },
+        select: {
+          id: true,
+          name: true,
           blocks: {
-            include: {
+            select: {
               exercises: {
-                include: {
-                  exercise: true,
-                  sets: { orderBy: { orderIndex: "asc" } },
-                },
+                select: { id: true },
                 orderBy: { orderIndex: "asc" },
               },
             },
@@ -34,11 +102,6 @@ export async function getSessionsForClient(
           },
         },
       },
-      exerciseLogs: {
-        include: { setLogs: { orderBy: { setIndex: "asc" } } },
-        orderBy: { orderIndex: "asc" },
-      },
-      feedback: true,
     },
     orderBy: { scheduledDate: "asc" },
   });
@@ -174,6 +237,40 @@ export async function getSessionsForTrainer(
     },
     orderBy: { scheduledDate: "asc" },
   });
+}
+
+/**
+ * Marks every still-`SCHEDULED` session whose scheduled date/time is more than
+ * {@link MISSED_SESSION_GRACE_HOURS} in the past as `"MISSED"`.
+ *
+ * The query is intentionally stateless — it simply asks "which SCHEDULED
+ * sessions are now past their grace period?" — so it both catches newly overdue
+ * sessions and retroactively fixes any that were already overdue before this job
+ * existed. It never touches sessions in IN_PROGRESS / COMPLETED / MISSED /
+ * SKIPPED states.
+ *
+ * Intended to be driven by the `/api/cron/mark-missed-sessions` cron route.
+ *
+ * @param now - Injectable "current time" for deterministic testing; defaults to
+ *   the real current time in production.
+ * @returns The number of sessions transitioned to MISSED.
+ */
+export async function markPastDueSessionsMissed(
+  now: Date = new Date()
+): Promise<{ markedMissed: number }> {
+  const cutoff = new Date(
+    now.getTime() - MISSED_SESSION_GRACE_HOURS * 60 * 60 * 1000
+  );
+
+  const result = await prisma.workoutSessionV2.updateMany({
+    where: {
+      status: "SCHEDULED",
+      scheduledDate: { lt: cutoff },
+    },
+    data: { status: "MISSED" },
+  });
+
+  return { markedMissed: result.count };
 }
 
 export async function getUpcomingSessions(clientId: string, limit = 5) {

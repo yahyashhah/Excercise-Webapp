@@ -22,10 +22,12 @@ import {
   getExercises,
   getExercisesForPicker,
   toggleExercisePublic,
+  cloneExerciseToOrganization,
 } from '../exercise.service'
 
 const mockFindMany = vi.mocked(prisma.exercise.findMany)
 const mockUpdate = vi.mocked(prisma.exercise.update)
+const mockCreate = vi.mocked(prisma.exercise.create)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -128,6 +130,27 @@ describe('getExercises', () => {
   })
 })
 
+describe('getExercises body region filtering', () => {
+  it('matches exercises with any of the requested body regions (in)', async () => {
+    mockFindMany.mockResolvedValue([] as any)
+    await getExercises({ bodyRegions: ['UPPER_BODY', 'CORE'] as any })
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          bodyRegion: { in: ['UPPER_BODY', 'CORE'] },
+        }),
+      })
+    )
+  })
+
+  it('omits the body region clause entirely when none are requested', async () => {
+    mockFindMany.mockResolvedValue([] as any)
+    await getExercises({})
+    const call = mockFindMany.mock.calls[0][0] as any
+    expect(call.where).not.toHaveProperty('bodyRegion')
+  })
+})
+
 describe('getExercises phase filtering', () => {
   it('matches exercises with any of the requested phases (hasSome)', async () => {
     mockFindMany.mockResolvedValue([] as any)
@@ -146,5 +169,94 @@ describe('getExercises phase filtering', () => {
     await getExercises({})
     const call = mockFindMany.mock.calls[0][0] as any
     expect(call.where).not.toHaveProperty('exercisePhases')
+  })
+})
+
+describe('getExercises muscle group filtering', () => {
+  it('matches exercises with any of the requested muscle strings (hasSome)', async () => {
+    mockFindMany.mockResolvedValue([] as any)
+    await getExercises({ muscleGroups: ['hamstrings', 'Hamstrings', 'biceps femoris'] })
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          musclesTargeted: { hasSome: ['hamstrings', 'Hamstrings', 'biceps femoris'] },
+        }),
+      })
+    )
+  })
+
+  it('omits the muscle clause entirely when none are requested', async () => {
+    mockFindMany.mockResolvedValue([] as any)
+    await getExercises({})
+    const call = mockFindMany.mock.calls[0][0] as any
+    expect(call.where).not.toHaveProperty('musclesTargeted')
+  })
+
+  it('omits the muscle clause when an empty array is passed', async () => {
+    mockFindMany.mockResolvedValue([] as any)
+    await getExercises({ muscleGroups: [] })
+    const call = mockFindMany.mock.calls[0][0] as any
+    expect(call.where).not.toHaveProperty('musclesTargeted')
+  })
+})
+
+describe('cloneExerciseToOrganization', () => {
+  const universalSource = {
+    name: 'Squat',
+    description: 'A squat',
+    bodyRegion: 'LOWER_BODY',
+    equipmentRequired: ['None'],
+    difficultyLevel: 'BEGINNER',
+    contraindications: ['knee pain'],
+    videoUrl: 'https://youtube.com/watch?v=abc',
+    videoProvider: 'youtube',
+    imageUrl: 'https://img/abc.jpg',
+    instructions: 'Bend knees',
+    musclesTargeted: ['quadriceps', 'glutes'],
+    exercisePhases: ['STRENGTHENING'],
+    commonMistakes: 'Knees cave in',
+    defaultSets: 3,
+    defaultReps: 10,
+    defaultHoldSeconds: null,
+    indicationTags: ['knee'],
+    rehabStage: 'LATE_REHAB',
+  } as any
+
+  it('creates an ORGANIZATION-scoped private copy carrying over descriptive fields', async () => {
+    mockCreate.mockResolvedValue({ id: 'new', name: 'Squat' } as any)
+    await cloneExerciseToOrganization(universalSource, {
+      organizationId: 'org_mine',
+      createdById: 'user_1',
+    })
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        name: 'Squat',
+        description: 'A squat',
+        bodyRegion: 'LOWER_BODY',
+        equipmentRequired: ['None'],
+        difficultyLevel: 'BEGINNER',
+        contraindications: ['knee pain'],
+        musclesTargeted: ['quadriceps', 'glutes'],
+        exercisePhases: ['STRENGTHENING'],
+        indicationTags: ['knee'],
+        rehabStage: 'LATE_REHAB',
+        source: 'ORGANIZATION',
+        organizationId: 'org_mine',
+        isPublic: false,
+        createdById: 'user_1',
+      }),
+    })
+  })
+
+  it('never copies the source id or source flag (always ORGANIZATION)', async () => {
+    mockCreate.mockResolvedValue({ id: 'new' } as any)
+    await cloneExerciseToOrganization(
+      { ...universalSource, source: 'UNIVERSAL', id: 'src_1' },
+      { organizationId: 'org_mine', createdById: 'user_1' }
+    )
+    const call = mockCreate.mock.calls[0][0] as any
+    expect(call.data).not.toHaveProperty('id')
+    expect(call.data.source).toBe('ORGANIZATION')
   })
 })

@@ -1,6 +1,8 @@
 import { requireRole } from "@/lib/current-user"
 import { getTrainerVoiceMessageFeed } from "@/actions/voice-memo-actions"
 import { VoiceMessagesFeed } from "@/components/voice-memo/VoiceMessagesFeed"
+import { MessagesTabNav } from "@/components/messages/messages-tab-nav"
+import { PageHeader } from "@/components/shared/page-header"
 
 export default async function VoiceMessagesPage() {
   await requireRole("TRAINER")
@@ -9,14 +11,13 @@ export default async function VoiceMessagesPage() {
   const unreadCount = items.filter((i) => !i.isRead).length
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Voice Messages</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}
-        </p>
-      </div>
-      <div className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
+    <div className="space-y-6">
+      <PageHeader
+        title="Voice Messages"
+        description={unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}
+      />
+      <MessagesTabNav active="/voice-messages" />
+      <div className="max-w-2xl overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
         <VoiceMessagesFeed items={items} />
       </div>
     </div>

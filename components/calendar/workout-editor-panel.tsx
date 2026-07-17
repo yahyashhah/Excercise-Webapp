@@ -421,10 +421,11 @@ function SortableExercise({
         </div>
       </div>
 
-      {/* Sets & Notes Container (Collapsible) */}
-      {expanded && (
-        <div className="ml-[2.75rem] mt-3 pl-2 border-l-2 border-muted/50">
-          {exercise.exercise.videoUrl && (
+      {/* Sets & Notes Container — always visible so reps/sets/lbs are editable
+          without a further click. The video preview stays behind the expand
+          toggle to avoid loading an iframe per exercise on open. */}
+      <div className="ml-[2.75rem] mt-3 pl-2 border-l-2 border-muted/50">
+          {expanded && exercise.exercise.videoUrl && (
             <div className="mb-3 w-full max-w-[280px] aspect-video rounded-md overflow-hidden bg-black/10">
               <UniversalVideoPlayer
                 url={exercise.exercise.videoUrl}
@@ -577,7 +578,6 @@ function SortableExercise({
             </Button>
           ) : null}
         </div>
-      )}
     </div>
   );
 }

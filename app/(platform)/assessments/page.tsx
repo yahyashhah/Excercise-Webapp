@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, BarChart3, TrendingUp } from "lucide-react";
 import { formatDate } from "@/lib/utils/formatting";
+import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
 
 // Color-code assessment value based on pain/functional scores
 const assessmentColors = [
@@ -46,47 +48,32 @@ export default async function AssessmentsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Assessments</h2>
-          <p className="text-muted-foreground">
-            {assessments.length > 0
-              ? `${assessments.length} measurement${assessments.length !== 1 ? "s" : ""} recorded`
-              : "Track measurements and outcomes over time"}
-          </p>
-        </div>
-        <Button
-          className="gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
-          asChild
-        >
-          <Link href="/assessments/new">
-            <Plus className="h-4 w-4" />
-            New Assessment
-          </Link>
-        </Button>
-      </div>
-
-      {assessments.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-16 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
-            <BarChart3 className="h-8 w-8 text-muted-foreground/50" />
-          </div>
-          <h3 className="mt-5 text-lg font-semibold">No assessments yet</h3>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-            Record measurements over time to track client progress and outcomes.
-          </p>
-          <Button
-            className="mt-5 gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
-            asChild
-          >
+    <div>
+      <PageHeader
+        title="Assessments"
+        description={
+          assessments.length > 0
+            ? `${assessments.length} measurement${assessments.length !== 1 ? "s" : ""} recorded`
+            : "Track measurements and outcomes over time"
+        }
+        action={
+          <Button className="gap-2" asChild>
             <Link href="/assessments/new">
               <Plus className="h-4 w-4" />
-              Record First Assessment
+              New Assessment
             </Link>
           </Button>
-        </div>
+        }
+      />
+
+      {assessments.length === 0 ? (
+        <EmptyState
+          icon={BarChart3}
+          title="No assessments yet"
+          description="Record measurements over time to track client progress and outcomes."
+          actionLabel="Record First Assessment"
+          actionHref="/assessments/new"
+        />
       ) : (
         <div className="space-y-2.5">
           {assessments.map((a) => {
@@ -94,12 +81,9 @@ export default async function AssessmentsPage() {
             return (
               <Card
                 key={a.id}
-                className="group relative overflow-hidden border-0 shadow-sm ring-1 ring-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-border"
+                className="group border-0 shadow-sm ring-1 ring-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-border"
               >
-                {/* Left color accent */}
-                <div className={`absolute inset-y-0 left-0 w-1 bg-linear-to-b ${gradient}`} />
-
-                <CardContent className="flex items-center gap-5 py-4 pl-6 pr-5">
+                <CardContent className="flex items-center gap-5 py-4 px-5">
                   {/* Icon */}
                   <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br ${gradient} shadow-sm`}>
                     <TrendingUp className="h-4.5 w-4.5 text-white" />

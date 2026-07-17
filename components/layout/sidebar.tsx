@@ -18,7 +18,6 @@ import {
   TrendingUp,
   Shield,
   CreditCard,
-  Mic,
   History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -39,19 +38,25 @@ interface SidebarProps {
   trainerClerkId?: string;
 }
 
-const trainerLinks = [
+interface NavLink {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+}
+
+const trainerLinks: NavLink[] = [
   { href: "/dashboard",   label: "Dashboard",   icon: LayoutDashboard },
   { href: "/clients",    label: "Clients",      icon: Users },
   { href: "/programs",    label: "Programs",     icon: Library },
   { href: "/exercises",   label: "Exercises",    icon: Dumbbell },
   // { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
   // { href: "/habits",      label: "Habits",       icon: Flame },
-  { href: "/messages",       label: "Messages",        icon: MessageSquare },
-  { href: "/voice-messages", label: "Voice Messages",   icon: Mic },
-  // { href: "/assessments", label: "Assessments",  icon: BarChart3 },
+  { href: "/messages",    label: "Messages",     icon: MessageSquare },
+  { href: "/assessments", label: "Assessments",  icon: BarChart3 },
+  { href: "/analytics",   label: "Analytics",    icon: TrendingUp },
 ];
 
-const clientLinks = [
+const clientLinks: NavLink[] = [
   { href: "/dashboard",   label: "Dashboard",    icon: LayoutDashboard },
   { href: "/programs",    label: "My Programs",  icon: ClipboardList },
   // { href: "/habits",      label: "Habits",       icon: Flame },
@@ -115,7 +120,12 @@ export function Sidebar({
   };
 
   return (
-    <aside className={cn("w-64 flex-col bg-sidebar", mobileMode ? "flex" : "hidden lg:flex")}>
+    <aside
+      className={cn("w-64 flex-col bg-sidebar", mobileMode ? "flex" : "hidden lg:flex")}
+      style={{
+        background: "linear-gradient(180deg, var(--sidebar), oklch(0.15 0.04 264))",
+      }}
+    >
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-sidebar-border/60 px-5">
         <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted shadow-sm">
@@ -141,27 +151,31 @@ export function Sidebar({
         <nav className="space-y-0.5">
           {links.map((link) => {
             let badge: React.ReactNode = undefined;
-            if (link.href === "/messages" && unreadMessageCount > 0) {
-              badge = (
-                <Badge
-                  variant="destructive"
-                  className="h-5 min-w-5 justify-center px-1 text-[10px] font-bold"
-                >
-                  {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
-                </Badge>
-              );
-            } else if (
-              link.href === "/voice-messages" &&
-              role === "TRAINER" &&
-              trainerClerkId
-            ) {
-              badge = (
-                <VoiceMessagesNavBadge
-                  initialUnread={unreadVoiceCount}
-                  trainerClerkId={trainerClerkId}
-                />
-              );
+            if (link.href === "/messages") {
+              const showUnreadCount = unreadMessageCount > 0;
+              const showVoiceBadge = role === "TRAINER" && !!trainerClerkId;
+              if (showUnreadCount || showVoiceBadge) {
+                badge = (
+                  <span className="flex items-center gap-1">
+                    {showUnreadCount && (
+                      <Badge
+                        variant="destructive"
+                        className="h-5 min-w-5 justify-center px-1 text-[10px] font-bold"
+                      >
+                        {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+                      </Badge>
+                    )}
+                    {showVoiceBadge && (
+                      <VoiceMessagesNavBadge
+                        initialUnread={unreadVoiceCount}
+                        trainerClerkId={trainerClerkId!}
+                      />
+                    )}
+                  </span>
+                );
+              }
             }
+
             return navItem(link.href, link.label, link.icon, badge);
           })}
         </nav>
@@ -173,8 +187,8 @@ export function Sidebar({
             Account
           </p>
         </div>
-        {navItem("/settings", "Settings", Settings)}
         {role === "TRAINER" && navItem("/settings/billing", "Billing", CreditCard)}
+        {navItem("/settings", "Settings", Settings)}
         {role === "TRAINER" && navItem("/settings/audit-log", "Audit Log", History)}
 
         {isAdmin && (
