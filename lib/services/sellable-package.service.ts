@@ -50,3 +50,74 @@ export async function getSellablePackageBySlug(
     : null;
   return { ...pkg, upsell };
 }
+
+export async function getSellablePackageByProgramTemplateId(
+  programTemplateId: string,
+  trainerId: string
+): Promise<(CoachPackage & { upsell: CoachPackage | null }) | null> {
+  const pkg = await prisma.coachPackage.findFirst({
+    where: { programTemplateId, trainerId, kind: "program" },
+  });
+  if (!pkg) return null;
+  const upsell = pkg.upsellPackageId
+    ? await prisma.coachPackage.findUnique({ where: { id: pkg.upsellPackageId } })
+    : null;
+  return { ...pkg, upsell };
+}
+
+export async function updateSellablePackage(
+  packageId: string,
+  trainerId: string,
+  args: {
+    priceInCents?: number;
+    isActive?: boolean;
+    bundle?: { programTemplateId: string; priceInCents: number } | null;
+  }
+): Promise<CoachPackage> {
+  const existing = await prisma.coachPackage.findUnique({ where: { id: packageId } });
+  if (!existing || existing.trainerId !== trainerId) {
+    throw new Error("Package not found");
+  }
+
+  let upsellPackageId = existing.upsellPackageId;
+
+  if (args.bundle === null) {
+    if (upsellPackageId) {
+      await prisma.coachPackage.update({ where: { id: upsellPackageId }, data: { isActive: false } });
+    }
+    upsellPackageId = null;
+  } else if (args.bundle) {
+    if (upsellPackageId) {
+      await prisma.coachPackage.update({
+        where: { id: upsellPackageId },
+        data: {
+          programTemplateId: args.bundle.programTemplateId,
+          priceInCents: args.bundle.priceInCents,
+          isActive: true,
+        },
+      });
+    } else {
+      const bundleSlug = await uniqueSlug(`${existing.name} Bundle`);
+      const created = await prisma.coachPackage.create({
+        data: {
+          trainerId,
+          name: `${existing.name} Bundle`,
+          priceInCents: args.bundle.priceInCents,
+          programTemplateId: args.bundle.programTemplateId,
+          kind: "bundle",
+          slug: bundleSlug,
+        },
+      });
+      upsellPackageId = created.id;
+    }
+  }
+
+  return prisma.coachPackage.update({
+    where: { id: packageId },
+    data: {
+      ...(args.priceInCents !== undefined ? { priceInCents: args.priceInCents } : {}),
+      ...(args.isActive !== undefined ? { isActive: args.isActive } : {}),
+      upsellPackageId,
+    },
+  });
+}
