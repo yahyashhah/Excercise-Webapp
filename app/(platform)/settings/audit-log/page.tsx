@@ -1,6 +1,9 @@
 import { requireRole } from "@/lib/current-user";
 import { getAuditLogs, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { AuditLogTable } from "@/components/audit-log/audit-log-table";
+import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
+import { Building2 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -15,10 +18,12 @@ export default async function TrainerAuditLogPage({ searchParams }: PageProps) {
   if (!trainer.clerkOrgId) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Audit Log</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Set up your organization to see activity here.</p>
-        </div>
+        <PageHeader title="Audit Log" description="Activity across your clinic." />
+        <EmptyState
+          icon={Building2}
+          title="No organization set up"
+          description="Set up your organization to see activity here."
+        />
       </div>
     );
   }
@@ -38,10 +43,7 @@ export default async function TrainerAuditLogPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Audit Log</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Activity across your clinic.</p>
-      </div>
+      <PageHeader title="Audit Log" description="Activity across your clinic." />
 
       <form method="GET" className="flex flex-col gap-3 sm:flex-row sm:items-center flex-wrap">
         <Select name="action" defaultValue={action ?? "ALL"}>

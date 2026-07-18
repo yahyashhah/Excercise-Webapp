@@ -82,7 +82,7 @@ export default async function ExerciseDetailPage({ params }: Props) {
           {exercise.media.filter((m) => m.mediaType !== "image").length > 0 && (
             <div>
               <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Additional Videos</h3>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 {exercise.media
                   .filter((item) => item.mediaType !== "image")
                   .map((item) => (

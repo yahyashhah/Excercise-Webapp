@@ -5,6 +5,7 @@ import { ProgramEditor } from "@/components/programs/program-editor";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/shared/page-header";
 
 export default async function NewProgramPage() {
   const [user, { orgId: sessionOrgId }, exercises] = await Promise.all([
@@ -15,19 +16,17 @@ export default async function NewProgramPage() {
   const organizationOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Button variant="ghost" size="sm" asChild className="mb-2">
-          <Link href="/programs">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Back to Programs
-          </Link>
-        </Button>
-        <h1 className="text-3xl font-bold tracking-tight">Create Program</h1>
-        <p className="text-muted-foreground">
-          Build a new training program from scratch or start from a template.
-        </p>
-      </div>
+    <div>
+      <Button variant="ghost" size="sm" asChild className="mb-2">
+        <Link href="/programs">
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Back to Programs
+        </Link>
+      </Button>
+      <PageHeader
+        title="Create Program"
+        description="Build a new training program from scratch or start from a template."
+      />
       <ProgramEditor exercises={exercises} organizationOrganizationId={organizationOrgId} />
     </div>
   );

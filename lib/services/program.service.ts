@@ -1,5 +1,13 @@
+import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import type { PlanStatus, Prisma } from "@prisma/client";
+
+// A valid 12-byte ObjectId as a 24-char hex string, generated client-side so we
+// can bulk-insert child rows referencing their parents without a round-trip to
+// read back generated ids.
+function newObjectId(): string {
+  return randomBytes(12).toString("hex");
+}
 import type {
   CreateProgramInput,
   ProgramFilterInput,
@@ -52,56 +60,90 @@ export async function createProgram(
   const { workouts, startDate, organizationIds, ...rest } = data;
   void organizationIds;
 
-  return prisma.program.create({
+  // Create the program shell, then bulk-insert the workout tree one LEVEL at a
+  // time via createMany. A single deeply-nested `create` (workouts → blocks →
+  // exercises → sets) inserts every descendant in its own round-trip — hundreds
+  // of them for a real program, ~250ms each on a remote DB, minutes total (and
+  // the wrapping transaction can abort). Pre-generating ObjectIds lets each
+  // child row reference its parent, so the whole tree is 4 bulk inserts.
+  const program = await prisma.program.create({
     data: {
       ...rest,
       trainerId,
       startDate: startDate ? new Date(startDate) : undefined,
-      workouts: {
-        create: workouts.map((w) => ({
-          name: w.name,
-          description: w.description,
-          dayIndex: w.dayIndex,
-          weekIndex: w.weekIndex,
-          orderIndex: w.orderIndex,
-          estimatedMinutes: w.estimatedMinutes,
-          blocks: {
-            create: w.blocks.map((b) => ({
-              name: b.name,
-              type: b.type,
-              orderIndex: b.orderIndex,
-              rounds: b.rounds,
-              restBetweenRounds: b.restBetweenRounds,
-              timeCap: b.timeCap,
-              notes: b.notes,
-              exercises: {
-                create: b.exercises.map((e) => ({
-                  exerciseId: e.exerciseId,
-                  orderIndex: e.orderIndex,
-                  restSeconds: e.restSeconds,
-                  notes: e.notes,
-                  supersetGroup: e.supersetGroup,
-                  sets: {
-                    create: e.sets.map((s) => ({
-                      orderIndex: s.orderIndex,
-                      setType: s.setType,
-                      targetReps: s.targetReps,
-                      targetWeight: s.targetWeight,
-                      targetDuration: s.targetDuration,
-                      targetDistance: s.targetDistance,
-                      targetRPE: s.targetRPE,
-                      restAfter: s.restAfter,
-                    })),
-                  },
-                })),
-              },
-            })),
-          },
-        })),
-      },
     },
+  });
+
+  const workoutRows: Prisma.WorkoutCreateManyInput[] = [];
+  const blockRows: Prisma.WorkoutBlockV2CreateManyInput[] = [];
+  const exerciseRows: Prisma.BlockExerciseV2CreateManyInput[] = [];
+  const setRows: Prisma.ExerciseSetCreateManyInput[] = [];
+
+  for (const w of workouts) {
+    const workoutId = newObjectId();
+    workoutRows.push({
+      id: workoutId,
+      programId: program.id,
+      name: w.name,
+      description: w.description,
+      dayIndex: w.dayIndex,
+      weekIndex: w.weekIndex,
+      orderIndex: w.orderIndex,
+      estimatedMinutes: w.estimatedMinutes,
+    });
+    for (const b of w.blocks) {
+      const blockId = newObjectId();
+      blockRows.push({
+        id: blockId,
+        workoutId,
+        name: b.name,
+        type: b.type,
+        orderIndex: b.orderIndex,
+        rounds: b.rounds,
+        restBetweenRounds: b.restBetweenRounds,
+        timeCap: b.timeCap,
+        notes: b.notes,
+      });
+      for (const e of b.exercises) {
+        const blockExerciseId = newObjectId();
+        exerciseRows.push({
+          id: blockExerciseId,
+          blockId,
+          exerciseId: e.exerciseId,
+          orderIndex: e.orderIndex,
+          restSeconds: e.restSeconds,
+          notes: e.notes,
+          supersetGroup: e.supersetGroup,
+        });
+        for (const s of e.sets) {
+          setRows.push({
+            id: newObjectId(),
+            blockExerciseId,
+            orderIndex: s.orderIndex,
+            setType: s.setType,
+            targetReps: s.targetReps,
+            targetWeight: s.targetWeight,
+            targetDuration: s.targetDuration,
+            targetDistance: s.targetDistance,
+            targetRPE: s.targetRPE,
+            restAfter: s.restAfter,
+          });
+        }
+      }
+    }
+  }
+
+  if (workoutRows.length) await prisma.workout.createMany({ data: workoutRows });
+  if (blockRows.length) await prisma.workoutBlockV2.createMany({ data: blockRows });
+  if (exerciseRows.length) await prisma.blockExerciseV2.createMany({ data: exerciseRows });
+  if (setRows.length) await prisma.exerciseSet.createMany({ data: setRows });
+
+  const full = await prisma.program.findUnique({
+    where: { id: program.id },
     include: programDetailInclude,
   });
+  if (!full) throw new Error("Program not found immediately after creation");
+  return full;
 }
 
 export async function getProgramById(id: string) {

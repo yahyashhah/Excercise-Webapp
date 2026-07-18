@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/current-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/shared/page-header";
 
 // ---------- Types derived from the Prisma query ----------
 
@@ -22,7 +23,7 @@ type SetLog = ExerciseLog["setLogs"][number];
 // ---------- Constants ----------
 
 const STATUS_COLORS: Record<string, string> = {
-  COMPLETED: "bg-emerald-100 text-emerald-700",
+  COMPLETED: "bg-success/10 text-success",
   IN_PROGRESS: "bg-amber-100 text-amber-700",
   SCHEDULED: "bg-blue-100 text-blue-700",
   MISSED: "bg-red-100 text-red-700",
@@ -140,24 +141,23 @@ export default async function SessionReviewPage({ params }: Props) {
   const clientName = `${session.client.firstName} ${session.client.lastName}`;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
+    <div className="space-y-8">
+      <div className="space-y-4">
+        <Button variant="ghost" size="sm" asChild className="-ml-2">
           <Link href={`/clients/${id}/adherence`}>
             <ArrowLeft className="mr-1 h-4 w-4" />
             Back
           </Link>
         </Button>
+        <PageHeader
+          title={session.workout.name}
+          description={clientName}
+          className="pb-0"
+        />
       </div>
 
-      {/* Session header */}
+      {/* Session meta */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold">
-            {session.workout.name}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">{clientName}</p>
-        </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-muted-foreground">
@@ -296,7 +296,7 @@ function CompletionBadge({
 }) {
   if (completion === "all") {
     return (
-      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+      <span className="inline-flex items-center rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success">
         All done
       </span>
     );
@@ -422,7 +422,7 @@ function SetRow({
     if (log.notes) noteText = log.notes;
   } else {
     statusBadge = (
-      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+      <span className="inline-flex items-center rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
         ✓ Done
       </span>
     );

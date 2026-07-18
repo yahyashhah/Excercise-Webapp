@@ -7,6 +7,11 @@ const isPublicRoute = createRouteMatcher([
   "/onboarding(.*)",
   "/api/webhooks(.*)",
   "/api/stripe/webhook",
+  "/p/(.*)",
+  "/api/checkout/program",
+  // Cron endpoints are called by Vercel Cron (no Clerk session) and secure
+  // themselves independently via a CRON_SECRET bearer check.
+  "/api/cron(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

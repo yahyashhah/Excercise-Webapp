@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import { WorkoutModeWrapper } from "@/components/workout/workout-mode-wrapper";
 import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
@@ -84,42 +85,44 @@ export default async function SessionPage({
   if (!isClientOwner && !isProgramTrainer) return redirect("/dashboard");
 
   return (
-    <div className="space-y-4">
-      <Button variant="ghost" size="sm" asChild>
+    <div className="space-y-8">
+      <Button variant="ghost" size="sm" asChild className="-ml-2">
         <Link href="/dashboard">
           <ArrowLeft className="mr-1 h-4 w-4" />
           Back to Dashboard
         </Link>
       </Button>
       {(trainerMemo || clientMemo) && (
-        <div className="mb-4 space-y-2 rounded-2xl border border-border/60 bg-card px-4 py-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Voice Notes
-          </p>
-          {trainerMemo && (
-            <VoiceMemoPlayer
-              memo={trainerMemo}
-              authorName={
-                [
-                  session.workout.program.trainer?.firstName,
-                  session.workout.program.trainer?.lastName,
-                ]
-                  .filter(Boolean)
-                  .join(" ") || "Trainer"
-              }
-            />
-          )}
-          {clientMemo && (
-            <VoiceMemoPlayer
-              memo={clientMemo}
-              authorName={
-                [session.client?.firstName, session.client?.lastName]
-                  .filter(Boolean)
-                  .join(" ") || "Client"
-              }
-            />
-          )}
-        </div>
+        <Card>
+          <CardContent className="space-y-2 p-6">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Voice Notes
+            </p>
+            {trainerMemo && (
+              <VoiceMemoPlayer
+                memo={trainerMemo}
+                authorName={
+                  [
+                    session.workout.program.trainer?.firstName,
+                    session.workout.program.trainer?.lastName,
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || "Trainer"
+                }
+              />
+            )}
+            {clientMemo && (
+              <VoiceMemoPlayer
+                memo={clientMemo}
+                authorName={
+                  [session.client?.firstName, session.client?.lastName]
+                    .filter(Boolean)
+                    .join(" ") || "Client"
+                }
+              />
+            )}
+          </CardContent>
+        </Card>
       )}
       <WorkoutModeWrapper
         session={session as any}

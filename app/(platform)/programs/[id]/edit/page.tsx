@@ -7,6 +7,7 @@ import { ProgramEditor } from "@/components/programs/program-editor";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -26,19 +27,14 @@ export default async function EditProgramPage({ params }: Props) {
   if (!program || program.trainerId !== user.id) notFound();
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Button variant="ghost" size="sm" asChild className="mb-2">
-          <Link href={`/programs/${id}`}>
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Back to Program
-          </Link>
-        </Button>
-        <h1 className="text-3xl font-bold tracking-tight">Edit Program</h1>
-        <p className="text-muted-foreground">
-          Modify &ldquo;{program.name}&rdquo;
-        </p>
-      </div>
+    <div>
+      <Button variant="ghost" size="sm" asChild className="mb-2">
+        <Link href={`/programs/${id}`}>
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Back to Program
+        </Link>
+      </Button>
+      <PageHeader title="Edit Program" description={`Modify “${program.name}”`} />
       <ProgramEditor
         program={program as unknown as Record<string, unknown>}
         exercises={exercises}

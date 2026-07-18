@@ -2,13 +2,14 @@ import { Suspense } from "react";
 import { auth } from "@clerk/nextjs/server";
 import { requireRole } from "@/lib/current-user";
 import { getExercises } from "@/lib/services/exercise.service";
-import { ExerciseCard } from "@/components/exercises/exercise-card";
+import { ExerciseGrid } from "@/components/exercises/exercise-grid";
 import { ExerciseFilters } from "@/components/exercises/exercise-filters";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Dumbbell, Plus, Upload } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { expandMuscleGroups } from "@/lib/utils/constants";
 import type { BodyRegion, DifficultyLevel, ExercisePhase, ExerciseSource } from "@prisma/client";
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
     bodyRegion?: string;
     difficultyLevel?: string;
     exercisePhase?: string; // comma-separated ExercisePhase values
+    muscleGroup?: string; // comma-separated MUSCLE_GROUPS values
     equipment?: string;
     source?: string;
   }>;
@@ -36,12 +38,22 @@ export default async function ExercisesPage({ searchParams }: Props) {
   const exercisePhases = params.exercisePhase
     ? (params.exercisePhase.split(",").filter(Boolean) as ExercisePhase[])
     : undefined;
+  const bodyRegions = params.bodyRegion
+    ? (params.bodyRegion.split(",").filter(Boolean) as BodyRegion[])
+    : undefined;
+  const muscleGroupCodes = params.muscleGroup
+    ? params.muscleGroup.split(",").filter(Boolean)
+    : undefined;
+  const muscleGroups = muscleGroupCodes?.length
+    ? expandMuscleGroups(muscleGroupCodes)
+    : undefined;
 
   const exercises = await getExercises({
     search: params.search,
-    bodyRegion: params.bodyRegion as BodyRegion | undefined,
+    bodyRegions,
     difficultyLevel: params.difficultyLevel as DifficultyLevel | undefined,
     exercisePhases,
+    muscleGroups,
     equipment: params.equipment,
     source: activeSource as ExerciseSource,
     organizationId: activeSource === "ORGANIZATION" ? organizationOrgId : undefined,
@@ -53,6 +65,7 @@ export default async function ExercisesPage({ searchParams }: Props) {
     if (params.bodyRegion)      sp.set("bodyRegion",      params.bodyRegion);
     if (params.difficultyLevel) sp.set("difficultyLevel", params.difficultyLevel);
     if (params.exercisePhase)   sp.set("exercisePhase",   params.exercisePhase);
+    if (params.muscleGroup)     sp.set("muscleGroup",     params.muscleGroup);
     if (params.equipment)       sp.set("equipment",       params.equipment);
     sp.set("source", source);
     return `/exercises?${sp.toString()}`;
@@ -69,7 +82,7 @@ export default async function ExercisesPage({ searchParams }: Props) {
           <Button variant="outline" size="sm" asChild>
             <Link href="/exercises/bulk-import">
               <Upload className="h-4 w-4 mr-1.5" />
-              Bulk Import
+              Import
             </Link>
           </Button>
           <Button size="sm" asChild>
@@ -113,28 +126,11 @@ export default async function ExercisesPage({ searchParams }: Props) {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {exercises.map((exercise) => (
-            <ExerciseCard
-              key={exercise.id}
-              id={exercise.id}
-              name={exercise.name}
-              bodyRegion={exercise.bodyRegion}
-              difficultyLevel={exercise.difficultyLevel}
-              exercisePhases={exercise.exercisePhases}
-              equipmentRequired={exercise.equipmentRequired}
-              description={exercise.description}
-              imageUrl={exercise.imageUrl}
-              videoUrl={exercise.videoUrl}
-              isActive={exercise.isActive}
-              isTrainer
-              source={exercise.source}
-              isPublic={exercise.isPublic}
-              organizationId={exercise.organizationId}
-              organizationOrganizationId={organizationOrgId}
-            />
-          ))}
-        </div>
+        <ExerciseGrid
+          exercises={exercises}
+          activeSource={activeSource}
+          organizationOrgId={organizationOrgId}
+        />
       )}
     </div>
   );

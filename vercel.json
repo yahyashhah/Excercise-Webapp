@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/mark-missed-sessions",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/retry-program-purchases",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

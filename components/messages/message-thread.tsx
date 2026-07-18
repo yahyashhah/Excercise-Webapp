@@ -8,15 +8,23 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { sendMessageAction, markMessagesReadAction } from "@/actions/message-actions";
 import { formatRelativeTime } from "@/lib/utils/formatting";
 import { toast } from "sonner";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Check, CheckCheck } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 import { threadChannel } from "@/lib/pusher-channels";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Message {
   id: string;
   senderId: string;
   content: string;
   createdAt: Date;
+  isRead?: boolean;
+  readAt?: Date | string | null;
   sender: { firstName: string; lastName: string; imageUrl: string | null };
 }
 
@@ -66,6 +74,18 @@ export function MessageThread({
         }
       },
     );
+
+    channel.bind("messages-read", (data: { readByUserId: string }) => {
+      if (data.readByUserId !== recipientId) return;
+      const now = new Date();
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.senderId === currentUserId && !m.isRead
+            ? { ...m, isRead: true, readAt: now }
+            : m,
+        ),
+      );
+    });
 
     channel.bind("client-typing", (data: { userId: string }) => {
       if (data.userId !== recipientId) return;
@@ -144,9 +164,14 @@ export function MessageThread({
                   >
                     {msg.content}
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground/60">
-                    {formatRelativeTime(msg.createdAt)}
-                  </p>
+                  <div
+                    className={`mt-1 flex items-center gap-1 text-xs text-muted-foreground/60 ${
+                      isOwn ? "justify-end" : ""
+                    }`}
+                  >
+                    <span>{formatRelativeTime(msg.createdAt)}</span>
+                    {isOwn && <ReadIndicator isRead={!!msg.isRead} readAt={msg.readAt} />}
+                  </div>
                 </div>
               </div>
             );
@@ -194,5 +219,28 @@ export function MessageThread({
         </div>
       </div>
     </div>
+  );
+}
+
+function ReadIndicator({ isRead, readAt }: { isRead: boolean; readAt?: Date | string | null }) {
+  if (!isRead) {
+    return <Check className="h-3.5 w-3.5" aria-label="Sent" />;
+  }
+
+  const readLabel = readAt
+    ? `Read ${new Date(readAt).toLocaleString()}`
+    : "Read";
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={<span className="inline-flex items-center" aria-label={readLabel} />}
+        >
+          <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
+        </TooltipTrigger>
+        <TooltipContent>{readLabel}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

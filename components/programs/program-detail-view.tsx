@@ -35,6 +35,7 @@ import {
 import { toast } from "sonner";
 import { duplicateProgramAction } from "@/actions/program-actions";
 import { AssignProgramDialog } from "@/components/programs/assign-program-dialog";
+import { SellProgramDialog } from "@/components/programs/sell-program-dialog";
 import { ProgramScheduleView } from "@/components/programs/program-schedule-view";
 import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
 import {
@@ -83,6 +84,7 @@ export function ProgramDetailView({
 }: ProgramDetailViewProps) {
   const router = useRouter();
   const [assignOpen, setAssignOpen] = useState(showAssignDialog);
+  const [sellOpen, setSellOpen] = useState(false);
   const [detailExercise, setDetailExercise] = useState<Record<string, unknown> | null>(null);
   const workouts = (program.workouts as Record<string, unknown>[]) || [];
 
@@ -267,6 +269,11 @@ export function ProgramDetailView({
             {!clientId && (
               <Button onClick={() => setAssignOpen(true)}>
                 <UserPlus className="mr-2 h-4 w-4" /> Assign
+              </Button>
+            )}
+            {(program.isTemplate as boolean) && !clientId && (
+              <Button variant="outline" onClick={() => setSellOpen(true)}>
+                Sell this program
               </Button>
             )}
             <Popover open={shareOpen} onOpenChange={setShareOpen}>
@@ -556,6 +563,12 @@ export function ProgramDetailView({
         open={assignOpen}
         onOpenChange={setAssignOpen}
         assignAction={assignAction}
+      />
+
+      <SellProgramDialog
+        programId={program.id as string}
+        open={sellOpen}
+        onOpenChange={setSellOpen}
       />
 
       {/* Exercise Detail Modal */}

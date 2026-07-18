@@ -402,6 +402,7 @@ model Message {
   planExercise   PlanExercise? @relation(fields: [planExerciseId], references: [id])
   content        String
   isRead         Boolean       @default(false)
+  readAt         DateTime?
   createdAt      DateTime      @default(now())
 }
 
@@ -743,6 +744,11 @@ model CoachPackage {
   intervalMonths Int                  @default(1)
   isActive       Boolean              @default(true)
   stripePriceId  String?
+  // --- self-serve program sales ---
+  programTemplateId String? @db.ObjectId
+  slug              String? @unique
+  kind              String  @default("program") // "program" | "bundle"
+  upsellPackageId   String? @db.ObjectId
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
   subscriptions  ClientSubscription[]
@@ -833,4 +839,25 @@ model TrainerSubscription {
   cancelAtPeriodEnd    Boolean   @default(false)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
+}
+
+model ProgramPurchase {
+  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
+  stripeCheckoutSessionId String   @unique
+  buyerEmail              String
+  buyerUserId             String?  @db.ObjectId
+  buyerClerkId            String?
+  trainerId               String   @db.ObjectId
+  orgId                   String
+  packageIds              String[] @db.ObjectId
+  assignedProgramIds      String[] @db.ObjectId
+  amountInCents           Int      @default(0)
+  currency                String   @default("usd")
+  status                  String   @default("PENDING") // PENDING | COMPLETED | REFUNDED
+  accountClaimedAt        DateTime?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([trainerId, createdAt])
+  @@index([buyerEmail])
 }

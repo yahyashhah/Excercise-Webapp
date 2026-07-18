@@ -5,10 +5,12 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Edit, PlayCircle, ArrowRight, Globe, Lock } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Edit, PlayCircle, ArrowRight, Globe, Lock, Plus } from "lucide-react";
 import { ExerciseImage } from "@/components/exercises/exercise-image";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatBodyRegion, formatDifficulty } from "@/lib/utils/formatting";
-import { toggleExercisePublicAction } from "@/actions/exercise-actions";
+import { toggleExercisePublicAction, adoptUniversalExerciseAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +30,9 @@ interface ExerciseCardProps {
   isPublic?: boolean;
   organizationId?: string | null;
   organizationOrganizationId?: string | null;
+  canAdopt?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 const difficultyConfig: Record<string, { label: string; className: string }> = {
@@ -47,10 +52,16 @@ const phaseConfig: Record<string, { label: string; className: string }> = {
 export function ExerciseCard({
   id, name, bodyRegion, difficultyLevel, exercisePhases, equipmentRequired,
   description, imageUrl, videoUrl, isActive, isTrainer,
-  source, isPublic: initialIsPublic, organizationId, organizationOrganizationId,
+  source, isPublic: initialIsPublic, organizationId, organizationOrganizationId, canAdopt,
+  selected, onToggleSelect,
 }: ExerciseCardProps) {
+  const router = useRouter();
   const [isPublic, setIsPublic] = useState(initialIsPublic ?? true);
   const [isPending, startTransition] = useTransition();
+  const [isAdopting, startAdopting] = useTransition();
+
+  const showAdopt = !!canAdopt && source === "UNIVERSAL";
+  const showSelect = showAdopt && !!onToggleSelect;
 
   const isMyOrganizationExercise =
     source === "ORGANIZATION" &&
@@ -66,6 +77,18 @@ export function ExerciseCard({
     (p) => phaseConfig[p] ?? { label: p, className: "bg-black/60 text-white" }
   );
 
+  function handleAdopt() {
+    startAdopting(async () => {
+      const result = await adoptUniversalExerciseAction(id);
+      if (result.success) {
+        toast.success("Added to your organization's library");
+        router.push("/exercises?source=ORGANIZATION");
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
   function handleTogglePublic() {
     const next = !isPublic;
     startTransition(async () => {
@@ -80,7 +103,22 @@ export function ExerciseCard({
   }
 
   return (
-    <Card className={`group relative flex flex-col overflow-hidden border-0 shadow-sm ring-1 ring-border/50 transition-all duration-250 hover:-translate-y-1 hover:shadow-xl hover:ring-border/80 ${isActive === false ? "opacity-60" : ""}`}>
+    <Card className={cn(
+      "group relative flex flex-col overflow-hidden border-0 shadow-sm ring-1 ring-border/50 transition-all duration-250 hover:-translate-y-1 hover:shadow-xl hover:ring-border/80",
+      isActive === false && "opacity-60",
+      selected && "ring-2 ring-primary hover:ring-primary"
+    )}>
+      {showSelect && (
+        <div className="absolute left-2 top-2 z-10">
+          <label className="flex cursor-pointer items-center justify-center rounded-md bg-white/90 p-1 shadow-sm backdrop-blur-sm">
+            <Checkbox
+              checked={!!selected}
+              onCheckedChange={() => onToggleSelect?.()}
+              aria-label={`Select ${name}`}
+            />
+          </label>
+        </div>
+      )}
       <Link href={`/exercises/${id}`} className="relative block h-44 overflow-hidden bg-muted">
         <ExerciseImage src={null} alt={name} bodyRegion={bodyRegion} videoUrl={videoUrl} label={name.split(" ").slice(0, 3).join(" ")} />
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
@@ -157,6 +195,19 @@ export function ExerciseCard({
                 <Edit className="h-3 w-3" />Edit
               </Link>
             </Button>
+            {showAdopt && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 text-xs font-medium shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                onClick={handleAdopt}
+                disabled={isAdopting}
+              >
+                <Plus className="h-3 w-3" />
+                Add to My Organization
+              </Button>
+            )}
             {isMyOrganizationExercise && (
               <Button
                 type="button"

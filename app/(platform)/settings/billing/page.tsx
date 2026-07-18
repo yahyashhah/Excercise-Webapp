@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { differenceInDays } from "date-fns";
 import { SubscriptionStatus } from "@/components/billing/subscription-status";
 import { PricingCards } from "@/components/billing/pricing-cards";
+import { PageHeader } from "@/components/shared/page-header";
+import { Card, CardContent } from "@/components/ui/card";
 import { CreditCard, Clock, AlertCircle, XCircle } from "lucide-react";
 
 export default async function BillingSettingsPage() {
@@ -20,13 +22,10 @@ export default async function BillingSettingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold">Billing &amp; Subscription</h2>
-        <p className="mt-1 text-muted-foreground">
-          Manage your plan and payment details
-        </p>
-      </div>
+      <PageHeader
+        title="Billing & Subscription"
+        description="Manage your plan and payment details"
+      />
 
       {/* ACTIVE — show plan card */}
       {sub?.status === "ACTIVE" && (
@@ -113,20 +112,22 @@ export default async function BillingSettingsPage() {
       )}
 
       {/* What's included callout */}
-      <div className="rounded-xl border border-border/60 bg-muted/50 p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <CreditCard className="h-4 w-4 text-muted-foreground" />
-          <p className="text-sm font-semibold text-muted-foreground">All plans include</p>
-        </div>
-        <ul className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-muted-foreground">
-          <li>✓ AI workout generation</li>
-          <li>✓ Client progress tracking</li>
-          <li>✓ Assessments &amp; check-ins</li>
-          <li>✓ Messaging</li>
-          <li>✓ Program library</li>
-          <li>✓ 14-day free trial</li>
-        </ul>
-      </div>
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+            <p className="text-sm font-semibold text-muted-foreground">All plans include</p>
+          </div>
+          <ul className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-muted-foreground">
+            <li>✓ AI workout generation</li>
+            <li>✓ Client progress tracking</li>
+            <li>✓ Assessments &amp; check-ins</li>
+            <li>✓ Messaging</li>
+            <li>✓ Program library</li>
+            <li>✓ 14-day free trial</li>
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   );
 }

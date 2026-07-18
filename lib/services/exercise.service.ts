@@ -9,9 +9,10 @@ import {
 
 export interface ExerciseFilters {
   search?: string;
-  bodyRegion?: BodyRegion;
+  bodyRegions?: BodyRegion[];
   difficultyLevel?: DifficultyLevel;
   exercisePhases?: ExercisePhase[];
+  muscleGroups?: string[];
   equipment?: string;
   source?: ExerciseSource;
   organizationId?: string;
@@ -21,9 +22,10 @@ export async function getExercises(filters: ExerciseFilters = {}) {
   return prisma.exercise.findMany({
     where: {
       isActive: true,
-      ...(filters.bodyRegion && { bodyRegion: filters.bodyRegion }),
+      ...(filters.bodyRegions?.length && { bodyRegion: { in: filters.bodyRegions } }),
       ...(filters.difficultyLevel && { difficultyLevel: filters.difficultyLevel }),
       ...(filters.exercisePhases?.length && { exercisePhases: { hasSome: filters.exercisePhases } }),
+      ...(filters.muscleGroups?.length && { musclesTargeted: { hasSome: filters.muscleGroups } }),
       ...(filters.search && {
         name: { contains: filters.search, mode: "insensitive" as const },
       }),
@@ -151,6 +153,64 @@ export async function createExercise(data: {
       organizationId: data.organizationId ?? null,
       isPublic: data.isPublic ?? true,
       exercisePhases: data.exercisePhases ?? [],
+    },
+  });
+}
+
+/**
+ * Clones a Universal exercise into a new, independently-editable ORGANIZATION
+ * exercise for the given org. The result is a copy (not a reference): all
+ * descriptive fields are carried over, `source` is forced to ORGANIZATION, and
+ * the copy starts private (`isPublic: false`) so the org can review before sharing.
+ * Callers MUST verify `source.source === 'UNIVERSAL'` before calling.
+ */
+export async function cloneExerciseToOrganization(
+  source: {
+    name: string;
+    description: string | null;
+    bodyRegion: BodyRegion;
+    equipmentRequired: string[];
+    difficultyLevel: DifficultyLevel;
+    contraindications: string[];
+    videoUrl: string | null;
+    videoProvider: string | null;
+    imageUrl: string | null;
+    instructions: string | null;
+    musclesTargeted: string[];
+    exercisePhases: ExercisePhase[];
+    commonMistakes: string | null;
+    defaultSets: number | null;
+    defaultReps: number | null;
+    defaultHoldSeconds: number | null;
+    indicationTags: string[];
+    rehabStage: string | null;
+  },
+  target: { organizationId: string; createdById: string }
+) {
+  return prisma.exercise.create({
+    data: {
+      name: source.name,
+      description: source.description,
+      bodyRegion: source.bodyRegion,
+      equipmentRequired: source.equipmentRequired,
+      difficultyLevel: source.difficultyLevel,
+      contraindications: source.contraindications,
+      videoUrl: source.videoUrl,
+      videoProvider: source.videoProvider,
+      imageUrl: source.imageUrl,
+      instructions: source.instructions,
+      musclesTargeted: source.musclesTargeted,
+      exercisePhases: source.exercisePhases,
+      commonMistakes: source.commonMistakes,
+      defaultSets: source.defaultSets,
+      defaultReps: source.defaultReps,
+      defaultHoldSeconds: source.defaultHoldSeconds,
+      indicationTags: source.indicationTags,
+      rehabStage: source.rehabStage,
+      source: "ORGANIZATION",
+      organizationId: target.organizationId,
+      isPublic: false,
+      createdById: target.createdById,
     },
   });
 }
