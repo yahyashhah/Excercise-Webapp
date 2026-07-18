@@ -16,7 +16,10 @@
       "Bash(npx tsc *)",
       "Bash(git add *)",
       "Read(//Users/yahyashah/Desktop/**)",
-      "Bash(find / -maxdepth 4 -iname \"*Screenshot 2026-07-08*\")"
+      "Bash(find / -maxdepth 4 -iname \"*Screenshot 2026-07-08*\")",
+      "Read(//Users/yahyashah/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.1/skills/subagent-driven-development/scripts/**)",
+      "Bash(/Users/yahyashah/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.1/skills/subagent-driven-development/scripts/task-brief /Users/yahyashah/Dev/Excercise-Webapp/docs/superpowers/plans/2026-07-17-self-serve-program-funnel.md 1)",
+      "Read(//private/tmp/**)"
     ]
   },
   "worktree": {

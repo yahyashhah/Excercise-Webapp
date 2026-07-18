@@ -6,7 +6,12 @@ vi.mock('@/lib/prisma', () => ({
       findMany: vi.fn(),
       update: vi.fn(),
       create: vi.fn(),
+      findUnique: vi.fn(),
     },
+    workout: { createMany: vi.fn() },
+    workoutBlockV2: { createMany: vi.fn() },
+    blockExerciseV2: { createMany: vi.fn() },
+    exerciseSet: { createMany: vi.fn() },
   },
 }))
 
@@ -21,6 +26,7 @@ import {
 const mockFindMany = vi.mocked(prisma.program.findMany)
 const mockUpdate = vi.mocked(prisma.program.update)
 const mockCreate = vi.mocked(prisma.program.create)
+const mockFindUnique = vi.mocked(prisma.program.findUnique)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -76,6 +82,8 @@ describe('assignGlobalProgramOrganizations', () => {
 describe('createProgram', () => {
   it('does not write organizationIds even if present in input', async () => {
     mockCreate.mockResolvedValue({ id: 'prog_1' } as any)
+    // createProgram re-reads the program with its tree before returning
+    mockFindUnique.mockResolvedValue({ id: 'prog_1' } as any)
 
     await createProgram('trainer_1', {
       name: 'Test',
