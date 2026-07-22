@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/current-user";
+import { prisma } from "@/lib/prisma";
 import * as habitService from "@/lib/services/habit.service";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -9,6 +10,25 @@ import * as habitService from "@/lib/services/habit.service";
 type ActionResult<T = void> =
   | { success: true; data: T }
   | { success: false; error: string };
+
+// ─── Internal: authorization helper ────────────────────────────────────────────
+//
+// Server actions are directly POST-invokable and bypass page-level rendering
+// entirely, so a page-level guard is not a substitute for checking ownership
+// here. A habit may be logged/deleted by the client who owns it or the
+// trainer who created it (matching HabitDefinition.clientId/trainerId).
+
+async function verifyHabitAccess(
+  habitId: string,
+  userId: string
+): Promise<boolean> {
+  const habit = await prisma.habitDefinition.findUnique({
+    where: { id: habitId },
+    select: { clientId: true, trainerId: true },
+  });
+  if (!habit) return false;
+  return habit.clientId === userId || habit.trainerId === userId;
+}
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
@@ -68,8 +88,7 @@ export async function createHabitAction(data: {
 
 /**
  * Logs (or updates) today's entry for a habit. Only the owning client or
- * a trainer linked to that client should call this — the page-level auth
- * guards enforce ownership; here we do a basic role check.
+ * the trainer who created it may call this.
  */
 export async function logHabitAction(
   habitId: string,
@@ -81,6 +100,10 @@ export async function logHabitAction(
 
   if (!habitId) {
     return { success: false, error: "Habit ID is required" };
+  }
+
+  if (!(await verifyHabitAccess(habitId, user.id))) {
+    return { success: false, error: "Unauthorized" };
   }
 
   try {
@@ -113,6 +136,10 @@ export async function deleteHabitAction(
 
   if (!habitId) {
     return { success: false, error: "Habit ID is required" };
+  }
+
+  if (!(await verifyHabitAccess(habitId, user.id))) {
+    return { success: false, error: "Unauthorized" };
   }
 
   try {

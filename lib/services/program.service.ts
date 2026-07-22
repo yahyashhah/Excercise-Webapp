@@ -11,6 +11,7 @@ function newObjectId(): string {
 import type {
   CreateProgramInput,
   ProgramFilterInput,
+  WorkoutInput,
 } from "@/lib/validators/program";
 
 // --- Include presets ---
@@ -182,6 +183,155 @@ export async function getPrograms(
   });
 }
 
+/**
+ * Replace a program's workout tree in place, matching incoming items to
+ * existing rows by id instead of deleting everything and recreating it.
+ *
+ * Workout is the one level in this tree that other user-generated data
+ * (WorkoutSessionV2 — scheduled/completed sessions, their logs and
+ * feedback — plus VoiceMemo) points at via onDelete: Cascade. Deleting a
+ * Workout row therefore destroys that history; deleting a
+ * WorkoutBlockV2/BlockExerciseV2/ExerciseSet does not, since nothing
+ * outside their own subtree references them. So: workouts matched by id
+ * are updated in place (id survives, sessions survive) and only their
+ * block/exercise/set subtree is replaced wholesale; workouts the trainer
+ * removed are deleted only if they have zero sessions attached — one with
+ * session history is left in place rather than silently destroying it.
+ *
+ * Deliberately NOT wrapped in a single prisma.$transaction: on this
+ * deployment's MongoDB cluster, an interactive transaction binds every
+ * statement to one server-side session, which serializes them — a
+ * multi-week program's worth of round-trips inside one transaction was
+ * measured to exceed even a 30s timeout, and Promise.all doesn't help
+ * because the session still processes them one at a time. Running as
+ * plain (non-transactional) calls lets the connection pool actually
+ * parallelize independent writes, and is safe here regardless: the one
+ * operation that can destroy user data (deleting a Workout row) is
+ * already scoped to an explicit, pre-computed id allowlist that excludes
+ * every session-bearing workout — that safety property doesn't depend on
+ * transactional atomicity. A mid-failure can leave a workout's blocks
+ * temporarily empty until the next save; it can never delete a session.
+ */
+async function replaceWorkoutTree(
+  tx: typeof prisma,
+  programId: string,
+  workouts: WorkoutInput[]
+): Promise<void> {
+  const existing = await tx.workout.findMany({
+    where: { programId },
+    select: { id: true, _count: { select: { sessions: true } } },
+  });
+  const existingById = new Map(existing.map((w) => [w.id, w] as const));
+
+  const matchedIds = new Set<string>();
+  for (const w of workouts) {
+    if (w.id && existingById.has(w.id)) matchedIds.add(w.id);
+  }
+
+  const removed = existing.filter((w) => !matchedIds.has(w.id));
+  const removableIds = removed
+    .filter((w) => w._count.sessions === 0)
+    .map((w) => w.id);
+
+  if (removableIds.length) {
+    await tx.workout.deleteMany({ where: { id: { in: removableIds } } });
+  }
+  if (matchedIds.size) {
+    await tx.workoutBlockV2.deleteMany({
+      where: { workoutId: { in: [...matchedIds] } },
+    });
+  }
+
+  const newWorkoutRows: Prisma.WorkoutCreateManyInput[] = [];
+  const workoutUpdates: Promise<unknown>[] = [];
+  const blockRows: Prisma.WorkoutBlockV2CreateManyInput[] = [];
+  const exerciseRows: Prisma.BlockExerciseV2CreateManyInput[] = [];
+  const setRows: Prisma.ExerciseSetCreateManyInput[] = [];
+
+  for (const w of workouts) {
+    const isExisting = Boolean(w.id && matchedIds.has(w.id));
+    const workoutId = isExisting ? w.id! : newObjectId();
+
+    if (isExisting) {
+      // Independent rows — fire concurrently rather than one round-trip per
+      // workout in sequence. On a remote cluster a sequential loop over a
+      // multi-week program can take longer than the surrounding
+      // transaction's timeout.
+      workoutUpdates.push(
+        tx.workout.update({
+          where: { id: workoutId },
+          data: {
+            name: w.name,
+            description: w.description,
+            dayIndex: w.dayIndex,
+            weekIndex: w.weekIndex,
+            orderIndex: w.orderIndex,
+            estimatedMinutes: w.estimatedMinutes,
+          },
+        })
+      );
+    } else {
+      newWorkoutRows.push({
+        id: workoutId,
+        programId,
+        name: w.name,
+        description: w.description,
+        dayIndex: w.dayIndex,
+        weekIndex: w.weekIndex,
+        orderIndex: w.orderIndex,
+        estimatedMinutes: w.estimatedMinutes,
+      });
+    }
+
+    for (const b of w.blocks) {
+      const blockId = newObjectId();
+      blockRows.push({
+        id: blockId,
+        workoutId,
+        name: b.name,
+        type: b.type,
+        orderIndex: b.orderIndex,
+        rounds: b.rounds,
+        restBetweenRounds: b.restBetweenRounds,
+        timeCap: b.timeCap,
+        notes: b.notes,
+      });
+      for (const e of b.exercises) {
+        const blockExerciseId = newObjectId();
+        exerciseRows.push({
+          id: blockExerciseId,
+          blockId,
+          exerciseId: e.exerciseId,
+          orderIndex: e.orderIndex,
+          restSeconds: e.restSeconds,
+          notes: e.notes,
+          supersetGroup: e.supersetGroup,
+        });
+        for (const s of e.sets) {
+          setRows.push({
+            id: newObjectId(),
+            blockExerciseId,
+            orderIndex: s.orderIndex,
+            setType: s.setType,
+            targetReps: s.targetReps,
+            targetWeight: s.targetWeight,
+            targetDuration: s.targetDuration,
+            targetDistance: s.targetDistance,
+            targetRPE: s.targetRPE,
+            restAfter: s.restAfter,
+          });
+        }
+      }
+    }
+  }
+
+  if (workoutUpdates.length) await Promise.all(workoutUpdates);
+  if (newWorkoutRows.length) await tx.workout.createMany({ data: newWorkoutRows });
+  if (blockRows.length) await tx.workoutBlockV2.createMany({ data: blockRows });
+  if (exerciseRows.length) await tx.blockExerciseV2.createMany({ data: exerciseRows });
+  if (setRows.length) await tx.exerciseSet.createMany({ data: setRows });
+}
+
 export async function updateProgram(
   id: string,
   data: Partial<CreateProgramInput> & { status?: string }
@@ -189,57 +339,13 @@ export async function updateProgram(
   const { workouts, startDate, ...rest } = data;
 
   if (workouts) {
-    // Delete all existing workouts (cascades to blocks -> exercises -> sets)
-    await prisma.workout.deleteMany({ where: { programId: id } });
-
+    await replaceWorkoutTree(prisma, id, workouts);
     return prisma.program.update({
       where: { id },
       data: {
         ...rest,
         status: rest.status as PlanStatus | undefined,
         startDate: startDate ? new Date(startDate) : undefined,
-        workouts: {
-          create: workouts.map((w) => ({
-            name: w.name,
-            description: w.description,
-            dayIndex: w.dayIndex,
-            weekIndex: w.weekIndex,
-            orderIndex: w.orderIndex,
-            estimatedMinutes: w.estimatedMinutes,
-            blocks: {
-              create: w.blocks.map((b) => ({
-                name: b.name,
-                type: b.type,
-                orderIndex: b.orderIndex,
-                rounds: b.rounds,
-                restBetweenRounds: b.restBetweenRounds,
-                timeCap: b.timeCap,
-                notes: b.notes,
-                exercises: {
-                  create: b.exercises.map((e) => ({
-                    exerciseId: e.exerciseId,
-                    orderIndex: e.orderIndex,
-                    restSeconds: e.restSeconds,
-                    notes: e.notes,
-                    supersetGroup: e.supersetGroup,
-                    sets: {
-                      create: e.sets.map((s) => ({
-                        orderIndex: s.orderIndex,
-                        setType: s.setType,
-                        targetReps: s.targetReps,
-                        targetWeight: s.targetWeight,
-                        targetDuration: s.targetDuration,
-                        targetDistance: s.targetDistance,
-                        targetRPE: s.targetRPE,
-                        restAfter: s.restAfter,
-                      })),
-                    },
-                  })),
-                },
-              })),
-            },
-          })),
-        },
       },
       include: programDetailInclude,
     });
@@ -452,60 +558,17 @@ export async function updateGlobalProgram(
   const { workouts, startDate, ...rest } = data;
 
   if (workouts) {
-    // Assert target is actually a global program before destructively deleting workouts
+    // Assert target is actually a global program before touching its workouts
     const target = await prisma.program.findFirst({ where: { id, isGlobal: true }, select: { id: true } });
     if (!target) throw new Error("Global program not found");
 
-    await prisma.workout.deleteMany({ where: { programId: id } });
-
+    await replaceWorkoutTree(prisma, id, workouts);
     return prisma.program.update({
       where: { id, isGlobal: true },
       data: {
         ...rest,
         status: rest.status as PlanStatus | undefined,
         startDate: startDate ? new Date(startDate) : undefined,
-        workouts: {
-          create: workouts.map((w) => ({
-            name: w.name,
-            description: w.description,
-            dayIndex: w.dayIndex,
-            weekIndex: w.weekIndex,
-            orderIndex: w.orderIndex,
-            estimatedMinutes: w.estimatedMinutes,
-            blocks: {
-              create: w.blocks.map((b) => ({
-                name: b.name,
-                type: b.type,
-                orderIndex: b.orderIndex,
-                rounds: b.rounds,
-                restBetweenRounds: b.restBetweenRounds,
-                timeCap: b.timeCap,
-                notes: b.notes,
-                exercises: {
-                  create: b.exercises.map((e) => ({
-                    exerciseId: e.exerciseId,
-                    orderIndex: e.orderIndex,
-                    restSeconds: e.restSeconds,
-                    notes: e.notes,
-                    supersetGroup: e.supersetGroup,
-                    sets: {
-                      create: e.sets.map((s) => ({
-                        orderIndex: s.orderIndex,
-                        setType: s.setType,
-                        targetReps: s.targetReps,
-                        targetWeight: s.targetWeight,
-                        targetDuration: s.targetDuration,
-                        targetDistance: s.targetDistance,
-                        targetRPE: s.targetRPE,
-                        restAfter: s.restAfter,
-                      })),
-                    },
-                  })),
-                },
-              })),
-            },
-          })),
-        },
       },
       include: programDetailInclude,
     });

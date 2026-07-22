@@ -1,14 +1,33 @@
-import OpenAI from "openai";
+import { generateObject } from "ai";
+import { z } from "zod";
+import { getModel } from "@/lib/ai/models";
+import { AIGenerationError, toAIGenerationError } from "@/lib/ai/errors";
 import { prisma } from "@/lib/prisma";
 import type { BodyRegion, Exercise } from "@prisma/client";
 import type { ClinicalPlan, ClinicalPlanParams, WeekPlan } from '@/lib/ai/types/program-generation'
 import { filterByEquipment } from '@/lib/ai/utils/exercise-pool'
+import type { Regime } from "@/lib/ai/schemas/generated-week";
+import type { RegimeSignals } from "@/lib/ai/prompts/regimes";
+import type { UnfilledSlot } from "@/lib/ai/validation/week-validator";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+const weekPlanSchema = z.object({
+  week: z.number().int().min(1),
+  title: z.string(),
+  rehabStage: z.enum(["EARLY_REHAB", "MID_REHAB", "LATE_REHAB", "MAINTENANCE"]),
+  focusAreas: z.array(z.string()),
+  difficultyLevel: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]),
+  clinicalGuidance: z.string(),
+  contraindicationsThisWeek: z.array(z.string()),
+  progressionGoal: z.string(),
+  derivedIndicationTags: z.array(z.string()),
 });
 
-type ExercisePoolItem = {
+const clinicalPlanSchema = z.object({
+  clinicalAssessment: z.string(),
+  weeklyPlan: z.array(weekPlanSchema).min(1),
+});
+
+export type ExercisePoolItem = {
   id: string
   name: string
   bodyRegion: string
@@ -34,8 +53,9 @@ interface CircuitConfig {
   restBetweenRounds?: number | null;
 }
 
-interface GenerateWorkoutParams {
+export interface GenerateWorkoutParams {
   clientId?: string | null;
+  regime?: Regime;
   programGoals?: string[];         // replaces focusAreas at the form level
   focusAreas?: string[];           // keep for backward compat (brief upload flow still uses it)
   availableEquipment?: string[];   // filters exercise pool to matching gear + bodyweight
@@ -66,7 +86,7 @@ interface GenerateWorkoutParams {
   durationWeeks?: number
 }
 
-interface GeneratedExercise {
+export interface GeneratedExercise {
   exerciseId: string;
   exerciseName: string;
   phase: string;
@@ -81,7 +101,7 @@ interface GeneratedExercise {
   notes?: string;
 }
 
-interface GeneratedPlan {
+export interface GeneratedPlan {
   title: string;
   description: string;
   sessions: { dayOfWeek: number; weekIndex?: number; name: string }[];
@@ -187,7 +207,7 @@ const EXERCISE_POOL_SELECT = {
 
 const VALID_BODY_REGIONS = new Set(['LOWER_BODY', 'UPPER_BODY', 'CORE', 'FULL_BODY', 'BALANCE', 'FLEXIBILITY'])
 
-async function buildExercisePoolForWeek(
+export async function buildExercisePoolForWeek(
   weekPlan: WeekPlan,
   usedIds: Set<string>,
   clientLimitations: string[],
@@ -247,26 +267,12 @@ async function pickClosestExerciseNameAI(
   target: string,
   candidates: string[]
 ) {
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    max_tokens: 400,
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content:
-          "Select the single closest exercise name from the candidate list. Return JSON: { \"bestName\": string }. No extra text.",
-      },
-      {
-        role: "user",
-        content: `Target: ${target}\nCandidates:\n${candidates.join("\n")}`,
-      },
-    ],
+  const { object } = await generateObject({
+    model: getModel("utility"),
+    schema: z.object({ bestName: z.string() }),
+    prompt: `Select the single closest exercise name from the candidate list.\nTarget: ${target}\nCandidates:\n${candidates.join("\n")}`,
   });
-
-  const payload = response.choices[0].message.content ?? "{}";
-  const parsed = JSON.parse(payload) as { bestName?: string };
-  return parsed.bestName || "";
+  return object.bestName || "";
 }
 
 export async function resolveExerciseByName(
@@ -292,6 +298,58 @@ export async function resolveExerciseByName(
   const aiPick = await pickClosestExerciseNameAI(name, top);
   const best = candidates.find((e) => e.name === aiPick) ?? ranked[0].exercise;
   return { exercise: best, matchType: "fuzzy" };
+}
+
+export async function buildClientContext(
+  clientId: string | null | undefined
+): Promise<{ context: string; limitations: string[]; regimeSignals: RegimeSignals }> {
+  const client = clientId
+    ? await prisma.user.findUnique({
+        where: { id: clientId },
+        include: { clientProfile: true },
+      })
+    : null;
+
+  const profile = client?.clientProfile ?? null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const profileExtended = profile as any;
+
+  const limitations = profile?.limitations
+    ? profile.limitations.toLowerCase().split(",").map((s: string) => s.trim()).filter(Boolean)
+    : [];
+
+  const weeksSince = (date: Date) =>
+    Math.round((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24 * 7));
+
+  const context = client
+    ? `CLIENT PROFILE:
+Name: ${client.firstName} ${client.lastName}
+Primary Diagnosis / Goal: ${profileExtended?.primaryDiagnosis ?? "Not specified"}
+Secondary Conditions: ${profileExtended?.secondaryDiagnoses?.length ? profileExtended.secondaryDiagnoses.join(", ") : "None"}
+Current Pain Score: ${profileExtended?.painScore != null ? `${profileExtended.painScore}/10` : "Not assessed"}
+Activity Level: ${profileExtended?.activityLevel ?? "Not assessed"}
+Physical Limitations: ${profile?.limitations ?? "None documented"}
+Comorbidities: ${profile?.comorbidities ?? "None"}
+Functional Challenges: ${profile?.functionalChallenges ?? "None"}
+History: ${profileExtended?.surgeryHistory ?? "None documented"}
+Occupation: ${profileExtended?.occupation ?? "Not specified"}
+Time Since Injury/Surgery: ${profileExtended?.injuryDate ? weeksSince(new Date(profileExtended.injuryDate)) + " weeks ago" : "Not specified"}
+Prior Injuries: ${profileExtended?.priorInjuries?.length ? profileExtended.priorInjuries.join(", ") : "None"}
+Available Equipment: ${profile?.availableEquipment?.length ? profile.availableEquipment.join(", ") : "Bodyweight only"}
+Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ") : "General fitness"}`
+    : "No specific client assigned. Create a general program suitable for the parameters below.";
+
+  return {
+    context,
+    limitations,
+    regimeSignals: {
+      primaryDiagnosis: profileExtended?.primaryDiagnosis ?? null,
+      painScore: profileExtended?.painScore ?? null,
+      injuryDate: profileExtended?.injuryDate ?? null,
+      surgeryHistory: profileExtended?.surgeryHistory ?? null,
+      fitnessGoals: profile?.fitnessGoals ?? null,
+    },
+  };
 }
 
 export async function generateWorkoutPlan(
@@ -337,236 +395,69 @@ export async function generateWorkoutPlan(
     .map((i) => indexToWeekday[i])
     .join(", ");
 
-  // Fetch client profile for context
-  const client = params.clientId
-    ? await prisma.user.findUnique({
-        where: { id: params.clientId },
-        include: { clientProfile: true },
-      })
-    : null;
-
-  const profile = client?.clientProfile ?? null;
-
   // Map focus areas to body regions for pre-filtering
   const targetRegions = mapFocusAreasToBodyRegions(params.focusAreas ?? []);
 
-  // Parse client limitations for contraindication filtering
-  const clientLimitations = profile?.limitations
-    ? profile.limitations
-        .toLowerCase()
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : [];
+  // Fetch client profile for context (shared with the sequential pipeline)
+  const { context: clientContext, limitations: clientLimitations } =
+    await buildClientContext(params.clientId);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const profileExtended = profile as any;
-
-  function calculateWeeksSince(date: Date): number {
-    return Math.round((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24 * 7));
-  }
-
-  const clientContext = client
-    ? `CLIENT PROFILE:
-Name: ${client.firstName} ${client.lastName}
-Primary Diagnosis / Goal: ${profileExtended?.primaryDiagnosis ?? "Not specified"}
-Secondary Conditions: ${profileExtended?.secondaryDiagnoses?.length ? profileExtended.secondaryDiagnoses.join(", ") : "None"}
-Current Pain Score: ${profileExtended?.painScore != null ? `${profileExtended.painScore}/10` : "Not assessed"}
-Activity Level: ${profileExtended?.activityLevel ?? "Not assessed"}
-Physical Limitations: ${profile?.limitations ?? "None documented"}
-Comorbidities: ${profile?.comorbidities ?? "None"}
-Functional Challenges: ${profile?.functionalChallenges ?? "None"}
-History: ${profileExtended?.surgeryHistory ?? "None documented"}
-Occupation: ${profileExtended?.occupation ?? "Not specified"}
-Time Since Injury/Surgery: ${profileExtended?.injuryDate ? calculateWeeksSince(new Date(profileExtended.injuryDate)) + " weeks ago" : "Not specified"}
-Prior Injuries: ${profileExtended?.priorInjuries?.length ? profileExtended.priorInjuries.join(", ") : "None"}
-Available Equipment: ${profile?.availableEquipment?.length ? profile.availableEquipment.join(", ") : "Bodyweight only"}
-Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ") : "General fitness"}`
-    : "No specific client assigned. Create a general program suitable for the parameters below.";
-
-  // === Multi-week clinical path (Step 1 plan provided) ===
+  // === Multi-week clinical path: delegate to the sequential validate→repair pipeline ===
   if (params.weekPlan && params.weekPlan.length > 0) {
-    const weekPlans = params.weekPlan
-    const globalUsedIds = new Set<string>()
+    const { generateProgramEvents } = await import(
+      "@/lib/services/program-generation.service"
+    );
 
-    // Build per-week exercise pools (parallel DB queries)
-    const weekPools: ExercisePoolItem[][] = await Promise.all(
-      weekPlans.map(wPlan =>
-        buildExercisePoolForWeek(wPlan, globalUsedIds, clientLimitations, params.availableEquipment)
-      )
-    )
-
-    // Track used IDs globally — exercises used in earlier weeks are excluded from later week queries
-    // Note: pools are built in parallel so global dedup happens at prompt level (AI instructed not to repeat)
-    // Post-generation validation enforces cross-week uniqueness
-
-    const hasCircuits = params.circuits && params.circuits.length > 0
-    const circuits = params.circuits ?? []
-    const totalExercisesPerSession = hasCircuits
-      ? circuits.reduce((sum, c) => sum + c.exerciseCount, 0)
-      : (params.exercisesPerSession ?? 6)
-
-    const weekdayToIndex: Record<string, number> = {
-      monday: 0, tuesday: 1, wednesday: 2, thursday: 3,
-      friday: 4, saturday: 5, sunday: 6,
-    }
-    const preferredDayIndices = (params.preferredWeekdays ?? [])
-      .map(d => weekdayToIndex[d.toLowerCase().trim()])
-      .filter((d): d is number => Number.isInteger(d))
-    const effectiveDayIndices = preferredDayIndices.length > 0
-      ? preferredDayIndices
-      : Array.from({ length: Math.max(1, Math.min(params.daysPerWeek, 7)) }, (_, i) => i)
-    const uniqueDayIndices = Array.from(new Set(effectiveDayIndices)).sort((a, b) => a - b)
-
-    const totalWeeks = weekPlans.length
-
-    const circuitStructureStr = hasCircuits
-      ? circuits
-          .map((c, i) => `  Circuit ${i} "${c.name}" (${c.focusType}): EXACTLY ${c.exerciseCount} exercises per session/day`)
-          .join('\n')
-      : null
-
-    // Generate one week at a time to stay within the LLM output token limit.
-    // A single call for all weeks would require ~500 tokens per exercise × daysPerWeek × weeks × exercisesPerSession,
-    // which easily exceeds GPT-4o's 16,384-token output cap for programs with 3+ days and 10+ exercises per session.
-    const perWeekSystemPrompt = `You are an expert DPT and strength & conditioning coach. Generate exercises for ONE week of a rehabilitation program following the provided clinical guidance. Use ONLY exercise IDs from the provided pool. Never invent IDs.
-
-RULES:
-1. Use ONLY exercise IDs from the provided pool.
-2. Every training day must have EXACTLY ${totalExercisesPerSession} exercises.
-3. Follow the clinical guidance and contraindications strictly.
-4. Write 1-2 specific technique cues per exercise relevant to this week's clinical goals.
-5. Distribute sessions using ONLY these weekday indexes: ${uniqueDayIndices.join(', ')}.
-6. Session names must reflect the actual week focus — not generic labels.
-${hasCircuits ? `7. Each exercise MUST include circuitIndex (0-based). Circuit structure per session:\n${circuitStructureStr}` : ''}
-
-Respond with valid JSON only.`
-
-    // Fire all week calls in parallel — wall-clock time = slowest single week (~15s) not sum of all weeks.
-    // Each week uses its own rehab-stage-filtered pool so cross-week exercise overlap is naturally low.
-    const weekResults = await Promise.all(
-      weekPlans.map(async (wPlan, weekIdx) => {
-        const pool = weekPools[weekIdx]
-        const poolStr = pool
-          .map(
-            e =>
-              `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhases.length ? e.exercisePhases.join('/') : 'STRENGTHENING'} | Region: ${e.bodyRegion} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(', ')} | Equipment: ${e.equipmentRequired.join(', ') || 'None'} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + 's hold' : '10'}`
-          )
-          .join('\n')
-
-        const totalExercisesThisWeek = params.daysPerWeek * totalExercisesPerSession
-
-        const jsonFormat = weekIdx === 0
-          ? `{
-  "title": "Program title",
-  "description": "2-3 sentence clinical program description",
-  "sessions": [{ "dayOfWeek": 0, "weekIndex": ${weekIdx}, "name": "Clinical session name" }],
-  "exercises": [{
-    "exerciseId": "id from pool", "exerciseName": "name", "phase": "ACTIVATION",
-    ${hasCircuits ? '"circuitIndex": 0,' : ''}
-    "sets": 3, "reps": 15, "durationSeconds": null, "restSeconds": 30,
-    "dayOfWeek": 0, "weekIndex": ${weekIdx}, "orderIndex": 0, "notes": "1-2 technique cues"
-  }]
-}`
-          : `{
-  "sessions": [{ "dayOfWeek": 0, "weekIndex": ${weekIdx}, "name": "Clinical session name" }],
-  "exercises": [{
-    "exerciseId": "id from pool", "exerciseName": "name", "phase": "ACTIVATION",
-    ${hasCircuits ? '"circuitIndex": 0,' : ''}
-    "sets": 3, "reps": 15, "durationSeconds": null, "restSeconds": 30,
-    "dayOfWeek": 0, "weekIndex": ${weekIdx}, "orderIndex": 0, "notes": "1-2 technique cues"
-  }]
-}`
-
-        const weekUserPrompt = `${clientContext}
-
-Week ${wPlan.week} of ${totalWeeks}: ${wPlan.title} (${wPlan.rehabStage})
-Clinical Guidance: ${wPlan.clinicalGuidance}
-Progression Goal: ${wPlan.progressionGoal}
-Contraindicated This Week: ${wPlan.contraindicationsThisWeek.join(', ') || 'None'}
-
-Program: ${params.daysPerWeek} sessions this week, ~${params.durationMinutes} min/session, weekIndex=${weekIdx}
-Total exercises in output: EXACTLY ${totalExercisesThisWeek} (${totalExercisesPerSession} per session × ${params.daysPerWeek} days)
-${params.subjective ? `Trainer Subjective: ${params.subjective}` : ''}
-${params.trainerPrompt ? `Trainer Instructions: ${params.trainerPrompt}` : ''}
-
-Available Exercises (use ONLY these IDs):
-${poolStr || 'No tagged exercises found — use general bodyweight exercises appropriate for this rehab stage.'}
-
-Respond with this exact JSON:
-${jsonFormat}`
-
-        const weekResponse = await openai.chat.completions.create({
-          model: 'gpt-4o',
-          max_tokens: 8000,
-          response_format: { type: 'json_object' },
-          messages: [
-            { role: 'system', content: perWeekSystemPrompt },
-            { role: 'user', content: weekUserPrompt },
-          ],
-        })
-
-        const weekParsed = JSON.parse(weekResponse.choices[0].message.content ?? '{}') as Partial<GeneratedPlan>
-        const weekPoolIds = new Set(pool.map(e => e.id))
-        const validExercises = (weekParsed.exercises ?? []).filter(e => weekPoolIds.has(e.exerciseId))
-
-        // Force correct weekIndex in case AI drifted
-        for (const ex of validExercises) ex.weekIndex = weekIdx
-        const sessions = (weekParsed.sessions ?? []).map(s => ({ ...s, weekIndex: weekIdx }))
-
-        return { weekIdx, sessions, exercises: validExercises, title: weekParsed.title, description: weekParsed.description }
-      })
-    )
-
-    const allCollectedSessions: GeneratedPlan['sessions'] = []
-    const allCollectedExercises: GeneratedExercise[] = []
-    let programTitle = ''
-    let programDescription = ''
-
-    for (const result of weekResults) {
-      if (result.exercises.length === 0) {
-        console.warn(`[AI] Week ${result.weekIdx + 1} returned no valid exercises — skipping`)
-        continue
+    let plan: GeneratedPlan | null = null;
+    let unfilled: UnfilledSlot[] = [];
+    for await (const event of generateProgramEvents(params)) {
+      if (event.type === "done") {
+        plan = event.plan;
+        unfilled = event.unfilled;
       }
-      if (result.weekIdx === 0) {
-        programTitle = result.title ?? ''
-        programDescription = result.description ?? ''
+      if (event.type === "error") {
+        throw new AIGenerationError(event.kind, event.message, event.retryable);
       }
-      allCollectedSessions.push(...result.sessions)
-      allCollectedExercises.push(...result.exercises)
+    }
+    if (!plan) {
+      throw new AIGenerationError(
+        "unknown",
+        "Program generation ended without producing a plan."
+      );
     }
 
-    if (allCollectedExercises.length === 0) {
-      throw new Error('AI generated no valid exercises for the multi-week program. Please try again.')
+    // Non-streaming callers have no live "unfilled slots" UI — surface any
+    // slots the pipeline couldn't fill as plan warnings so they aren't lost.
+    if (unfilled.length > 0) {
+      plan.warnings = [
+        ...(plan.warnings ?? []),
+        ...unfilled.map(
+          (u) =>
+            `Couldn't fill: ${u.phase.toLowerCase()} slot, week ${u.weekIndex + 1} day ${u.dayOfWeek} — ${u.reason}`
+        ),
+      ];
     }
 
-    // Sort by week, then day, then phase, then original orderIndex
-    const sorted = [...allCollectedExercises].sort((a, b) => {
-      const weekDiff = (a.weekIndex ?? 0) - (b.weekIndex ?? 0)
-      if (weekDiff !== 0) return weekDiff
-      const dayDiff = (a.dayOfWeek ?? 0) - (b.dayOfWeek ?? 0)
-      if (dayDiff !== 0) return dayDiff
-      const phaseA = PHASE_ORDER[a.phase] ?? 2
-      const phaseB = PHASE_ORDER[b.phase] ?? 2
-      if (phaseA !== phaseB) return phaseA - phaseB
-      return a.orderIndex - b.orderIndex
-    })
-
-    // Reassign orderIndex per day
-    let lastKey = ''
-    let dayOrder = 0
+    // Preserve existing post-processing: sort + per-day orderIndex reassignment.
+    const sorted = [...plan.exercises].sort((a, b) => {
+      const weekDiff = (a.weekIndex ?? 0) - (b.weekIndex ?? 0);
+      if (weekDiff !== 0) return weekDiff;
+      const dayDiff = (a.dayOfWeek ?? 0) - (b.dayOfWeek ?? 0);
+      if (dayDiff !== 0) return dayDiff;
+      const phaseA = PHASE_ORDER[a.phase] ?? 2;
+      const phaseB = PHASE_ORDER[b.phase] ?? 2;
+      if (phaseA !== phaseB) return phaseA - phaseB;
+      return a.orderIndex - b.orderIndex;
+    });
+    let lastKey = "";
+    let dayOrder = 0;
     for (const ex of sorted) {
-      const key = `${ex.weekIndex ?? 0}_${ex.dayOfWeek ?? 0}`
-      if (key !== lastKey) { lastKey = key; dayOrder = 0 }
-      ex.orderIndex = dayOrder++
+      const key = `${ex.weekIndex ?? 0}_${ex.dayOfWeek ?? 0}`;
+      if (key !== lastKey) { lastKey = key; dayOrder = 0; }
+      ex.orderIndex = dayOrder++;
     }
 
-    return {
-      title: programTitle || 'AI Generated Program',
-      description: programDescription,
-      sessions: allCollectedSessions,
-      exercises: sorted,
-    }
+    return { ...plan, exercises: sorted };
   }
   // === END multi-week path ===
 
@@ -857,18 +748,61 @@ ${hasCircuits ? `7. Assign "circuitIndex" to every exercise — it MUST match on
 9. Let the trainer instructions and subjective guide exercise selection, cue language, and loading strategy` : `7. Follow the phase ordering appropriate to the program type
 8. Let the trainer instructions and subjective guide exercise selection, cue language, and loading strategy`}`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    max_tokens: 16000,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
+  const legacyPlanSchema = z.object({
+    title: z.string(),
+    description: z.string(),
+    sessions: z.array(z.object({
+      dayOfWeek: z.number().int().min(0).max(6),
+      weekIndex: z.number().int().min(0).nullable(),
+      name: z.string(),
+    })),
+    exercises: z.array(z.object({
+      exerciseId: z.string(),
+      exerciseName: z.string(),
+      phase: z.string(),
+      circuitIndex: z.number().int().min(0).nullable(),
+      sets: z.number().int().min(1),
+      reps: z.number().int().min(1).nullable(),
+      durationSeconds: z.number().int().min(1).nullable(),
+      restSeconds: z.number().int().min(0).nullable(),
+      weekIndex: z.number().int().min(0).nullable(),
+      dayOfWeek: z.number().int().min(0).max(6).nullable(),
+      orderIndex: z.number().int().min(0),
+      notes: z.string().nullable(),
+    })),
   });
 
-  const responseText = response.choices[0].message.content ?? "";
-  const parsed = JSON.parse(responseText) as GeneratedPlan;
+  let parsed: GeneratedPlan;
+  try {
+    const { object } = await generateObject({
+      model: getModel("generation"),
+      schema: legacyPlanSchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+      maxOutputTokens: 16000,
+    });
+    parsed = {
+      title: object.title,
+      description: object.description,
+      sessions: object.sessions.map((s) => ({
+        dayOfWeek: s.dayOfWeek,
+        weekIndex: s.weekIndex ?? undefined,
+        name: s.name,
+      })),
+      exercises: object.exercises.map((e) => ({
+        ...e,
+        circuitIndex: e.circuitIndex ?? undefined,
+        reps: e.reps ?? undefined,
+        durationSeconds: e.durationSeconds ?? undefined,
+        restSeconds: e.restSeconds ?? undefined,
+        weekIndex: e.weekIndex ?? undefined,
+        dayOfWeek: e.dayOfWeek ?? undefined,
+        notes: e.notes ?? undefined,
+      })),
+    };
+  } catch (error) {
+    throw toAIGenerationError(error);
+  }
 
   // Validate that all exercise IDs exist
   const exerciseIds = new Set(exercises.map((e) => e.id));
@@ -969,11 +903,10 @@ function defaultRoundsForFocusType(focusType: string): number {
   return 3;
 }
 
-export async function generateProgram(
+export function mapPlanToProgram(
+  generatedPlan: GeneratedPlan,
   params: GenerateWorkoutParams
-): Promise<GeneratedProgram> {
-  const generatedPlan = await generateWorkoutPlan(params);
-
+): GeneratedProgram {
   const circuits = params.circuits;
   const hasCircuits = circuits && circuits.length > 0;
 
@@ -1084,6 +1017,13 @@ export async function generateProgram(
   };
 }
 
+export async function generateProgram(
+  params: GenerateWorkoutParams
+): Promise<GeneratedProgram> {
+  const generatedPlan = await generateWorkoutPlan(params);
+  return mapPlanToProgram(generatedPlan, params);
+}
+
 export async function generateClinicalPlan(
   params: ClinicalPlanParams
 ): Promise<ClinicalPlan> {
@@ -1140,42 +1080,25 @@ ${params.subjective ? `\nTrainer Subjective:\n${params.subjective}` : ''}
 ${params.trainerPrompt ? `\nTrainer Instructions:\n${params.trainerPrompt}` : ''}
 ${params.additionalNotes ? `\nAdditional Notes:\n${params.additionalNotes}` : ''}
 
-Produce this exact JSON structure:
-{
-  "clinicalAssessment": "2-3 sentence clinical assessment of this client's current state and appropriate rehabilitation approach",
-  "weeklyPlan": [
-    {
-      "week": 1,
-      "title": "Short descriptive week title",
-      "rehabStage": "EARLY_REHAB",
-      "focusAreas": ["LOWER_BODY"],
-      "difficultyLevel": "BEGINNER",
-      "clinicalGuidance": "What to prioritize this week, specific technique or loading guidance",
-      "contraindicationsThisWeek": ["loaded knee flexion >60°"],
-      "progressionGoal": "What should the client achieve or improve by end of this week",
-      "derivedIndicationTags": ["ACL", "knee", "quad-strengthening", "VMO"]
-    }
-  ]
-}
-
 Generate exactly ${params.durationWeeks} entries in weeklyPlan (weeks 1 through ${params.durationWeeks}).`
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    max_tokens: 4000,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-  })
+  try {
+    const { object } = await generateObject({
+      model: getModel("generation"),
+      schema: clinicalPlanSchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+    });
 
-  const raw = response.choices[0].message.content ?? '{}'
-  const parsed = JSON.parse(raw) as ClinicalPlan
+    if (object.weeklyPlan.length === 0) {
+      throw new AIGenerationError(
+        "validation_exhausted",
+        "Clinical plan generation returned no weekly plan. Please try again."
+      );
+    }
 
-  if (!parsed.weeklyPlan || parsed.weeklyPlan.length === 0) {
-    throw new Error('Clinical plan generation returned no weekly plan. Please try again.')
+    return object;
+  } catch (error) {
+    throw toAIGenerationError(error);
   }
-
-  return parsed
 }

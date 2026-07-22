@@ -1,14 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { AIGenerationError } from "@/lib/ai/errors";
 
 const { mockGenerateObject, mockGetClientSnapshots } = vi.hoisted(() => ({
   mockGenerateObject: vi.fn(),
   mockGetClientSnapshots: vi.fn(),
 }));
 
-vi.mock("ai", () => ({
-  generateObject: (...args: unknown[]) => mockGenerateObject(...args),
-}));
-vi.mock("@ai-sdk/anthropic", () => ({ anthropic: vi.fn(() => "mock-model") }));
+vi.mock("ai", async (importActual) => {
+  const actual = await importActual<typeof import("ai")>();
+  return { ...actual, generateObject: (...args: unknown[]) => mockGenerateObject(...args) };
+});
+vi.mock("@/lib/ai/models", () => ({ getModel: vi.fn(() => "mock-model") }));
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("@/lib/services/client.service", () => ({ getClientsForTrainer: vi.fn() }));
 
@@ -34,13 +36,11 @@ beforeEach(() => {
 });
 
 describe("generateCoachingInsights", () => {
-  it("returns an empty array when the AI call fails, without throwing", async () => {
+  it("throws AIGenerationError when the AI call fails", async () => {
     mockGetClientSnapshots.mockResolvedValue([activeSnapshot]);
-    mockGenerateObject.mockRejectedValue(new Error("model unavailable"));
+    mockGenerateObject.mockRejectedValueOnce(new Error("provider exploded"));
 
-    const result = await generateCoachingInsights("trainer-1");
-
-    expect(result).toEqual([]);
+    await expect(generateCoachingInsights("trainer-1")).rejects.toBeInstanceOf(AIGenerationError);
   });
 
   it("returns an empty array when there are no active clients (no AI call made)", async () => {

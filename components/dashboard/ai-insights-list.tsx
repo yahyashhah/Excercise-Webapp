@@ -18,16 +18,23 @@ const typeStyles: Record<CoachingInsight["type"], { icon: typeof Lightbulb; clas
 export function AiInsightsList() {
   const [insights, setInsights] = useState<CoachingInsight[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     let active = true;
     fetch("/api/dashboard/ai-insights")
-      .then((res) => (res.ok ? res.json() : { insights: [] }))
+      .then((res) => (res.ok ? res.json() : { insights: null }))
       .then((data) => {
-        if (active) setInsights(Array.isArray(data.insights) ? data.insights : []);
+        if (!active) return;
+        if (data.insights === null) {
+          setUnavailable(true);
+          setInsights([]);
+        } else {
+          setInsights(Array.isArray(data.insights) ? data.insights : []);
+        }
       })
       .catch(() => {
-        if (active) setInsights([]);
+        if (active) setUnavailable(true);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -43,6 +50,20 @@ export function AiInsightsList() {
         {[0, 1, 2].map((i) => (
           <div key={i} className="h-12 animate-pulse rounded-xl bg-muted/40" />
         ))}
+      </div>
+    );
+  }
+
+  if (unavailable) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 text-center">
+        <Sparkles className="h-10 w-10 text-muted-foreground/30" />
+        <p className="mt-3 text-sm font-medium text-muted-foreground">
+          Insights are unavailable right now
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground/60">
+          Check back in a little while
+        </p>
       </div>
     );
   }

@@ -1,5 +1,9 @@
 import { PrismaClient } from '@prisma/client'
 import OpenAI from 'openai'
+// Relative import: this script runs under CommonJS ts-node (see the
+// "tag-exercises" package.json script), where the "@/" path alias is not
+// resolved at runtime.
+import { getOpenAIModelName } from '../../ai/models'
 
 const prisma = new PrismaClient()
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -35,7 +39,7 @@ Difficulty: ${e.difficultyLevel}`
     .join('\n\n---\n\n')
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: getOpenAIModelName('extraction'),
     max_tokens: 4000,
     response_format: { type: 'json_object' },
     messages: [

@@ -59,9 +59,8 @@ const trainerLinks: NavLink[] = [
 const clientLinks: NavLink[] = [
   { href: "/dashboard",   label: "Dashboard",    icon: LayoutDashboard },
   { href: "/programs",    label: "My Programs",  icon: ClipboardList },
-  // { href: "/habits",      label: "Habits",       icon: Flame },
-  // { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
-  { href: "/exercises",   label: "Exercises",    icon: Dumbbell },
+  { href: "/habits",      label: "Habits",       icon: Flame },
+  { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
   // { href: "/assessments", label: "Assessments",  icon: TrendingUp },
   { href: "/messages",    label: "Messages",     icon: MessageSquare },
 ];

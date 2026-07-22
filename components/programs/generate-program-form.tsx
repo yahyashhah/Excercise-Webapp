@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DIFFICULTY_LEVELS, FITNESS_GOALS } from "@/lib/utils/constants";
-import { generateProgramAction } from "@/actions/program-actions";
+import { saveGeneratedProgramAction } from "@/actions/program-actions";
 import { toast } from "sonner";
 import { Check, ChevronDown, ChevronUp, ChevronsUpDown, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -23,7 +23,15 @@ import {
 import { getDistinctEquipmentAction } from "@/actions/program-actions";
 import { PlanReviewStep } from "@/components/programs/plan-review-step";
 import { ClinicVisibilitySelector } from "@/components/programs/clinic-visibility-selector";
+import {
+  GenerationPreview,
+  type PreviewWeek,
+  type PreviewExercise,
+  type WeekStatus,
+  type UnfilledSlotView,
+} from "@/components/programs/generation-preview";
 import type { ClinicalPlan } from "@/lib/ai/types/program-generation";
+import type { GeneratedProgram } from "@/lib/services/ai.service";
 
 interface CircuitConfig {
   id: string;
@@ -67,6 +75,7 @@ export type GenerateExercisesHandler = (params: {
   circuits: { name: string; focusType: string; exerciseCount: number; rounds: number; restBetweenRounds: number | null }[];
   preferredWeekdays: string[];
   difficultyLevel: string;
+  regime?: "rehab" | "performance" | "hybrid";
   weekPlan: unknown[];
   organizationIds?: string[];
 }) => Promise<{ success: boolean; error?: string; data?: string }>;
@@ -111,11 +120,21 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
     "Wednesday",
     "Friday",
   ]);
+  const [regime, setRegime] = useState<"rehab" | "performance" | "hybrid" | "auto">("auto");
   const [circuits, setCircuits] = useState<CircuitConfig[]>([
     { id: "1", name: "Warm Up", focusType: "WARMUP", exerciseCount: 4, rounds: 1, restBetweenRounds: null },
     { id: "2", name: "Main Circuit", focusType: "FULL_BODY", exerciseCount: 6, rounds: 3, restBetweenRounds: 60 },
     { id: "3", name: "Cool Down", focusType: "COOLDOWN", exerciseCount: 3, rounds: 1, restBetweenRounds: null },
   ]);
+
+  // Streaming generation preview state
+  const [previewWeeks, setPreviewWeeks] = useState<PreviewWeek[]>([]);
+  const [weekStatuses, setWeekStatuses] = useState<Record<number, WeekStatus>>({});
+  const [unfilledSlots, setUnfilledSlots] = useState<UnfilledSlotView[]>([]);
+  const [generationError, setGenerationError] = useState<{ message: string; retryable: boolean } | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const lastPayloadRef = useRef<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     getDistinctEquipmentAction().then(res => {
@@ -259,6 +278,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
       })),
       preferredWeekdays: selectedWeekdays,
       difficultyLevel: difficulty,
+      regime: regime === 'auto' ? undefined : regime,
       weekPlan: approvedPlan.weeklyPlan,
       organizationIds: selectedOrganizationIds,
     };
@@ -275,27 +295,186 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
       return;
     }
 
-    const result = await generateProgramAction({
-      ...genParams,
-      weekPlan: approvedPlan.weeklyPlan,
-    });
+    await runStreamingGeneration(genParams);
+  }
 
+  async function runStreamingGeneration(payload: Record<string, unknown>) {
+    lastPayloadRef.current = payload;
+    setGenerationError(null);
+    setPreviewWeeks(
+      (payload.weekPlan as { title: string }[]).map((w, i) => ({
+        weekIndex: i,
+        title: w.title,
+        sessions: [],
+        exercises: [],
+      }))
+    );
+    setWeekStatuses({});
+    setUnfilledSlots([]);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const res = await fetch('/api/ai/generate-workout-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) {
+        setGenerationError({ message: 'Failed to start generation.', retryable: true });
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            handleGenerationEvent(JSON.parse(line), payload);
+          } catch {
+            // Malformed/partial NDJSON line — skip it rather than killing the reader loop.
+          }
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') {
+        // Trainer cancelled — drop back to the plan review step instead of
+        // leaving the preview stuck on a dead stream.
+        setGenerateState('REVIEWING');
+      } else {
+        setGenerationError({ message: 'Connection lost during generation.', retryable: true });
+      }
+    } finally {
+      abortRef.current = null;
+      setIsCancelling(false);
+    }
+  }
+
+  function handleGenerationEvent(event: Record<string, unknown>, payload: Record<string, unknown>) {
+    switch (event.type) {
+      case 'week_start':
+        setWeekStatuses((s) => ({ ...s, [event.weekIndex as number]: 'generating' }));
+        break;
+      case 'week_partial': {
+        const weekIndex = event.weekIndex as number;
+        const partial = event.partial as { sessions?: PreviewWeek['sessions']; exercises?: PreviewExercise[] };
+        setPreviewWeeks((weeks) =>
+          weeks.map((w) =>
+            w.weekIndex === weekIndex
+              ? {
+                  ...w,
+                  sessions: (partial.sessions ?? w.sessions).filter(Boolean),
+                  exercises: (partial.exercises ?? w.exercises).filter(Boolean),
+                }
+              : w
+          )
+        );
+        break;
+      }
+      case 'week_status':
+        setWeekStatuses((s) => ({ ...s, [event.weekIndex as number]: event.status as WeekStatus }));
+        if (Array.isArray(event.unfilled) && event.unfilled.length > 0) {
+          setUnfilledSlots((u) => [...u, ...(event.unfilled as UnfilledSlotView[])]);
+        }
+        break;
+      case 'done':
+        void saveStreamedProgram(event.program as GeneratedProgram, payload);
+        break;
+      case 'error':
+        setGenerationError({
+          message: event.message as string,
+          retryable: Boolean(event.retryable),
+        });
+        break;
+    }
+  }
+
+  async function saveStreamedProgram(program: GeneratedProgram, payload: Record<string, unknown>) {
+    const result = await saveGeneratedProgramAction({
+      aiPlan: program,
+      params: payload,
+      isTemplate: !payload.clientId,
+      clientId: (payload.clientId as string) || null,
+      startDate: (payload.startDate as string) || undefined,
+    });
     if (result.success) {
       toast.success('Program generated successfully!');
       router.push(`/programs/${result.data}`);
     } else {
-      toast.error(result.error);
-      setGenerateState('CONFIGURE');
+      setGenerationError({ message: result.error, retryable: false });
+    }
+  }
+
+  function cancelGeneration() {
+    setIsCancelling(true);
+    abortRef.current?.abort();
+  }
+
+  function retryGeneration() {
+    if (lastPayloadRef.current) {
+      void runStreamingGeneration(lastPayloadRef.current);
     }
   }
 
   const totalExercises = circuits.reduce((sum, c) => sum + c.exerciseCount, 0);
 
-  const isReviewing = generateState === 'REVIEWING' || generateState === 'GENERATING';
+  // The onGenerateExercises callback (admin/global-program flow) is still a single
+  // blocking call with no stream to preview — keep it on the plan-review spinner.
+  // Only the direct trainer flow gets the live streaming preview.
+  const isStreamingPreview = generateState === 'GENERATING' && !onGenerateExercises;
+  const isReviewing = (generateState === 'REVIEWING' || generateState === 'GENERATING') && !isStreamingPreview;
 
   return (
     <div>
-      {isReviewing && clinicalPlan ? (
+      {isStreamingPreview ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-blue-600" />
+              Generating Program
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <GenerationPreview
+              weeks={previewWeeks}
+              statuses={weekStatuses}
+              unfilled={unfilledSlots}
+              onCancel={cancelGeneration}
+              cancelling={isCancelling}
+            />
+            {generationError && (
+              <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
+                <p className="font-medium text-destructive">{generationError.message}</p>
+                <div className="mt-3 flex gap-2">
+                  {generationError.retryable && (
+                    <Button type="button" size="sm" onClick={retryGeneration}>
+                      Try again
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setGenerateState('REVIEWING')}
+                  >
+                    Back to plan
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : isReviewing && clinicalPlan ? (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -569,6 +748,21 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                     </Button>
                   ))}
                 </div>
+              </div>
+
+              {/* Program Regime — auto-inferred from the client profile, clinician can override */}
+              <div className="space-y-2">
+                <Label>Program Regime</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={regime}
+                  onChange={(e) => setRegime(e.target.value as typeof regime)}
+                >
+                  <option value="auto">Auto (from client profile)</option>
+                  <option value="rehab">Rehab / clinical</option>
+                  <option value="performance">Performance / S&C</option>
+                  <option value="hybrid">Hybrid (rehab → performance)</option>
+                </select>
               </div>
 
               {/* Circuit Structure */}

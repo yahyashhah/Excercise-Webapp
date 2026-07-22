@@ -1,5 +1,5 @@
 import { generateObject } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { getModel } from "@/lib/ai/models";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
@@ -109,7 +109,7 @@ export async function POST(req: Request) {
       }
 
       const { object } = await generateObject({
-        model: openai("gpt-4o"),
+        model: getModel("extraction"),
         schema: youtubeSchema,
         system: SYSTEM_PROMPT,
         prompt: `Generate comprehensive exercise metadata for a physical therapy video.
@@ -137,7 +137,7 @@ Based on all available information above, create a clean exercise name and full 
     }
 
     const { object } = await generateObject({
-      model: openai("gpt-4o"),
+      model: getModel("extraction"),
       schema: nameSchema,
       system: SYSTEM_PROMPT,
       prompt: `Generate comprehensive, clinically accurate metadata for this exercise:

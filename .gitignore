@@ -45,3 +45,6 @@ next-env.d.ts
 
 # superpowers brainstorming companion
 /.superpowers/
+
+# eval run reports (generated, not checked in)
+lib/ai/evals/reports/

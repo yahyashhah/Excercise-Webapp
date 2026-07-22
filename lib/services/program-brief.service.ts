@@ -2,6 +2,8 @@ import "server-only";
 import OpenAI from "openai";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
+import { getOpenAIModelName } from "@/lib/ai/models";
+import { AIGenerationError } from "@/lib/ai/errors";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -301,7 +303,7 @@ Return:
 Never invent specific exercises here — only these fields.`;
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: getOpenAIModelName('extraction'),
     max_tokens: 1000,
     response_format: { type: 'json_schema', json_schema: BRIEF_METADATA_SCHEMA },
     messages: [
@@ -392,7 +394,7 @@ Rules:
 This is chunk ${chunkIndex + 1} of ${totalChunks}.${continuityNote ? ` ${continuityNote}` : ''} Continue any week/day numbering from where the previous chunk left off — do not restart it unless the document itself restarts it.`;
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: getOpenAIModelName('extraction'),
     // A chunk can hold a dozen+ sessions once every exercise's sets/reps/notes
     // are spelled out in full (strict JSON schema requires every property
     // present, even when null). 4000 was too small and silently truncated
@@ -407,7 +409,10 @@ This is chunk ${chunkIndex + 1} of ${totalChunks}.${continuityNote ? ` ${continu
   });
 
   if (response.choices[0].finish_reason === 'length') {
-    throw new Error(`extractChunkSessions: response truncated at the token limit for chunk ${chunkIndex + 1} of ${totalChunks}`);
+    throw new AIGenerationError(
+      'validation_exhausted',
+      `Couldn't fully read part ${chunkIndex + 1} of ${totalChunks} of the document — it contains too many sessions for one pass. Try splitting the document into smaller files.`
+    );
   }
 
   const raw = response.choices[0].message.content;

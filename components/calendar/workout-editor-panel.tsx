@@ -787,14 +787,15 @@ export function WorkoutEditorPanel({
     value: string
   ) {
     if (!session) return;
-    const numValue = value === "" ? null : Number(value);
+    const parsedValue: string | number | null =
+      field === "tempo" ? (value === "" ? null : value) : value === "" ? null : Number(value);
     const updatedSession = { ...session };
     const blocks = [...updatedSession.workout.blocks];
     const block = { ...blocks[blockIndex] };
     const exercises = [...block.exercises];
     const exercise = { ...exercises[exerciseIndex] };
     const sets = [...exercise.sets];
-    const targetSet = { ...sets[setIndex], [field]: numValue };
+    const targetSet = { ...sets[setIndex], [field]: parsedValue };
     sets[setIndex] = targetSet;
     exercise.sets = sets;
     exercises[exerciseIndex] = exercise;
@@ -803,7 +804,7 @@ export function WorkoutEditorPanel({
     updatedSession.workout = { ...updatedSession.workout, blocks };
     setSession(updatedSession);
 
-    debouncedUpdateSet(targetSet.id, { [field]: numValue } as never);
+    debouncedUpdateSet(targetSet.id, { [field]: parsedValue } as never);
   }
 
   // Add block

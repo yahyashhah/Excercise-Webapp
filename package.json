@@ -19,6 +19,7 @@
     "db:migrate-programs": "npx tsx lib/db/seed/migrate-plans-to-programs.ts",
     "db:backfill-exercise-phases": "npx tsx lib/db/scripts/backfill-exercise-phases.ts",
     "tag-exercises": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' lib/db/seed/tag-exercises-ai.ts",
+    "eval": "npx tsx lib/ai/evals/run-evals.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
