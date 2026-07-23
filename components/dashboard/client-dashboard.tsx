@@ -4,19 +4,32 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
-  ClipboardList,
-  MessageSquare,
   TrendingUp,
   Play,
   Flame,
   ChevronRight,
-  CheckCircle2,
   Calendar,
+  CalendarX,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils/formatting";
 import { ClientSessionCalendar } from "./client-session-calendar";
 
+const MOTIVATIONAL_QUOTES = [
+  "Small steps every day add up to big results.",
+  "Consistency beats intensity — showing up is the win.",
+  "Your body can do it. It's your mind you need to convince.",
+  "Recovery is progress too.",
+  "Every rep brings you closer to where you want to be.",
+  "Rest today, come back stronger tomorrow.",
+  "Progress, not perfection.",
+];
+
+function isSameLocalDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
 interface ClientDashboardProps {
+  firstName: string;
   upcomingSessions: {
     id: string;
     scheduledDate: Date;
@@ -34,42 +47,72 @@ interface ClientDashboardProps {
   }[];
   weeklyCompliance: number;
   recentAssessments: { id: string; assessmentType: string; value: number; unit: string; createdAt: Date }[];
-  unreadMessages: number;
+  currentStreak: number;
+  exercisesCompleted: number;
+  minutesExercised: number;
 }
 
 export function ClientDashboard({
+  firstName,
   upcomingSessions,
   calendarSessions,
   weeklyCompliance,
   recentAssessments,
-  unreadMessages,
+  currentStreak,
+  exercisesCompleted,
+  minutesExercised,
 }: ClientDashboardProps) {
   const totalWeekSessions = weeklyCompliance + upcomingSessions.length;
   const compliancePercent = totalWeekSessions > 0
     ? Math.min(Math.round((weeklyCompliance / totalWeekSessions) * 100), 100)
     : 0;
 
-  const nextWorkout = upcomingSessions.length > 0 ? upcomingSessions[0] : null;
+  const today = new Date();
+  const todayWorkout = upcomingSessions.find((s) => isSameLocalDay(new Date(s.scheduledDate), today)) ?? null;
+  const nextFutureSession = !todayWorkout && upcomingSessions.length > 0 ? upcomingSessions[0] : null;
+  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
+  const quote = MOTIVATIONAL_QUOTES[dayOfYear % MOTIVATIONAL_QUOTES.length];
 
   return (
     <div className="space-y-8">
       {/* Welcome */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Your Dashboard</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Welcome Back, {firstName}!</h1>
         <p className="mt-1 text-muted-foreground">Stay on track with your exercises and progress.</p>
       </div>
 
-      {/* Next workout hero — only when there's a session */}
-      {nextWorkout && (
+      {/* Stats row */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[
+          { label: "Current Streak", value: `${currentStreak} ${currentStreak === 1 ? "day" : "days"}`, emoji: "🔥", bg: "bg-amber-50" },
+          { label: "Exercises Completed", value: exercisesCompleted, emoji: "💪", bg: "bg-emerald-50" },
+          { label: "Minutes Exercised", value: minutesExercised, emoji: "⏱", bg: "bg-blue-50" },
+        ].map((stat) => (
+          <Card key={stat.label} className="border-0 ring-1 ring-border/50 shadow-sm">
+            <CardContent className="flex items-center gap-4 p-5">
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl ${stat.bg}`}>
+                {stat.emoji}
+              </div>
+              <div>
+                <p className="text-2xl font-bold leading-none">{stat.value}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{stat.label}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Today's workout hero */}
+      {todayWorkout ? (
         <div className="relative overflow-hidden rounded-2xl bg-muted p-6 shadow-sm">
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <Badge className="mb-3 border-border bg-background text-foreground text-xs font-medium">
                 <Calendar className="mr-1 h-3 w-3" />
-                {formatDate(nextWorkout.scheduledDate)}
+                {formatDate(todayWorkout.scheduledDate)}
               </Badge>
               <h2 className="text-xl font-bold text-foreground">
-                {nextWorkout.workout?.name || "Workout Session"}
+                {todayWorkout.workout?.name || "Workout Session"}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">Ready when you are — let&apos;s go!</p>
             </div>
@@ -78,72 +121,27 @@ export function ClientDashboard({
               className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-lg border-0"
               asChild
             >
-              <Link href={`/sessions/${nextWorkout.id}`}>
+              <Link href={`/sessions/${todayWorkout.id}`}>
                 <Play className="mr-2 h-4 w-4 fill-current" />
                 Start Workout
               </Link>
             </Button>
           </div>
         </div>
+      ) : (
+        <div className="relative overflow-hidden rounded-2xl bg-muted p-6 shadow-sm text-center">
+          <CalendarX className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
+          <h2 className="text-lg font-bold text-foreground">
+            No Workouts for Today
+            {nextFutureSession && (
+              <span className="font-medium text-muted-foreground">
+                {" "}(next session {formatDate(nextFutureSession.scheduledDate)})
+              </span>
+            )}
+          </h2>
+          <p className="mt-2 text-xs text-muted-foreground italic">{quote}</p>
+        </div>
       )}
-
-      {/* Stats row */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          {
-            label: "Upcoming Sessions",
-            value: upcomingSessions.length,
-            icon: ClipboardList,
-            color: "text-blue-600",
-            bg: "bg-blue-50",
-            href: "#sessions",
-          },
-          {
-            label: "Completed This Week",
-            value: weeklyCompliance,
-            icon: CheckCircle2,
-            color: "text-emerald-600",
-            bg: "bg-emerald-50",
-            href: "#sessions",
-          },
-          {
-            label: "Unread Messages",
-            value: unreadMessages,
-            icon: MessageSquare,
-            color: "text-violet-600",
-            bg: "bg-violet-50",
-            href: "/messages",
-          },
-          // {
-          //   label: "Assessments",
-          //   value: recentAssessments.length,
-          //   icon: TrendingUp,
-          //   color: "text-amber-600",
-          //   bg: "bg-amber-50",
-          //   href: "/assessments",
-          // },
-        ].map((stat) => {
-          const Icon = stat.icon;
-          const content = (
-            <Card className="group border-0 ring-1 ring-border/50 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-border">
-              <CardContent className="flex items-center gap-4 p-5">
-                <div className={`rounded-xl p-2.5 ${stat.bg}`}>
-                  <Icon className={`h-5 w-5 ${stat.color}`} />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold leading-none">{stat.value}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{stat.label}</p>
-                </div>
-              </CardContent>
-            </Card>
-          );
-          return stat.href.startsWith("/") ? (
-            <Link key={stat.label} href={stat.href}>{content}</Link>
-          ) : (
-            <div key={stat.label}>{content}</div>
-          );
-        })}
-      </div>
 
       {/* Weekly Progress */}
       <Card>

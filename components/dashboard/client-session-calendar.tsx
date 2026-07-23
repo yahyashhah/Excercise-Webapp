@@ -217,12 +217,12 @@ export function ClientSessionCalendar({ sessions }: Props) {
                   {format(day, "d")}
                 </span>
                 {hasSession && (
-                  <div className="flex gap-0.5 mt-0.5">
+                  <div className="flex gap-1 mt-1">
                     {daySessions.slice(0, 3).map((s) => (
                       <div
                         key={s.id}
                         className={cn(
-                          "h-1 w-1 rounded-full",
+                          "h-2 w-2 rounded-full ring-1 ring-white/60",
                           isSelected ? "bg-primary-foreground/80" : STATUS_DOT[s.status] ?? "bg-muted-foreground"
                         )}
                       />

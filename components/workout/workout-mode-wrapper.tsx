@@ -5,8 +5,9 @@ import { WorkoutSessionTracker } from "./workout-session-tracker";
 import { WorkoutChecklistTracker } from "./workout-checklist-tracker";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { ClipboardList, Zap, ChevronRight } from "lucide-react";
+import { ClipboardList, Zap, ChevronRight, Dumbbell } from "lucide-react";
 import type { SetLogEntry, SetLogCache } from "./types";
+import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
 
 type Mode = "pick" | "checklist" | "session";
 
@@ -83,6 +84,11 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
     }));
   }
 
+  const equipment = useMemo(
+    () => aggregateProgramEquipment(session.workout ? [session.workout] : []),
+    [session.workout]
+  );
+
   if (mode === "checklist") {
     return (
       <WorkoutChecklistTracker
@@ -116,7 +122,7 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
   const alreadyDone = sharedCompleted.size;
 
   return (
-    <div className="mx-auto max-w-lg space-y-4">
+    <div className="mx-auto max-w-lg space-y-5">
       <div className="overflow-hidden rounded-2xl bg-muted p-6 shadow-sm">
         <div className="relative">
           {isReturning && (
@@ -125,19 +131,31 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
             </Badge>
           )}
           <h2 className="text-2xl font-bold text-foreground">{session.workout?.name ?? "Workout"}</h2>
-          <p className="mt-1 text-muted-foreground text-sm">
-            {totalExercises} exercises · How would you like to train today?
-          </p>
+          <p className="mt-1 text-muted-foreground text-sm">{totalExercises} exercises</p>
+          {equipment.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <Dumbbell className="h-3.5 w-3.5 text-muted-foreground/70" />
+              {equipment.map((item) => (
+                <Badge key={item} variant="secondary" className="text-[11px] font-medium">
+                  {item}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      <h3 className="text-center text-lg font-bold text-foreground">
+        Select Your Workout Experience
+      </h3>
 
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
           onClick={() => setMode("checklist")}
-          className="group flex flex-col rounded-2xl border border-border/60 bg-card p-5 text-left shadow-sm transition-all hover:border-emerald-300 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="group flex flex-col rounded-2xl border-2 border-border/60 bg-card p-5 text-left shadow-sm transition-all hover:border-emerald-400 hover:bg-emerald-50/60 hover:shadow-lg hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 group-hover:bg-emerald-100 transition-colors">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 group-hover:bg-emerald-200 transition-colors">
             <ClipboardList className="h-5 w-5 text-emerald-600" />
           </div>
           <p className="font-semibold text-sm">Quick Checklist</p>
@@ -152,12 +170,12 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
         <button
           type="button"
           onClick={() => setMode("session")}
-          className="group flex flex-col rounded-2xl border border-border/60 bg-card p-5 text-left shadow-sm transition-all hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="group flex flex-col rounded-2xl border-2 border-border/60 bg-card p-5 text-left shadow-sm transition-all hover:border-blue-400 hover:bg-blue-50/60 hover:shadow-lg hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 group-hover:bg-blue-100 transition-colors">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 group-hover:bg-blue-200 transition-colors">
             <Zap className="h-5 w-5 text-blue-600" />
           </div>
-          <p className="font-semibold text-sm">Full Session</p>
+          <p className="font-semibold text-sm">Guided Workout</p>
           <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
             Guided step-by-step with timers and set logging.
           </p>

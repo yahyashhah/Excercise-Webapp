@@ -27,7 +27,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      localization={{
+        signIn: {
+          start: {
+            title: "Sign in to Inmotus RX",
+          },
+        },
+      }}
+    >
       <html lang="en" suppressHydrationWarning>
         <body
           className={`${inter.variable} ${lexend.variable} font-sans antialiased`}

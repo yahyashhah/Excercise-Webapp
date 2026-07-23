@@ -1,9 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { updateSetLogV2Action, completeSessionV2Action, updateExerciseActualSetsAction, updateExerciseClientNoteAction } from "@/actions/session-v2-actions";
+import {
+  updateSetLogV2Action,
+  completeSessionV2Action,
+  updateExerciseActualSetsAction,
+  updateExerciseClientNoteAction,
+  markExerciseDoneAction,
+} from "@/actions/session-v2-actions";
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,10 +22,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { ExerciseVideoPlayer } from "@/components/exercises/exercise-video-player";
 import {
   Check, Trophy, Loader2, ChevronDown, ChevronUp, ChevronRight,
-  AlertCircle, Plus, X,
+  AlertCircle, Plus, X, Dumbbell, PlayCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SetLogEntry, SetLogCache } from "./types";
+import { instructionsToBullets } from "./format-instructions";
 import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
 import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
 import type { VoiceMemoData } from "@/actions/voice-memo-actions";
@@ -41,6 +48,7 @@ type BlockExerciseSet = {
   targetReps?: number | null;
   targetDuration?: number | null;
   targetWeight?: number | null;
+  targetRPE?: number | null;
   restAfter?: number | null;
 };
 type SessionExerciseLog = {
@@ -110,6 +118,8 @@ function getExerciseStatus(
   return "partial";
 }
 
+const SKIP_REASONS = ["Too painful", "Too difficult", "No equipment", "Too tired", "Other"] as const;
+
 // ── Component ─────────────────────────────────────────────────────────────────
 interface Props {
   session: WorkoutSessionV2;
@@ -153,11 +163,17 @@ export function WorkoutChecklistTracker({
 
   // Pending input values (before the user taps "Done")
   const [pendingInputs, setPendingInputs] = useState<
-    Record<string, { actualReps?: number; actualWeight?: number; actualDuration?: number }>
+    Record<string, { actualReps?: number; actualWeight?: number; actualDuration?: number; actualRPE?: number }>
   >({});
 
-  // Keys of sets where the user clicked "Can't do" — value is the typed reason
+  // Keys of sets where the user clicked "Skip Exercise" — value is the typed "Other" reason
   const [pendingSkips, setPendingSkips] = useState<Record<string, string>>({});
+  // Selected preset reason (from SKIP_REASONS) per pending skip
+  const [skipReasonChoice, setSkipReasonChoice] = useState<Record<string, string>>({});
+
+  // Exercise ids whose video is expanded (collapsed by default to reduce clutter)
+  const [expandedVideos, setExpandedVideos] = useState<Set<string>>(new Set());
+  const [togglingExerciseId, setTogglingExerciseId] = useState<string | null>(null);
 
   // Actual sets logged per exercise (exercise-level, separate from per-set rows)
   const [actualSetsByExercise, setActualSetsByExercise] = useState<Record<string, number>>(() => {
@@ -268,6 +284,16 @@ export function WorkoutChecklistTracker({
   }).length;
   const progress = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
 
+  // First not-yet-finished exercise — highlighted so the client knows where they are.
+  const firstUnfinishedId = useMemo(() => {
+    for (const { ex, block } of allExercises) {
+      if (additionalCompleted?.has(ex.id)) continue;
+      const setCount = getSetCount(ex, block);
+      if (getExerciseStatus(ex.id, setCount, exerciseSetLogs) !== "complete") return ex.id;
+    }
+    return null;
+  }, [allExercises, additionalCompleted, exerciseSetLogs]);
+
   // ── Handlers ───────────────────────────────────────────────────────────────
   function inputKey(exerciseId: string, setIndex: number) {
     return `${exerciseId}_${setIndex}`;
@@ -276,7 +302,7 @@ export function WorkoutChecklistTracker({
   function handleInputChange(
     exerciseId: string,
     setIndex: number,
-    field: "actualReps" | "actualWeight" | "actualDuration",
+    field: "actualReps" | "actualWeight" | "actualDuration" | "actualRPE",
     value: string
   ) {
     const key = inputKey(exerciseId, setIndex);
@@ -307,6 +333,7 @@ export function WorkoutChecklistTracker({
           actualReps: pending.actualReps,
           actualWeight: pending.actualWeight,
           actualDuration: pending.actualDuration,
+          actualRPE: pending.actualRPE,
         };
 
     const result = await updateSetLogV2Action(session.id, ex.id, setIndex, data);
@@ -370,6 +397,29 @@ export function WorkoutChecklistTracker({
     setLoggingKey(null);
   }
 
+  // Click-the-circle toggle: checks off every set at once, or unchecks them all.
+  async function toggleExerciseDone(block: WorkoutBlock, ex: BlockExercise) {
+    const setCount = getSetCount(ex, block);
+    const isDone =
+      additionalCompleted?.has(ex.id) ||
+      getExerciseStatus(ex.id, setCount, exerciseSetLogs) === "complete";
+    const nextDone = !isDone;
+
+    setTogglingExerciseId(ex.id);
+    const result = await markExerciseDoneAction(session.id, ex.id, setCount, nextDone);
+    if (result.success) {
+      const entries: SetLogCache[string] = {};
+      for (let i = 0; i < Math.max(1, setCount); i++) {
+        entries[i] = { completed: nextDone };
+        onSetLogged?.(ex.id, i, { completed: nextDone });
+      }
+      setExerciseSetLogs((prev) => ({ ...prev, [ex.id]: entries }));
+    } else {
+      toast.error(result.error ?? "Failed to update exercise");
+    }
+    setTogglingExerciseId(null);
+  }
+
   async function handleFinish() {
     setIsCompleting(true);
     const result = await completeSessionV2Action(session.id, rpe, notes || undefined);
@@ -385,28 +435,29 @@ export function WorkoutChecklistTracker({
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="mx-auto max-w-lg space-y-4 pb-24">
-      {/* Header */}
-      <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-card px-4 py-3 shadow-sm">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100">
-            <Check className="h-3.5 w-3.5 text-emerald-600" />
+      {/* Header + progress — pinned. The -mt-6/pt-9 pair bleeds into the scroll
+          container's own top padding (main has a fixed p-6) so the opaque
+          background reaches the true top of the viewport with no gap where
+          scrolled-past content could peek through above it. */}
+      <div className="sticky -top-6 z-20 rounded-md bg-background mx-3 px-3 py-4 shadow-[0_1px_0_0_rgb(0_0_0/0.06),0_6px_16px_-8px_rgb(0_0_0/0.12)] sm:mx-0">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+            <Check className="h-3 w-3 text-emerald-600" />
           </div>
-          <span className="text-sm font-semibold">Quick Checklist</span>
+          <span className="text-sm font-semibold shrink-0">Checklist</span>
+          <span className="text-xs font-medium text-muted-foreground shrink-0">
+            {doneCount}/{totalCount}
+          </span>
+          <div className="flex-1" />
+          <Button variant="ghost" size="sm" className="h-7 -mr-2 text-xs text-muted-foreground shrink-0" onClick={onSwitchMode}>
+            Switch to Session
+          </Button>
         </div>
-        <Badge variant="outline" className="font-semibold">
-          {doneCount} / {totalCount}
-        </Badge>
-        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onSwitchMode}>
-          Switch to Session
-        </Button>
-      </div>
-
-      {/* Progress */}
-      <div className="space-y-1.5">
-        <Progress value={progress} className="h-2 rounded-full" />
-        <div className="flex justify-between text-[11px] text-muted-foreground">
-          <span>{Math.round(progress)}% complete</span>
-          <span>{totalCount - doneCount} remaining</span>
+        <div className="mt-2 flex items-center gap-2">
+          <Progress value={progress} className="h-1.5 flex-1 rounded-full" />
+          <span className="w-9 shrink-0 text-right text-[11px] font-medium text-muted-foreground">
+            {Math.round(progress)}%
+          </span>
         </div>
       </div>
 
@@ -439,7 +490,7 @@ export function WorkoutChecklistTracker({
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-sm">{blockName}</span>
+                  <span className="text-base font-extrabold uppercase tracking-wide text-primary">{blockName}</span>
                   {isCircuit && block.rounds > 1 && (
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                       {block.rounds} sets
@@ -475,15 +526,26 @@ export function WorkoutChecklistTracker({
                   const setCount = getSetCount(ex, block);
                   const hasVideo =
                     ex.exercise.videoUrl || ex.exercise.media.some((m) => m.type === "VIDEO");
+                  const isUpNext = ex.id === firstUnfinishedId;
+                  const thumbnailUrl =
+                    ex.exercise.imageUrl ?? ex.exercise.media.find((m) => m.type === "IMAGE")?.url;
+                  const isToggling = togglingExerciseId === ex.id;
 
                   return (
                     <div key={ex.id}>
                       {/* Exercise header row */}
-                      <button
-                        type="button"
+                      <div
+                        role="button"
+                        tabIndex={0}
                         className={cn(
-                          "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
-                          isFullyDone ? "bg-emerald-50/50" : isPartial ? "bg-amber-50/30" : "hover:bg-muted/30"
+                          "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer",
+                          isFullyDone
+                            ? "bg-emerald-50/50"
+                            : isPartial
+                            ? "bg-amber-50/30"
+                            : isUpNext
+                            ? "bg-primary/5 ring-1 ring-inset ring-primary/30"
+                            : "hover:bg-muted/30"
                         )}
                         onClick={() =>
                           setExpandedExercises((prev) => {
@@ -493,29 +555,61 @@ export function WorkoutChecklistTracker({
                             return next;
                           })
                         }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setExpandedExercises((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(ex.id)) next.delete(ex.id);
+                              else next.add(ex.id);
+                              return next;
+                            });
+                          }
+                        }}
                       >
-                        {/* Status indicator */}
-                        <div
+                        {/* Status indicator — click to check/uncheck without opening the row */}
+                        <button
+                          type="button"
+                          aria-label={isFullyDone ? "Mark exercise incomplete" : "Mark exercise done"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleExerciseDone(block, ex);
+                          }}
+                          disabled={isToggling}
                           className={cn(
                             "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
                             isFullyDone
                               ? "border-emerald-500 bg-emerald-500"
                               : isPartial
                               ? "border-amber-400 bg-amber-400"
-                              : "border-muted-foreground/30 bg-background"
+                              : "border-muted-foreground/30 bg-background hover:border-primary"
                           )}
                         >
-                          {isFullyDone ? (
+                          {isToggling ? (
+                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                          ) : isFullyDone ? (
                             <Check className="h-3 w-3 text-white" />
                           ) : isPartial ? (
                             <span className="h-1.5 w-1.5 rounded-full bg-white" />
                           ) : null}
+                        </button>
+
+                        {/* Thumbnail — lets clients recognize the exercise without opening it */}
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-muted">
+                          {thumbnailUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <Dumbbell className="h-4 w-4 text-muted-foreground/50" />
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex-1 min-w-0">
                           <p
                             className={cn(
-                              "text-sm font-medium",
+                              "text-[15px] font-semibold text-foreground",
                               isFullyDone && "text-muted-foreground"
                             )}
                           >
@@ -526,6 +620,9 @@ export function WorkoutChecklistTracker({
                             {isPartial && (
                               <span className="ml-1.5 text-amber-600 font-medium">· partial</span>
                             )}
+                            {isUpNext && !isPartial && (
+                              <span className="ml-1.5 text-primary font-semibold">· up next</span>
+                            )}
                           </p>
                         </div>
 
@@ -535,48 +632,55 @@ export function WorkoutChecklistTracker({
                             isExOpen && "rotate-90"
                           )}
                         />
-                      </button>
+                      </div>
 
                       {/* Exercise body */}
                       {isExOpen && (
-                        <div className="px-4 pb-4 pt-2 bg-muted/20 space-y-3">
-                          {/* Info chips */}
-                          <div className="flex flex-wrap gap-1.5">
-                            <Badge variant="secondary" className="text-[11px]">
-                              {`${isCircuit ? block.rounds : ex.sets.length} sets`}
-                            </Badge>
-                            {ex.sets[0]?.targetReps && (
-                              <Badge variant="secondary" className="text-[11px]">
-                                {ex.sets[0].targetReps} reps
-                              </Badge>
-                            )}
-                            {ex.sets[0]?.targetDuration && (
-                              <Badge variant="secondary" className="text-[11px]">
-                                {ex.sets[0].targetDuration}s hold
-                              </Badge>
-                            )}
-                            {ex.sets[0]?.restAfter && (
-                              <Badge variant="secondary" className="text-[11px]">
-                                {ex.sets[0].restAfter}s rest
-                              </Badge>
-                            )}
+                        <div className="px-4 pb-4 pt-3 bg-muted/20 space-y-4">
+                          {/* Meta line — one quiet line instead of a wall of pills */}
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm text-muted-foreground">
+                              {[
+                                `${isCircuit ? block.rounds : ex.sets.length} ${
+                                  (isCircuit ? block.rounds : ex.sets.length) === 1 ? "set" : "sets"
+                                }`,
+                                ex.sets[0]?.targetReps ? `${ex.sets[0].targetReps} reps` : null,
+                                ex.sets[0]?.targetDuration ? `${ex.sets[0].targetDuration}s hold` : null,
+                                ex.sets[0]?.restAfter ? `${ex.sets[0].restAfter}s rest` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
                             {ex.exercise.bodyRegion && (
-                              <Badge variant="outline" className="text-[11px]">
+                              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                                 {ex.exercise.bodyRegion}
-                              </Badge>
+                              </span>
                             )}
                           </div>
 
-                          {/* Video */}
+                          {/* Video — collapsed by default to keep the list compact */}
                           {hasVideo && (
-                            <ExerciseVideoPlayer
-                              videoUrl={ex.exercise.videoUrl ?? undefined}
-                              mediaItems={ex.exercise.media.map((m) => ({
-                                id: m.id,
-                                url: m.url,
-                                mediaType: m.type,
-                              }))}
-                            />
+                            expandedVideos.has(ex.id) ? (
+                              <ExerciseVideoPlayer
+                                videoUrl={ex.exercise.videoUrl ?? undefined}
+                                mediaItems={ex.exercise.media.map((m) => ({
+                                  id: m.id,
+                                  url: m.url,
+                                  mediaType: m.type,
+                                }))}
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 rounded-xl border border-dashed border-border/60 bg-muted/30 px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+                                onClick={() =>
+                                  setExpandedVideos((prev) => new Set(prev).add(ex.id))
+                                }
+                              >
+                                <PlayCircle className="h-4 w-4" />
+                                Watch Video
+                              </button>
+                            )
                           )}
 
                           {/* Instructions */}
@@ -585,59 +689,63 @@ export function WorkoutChecklistTracker({
                               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
                                 Instructions
                               </p>
-                              <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
-                                {ex.exercise.instructions}
-                              </p>
+                              <ul className="space-y-1 text-sm leading-relaxed text-muted-foreground list-disc pl-4">
+                                {instructionsToBullets(ex.exercise.instructions).map((line, idx) => (
+                                  <li key={idx}>{line}</li>
+                                ))}
+                              </ul>
                             </div>
                           )}
 
                           {/* Trainer notes */}
                           {ex.notes && (
-                            <div className="flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5">
-                              <span className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-blue-500 shrink-0">
-                                Note
-                              </span>
-                              <p className="text-sm italic text-blue-700">{ex.notes}</p>
+                            <div className="rounded-xl bg-muted/60 px-3 py-2.5">
+                              <p className="text-sm text-blue-700">
+                                <span className="font-semibold">Tip:</span>{" "}
+                                <span className="italic">{ex.notes}</span>
+                              </p>
                             </div>
                           )}
 
                           {/* Per-set logging table */}
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between gap-3">
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-3">
                               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
-                                Actual Sets
+                                Sets
                               </p>
-                              {setCount > 1 && (
-                                <div className="flex items-center gap-1.5">
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    placeholder="—"
-                                    value={actualSetsByExercise[ex.id] ?? ""}
-                                    onChange={(e) => {
-                                      const val = e.target.value === "" ? undefined : Number(e.target.value);
-                                      setActualSetsByExercise((prev) => {
-                                        const next = { ...prev };
-                                        if (val === undefined) delete next[ex.id];
-                                        else next[ex.id] = val;
-                                        return next;
-                                      });
-                                      updateExerciseActualSetsAction(
-                                        session.id,
-                                        ex.id,
-                                        e.target.value === "" ? null : Number(e.target.value)
-                                      );
-                                    }}
-                                    className="h-8 w-20 text-sm text-center"
-                                  />
-                                  <span className="text-xs text-muted-foreground whitespace-nowrap">sets done</span>
-                                </div>
-                              )}
-                              {isFullyDone && (
-                                <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-0.5 ml-auto">
-                                  <Check className="h-3 w-3" /> All done
-                                </span>
-                              )}
+                              <div className="ml-auto flex items-center gap-2">
+                                {setCount > 1 && (
+                                  <div className="flex items-center gap-1">
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      placeholder="—"
+                                      value={actualSetsByExercise[ex.id] ?? ""}
+                                      onChange={(e) => {
+                                        const val = e.target.value === "" ? undefined : Number(e.target.value);
+                                        setActualSetsByExercise((prev) => {
+                                          const next = { ...prev };
+                                          if (val === undefined) delete next[ex.id];
+                                          else next[ex.id] = val;
+                                          return next;
+                                        });
+                                        updateExerciseActualSetsAction(
+                                          session.id,
+                                          ex.id,
+                                          e.target.value === "" ? null : Number(e.target.value)
+                                        );
+                                      }}
+                                      className="h-6 w-12 px-1 text-xs text-center"
+                                    />
+                                    <span className="text-[11px] text-muted-foreground/70 whitespace-nowrap">total</span>
+                                  </div>
+                                )}
+                                {isFullyDone && (
+                                  <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-0.5">
+                                    <Check className="h-3 w-3" /> All done
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
                             {setCount === 0 && (
@@ -661,29 +769,68 @@ export function WorkoutChecklistTracker({
                                 const isLastExtra =
                                   isExtra && i === setCount + (extraSetCounts[ex.id] ?? 0) - 1;
 
+                                // Done sets collapse to a compact single-line receipt —
+                                // showing 3+ full editable cards for already-completed sets
+                                // is the main source of clutter once a client is mid-workout.
+                                if (isDone) {
+                                  const skipped = logEntry?.actualReps === 0 && !logEntry?.actualDuration;
+                                  const summary = skipped
+                                    ? "Skipped"
+                                    : [
+                                        logEntry?.actualReps ? `${logEntry.actualReps} reps` : null,
+                                        logEntry?.actualDuration ? `${logEntry.actualDuration}s` : null,
+                                        logEntry?.actualWeight ? `${logEntry.actualWeight} lbs` : null,
+                                        logEntry?.actualRPE ? `RPE ${logEntry.actualRPE}` : null,
+                                      ]
+                                        .filter(Boolean)
+                                        .join(" · ") || "Done";
+
+                                  return (
+                                    <div
+                                      key={i}
+                                      className={cn(
+                                        "flex items-center gap-2.5 rounded-lg px-3 py-1.5",
+                                        skipped ? "bg-amber-50/60" : "bg-emerald-50/60"
+                                      )}
+                                    >
+                                      <div
+                                        className={cn(
+                                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+                                          skipped ? "bg-amber-400" : "bg-emerald-500"
+                                        )}
+                                      >
+                                        <Check className="h-3 w-3 text-white" />
+                                      </div>
+                                      <span className="text-sm text-foreground">
+                                        Set {i + 1}
+                                        {isExtra && <span className="text-muted-foreground"> (extra)</span>}
+                                      </span>
+                                      <span
+                                        className={cn(
+                                          "ml-auto text-sm",
+                                          skipped ? "text-amber-600" : "text-muted-foreground"
+                                        )}
+                                      >
+                                        {summary}
+                                      </span>
+                                    </div>
+                                  );
+                                }
+
                                 return (
                                   <div
                                     key={i}
                                     className={cn(
                                       "rounded-xl border p-3 transition-colors",
-                                      isDone
-                                        ? "border-emerald-200 bg-emerald-50/50"
-                                        : isExtra
+                                      isExtra
                                         ? "border-dashed border-muted-foreground/30 bg-background"
                                         : "border-border bg-background"
                                     )}
                                   >
                                     {/* Set header */}
                                     <div className="flex items-center gap-2 mb-2">
-                                      <div
-                                        className={cn(
-                                          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                                          isDone
-                                            ? "bg-emerald-500 text-white"
-                                            : "bg-primary/10 text-primary"
-                                        )}
-                                      >
-                                        {isDone ? <Check className="h-3 w-3" /> : i + 1}
+                                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                                        {i + 1}
                                       </div>
                                       <span className="text-xs text-muted-foreground">
                                         {`Set ${i + 1}`}
@@ -694,7 +841,7 @@ export function WorkoutChecklistTracker({
                                         {setDef?.targetDuration && ` · target ${setDef.targetDuration}s`}
                                       </span>
                                       {/* Remove button for last unlogged extra set */}
-                                      {isLastExtra && !isDone && (
+                                      {isLastExtra && (
                                         <button
                                           type="button"
                                           className="ml-auto text-muted-foreground hover:text-destructive"
@@ -703,35 +850,15 @@ export function WorkoutChecklistTracker({
                                           <X className="h-3.5 w-3.5" />
                                         </button>
                                       )}
-                                      {isDone && logEntry?.actualReps === 0 && !logEntry?.actualDuration && (
-                                        <Badge
-                                          variant="outline"
-                                          className="ml-auto text-[10px] text-amber-600 border-amber-200 bg-amber-50"
-                                        >
-                                          Skipped
-                                        </Badge>
-                                      )}
-                                      {isDone && (logEntry?.actualReps ?? 0) > 0 && (
-                                        <span className={cn("text-[11px] text-emerald-600 font-medium", !isLastExtra && "ml-auto")}>
-                                          {logEntry?.actualReps} reps
-                                          {logEntry?.actualWeight ? ` @ ${logEntry.actualWeight} lbs` : ""}
-                                        </span>
-                                      )}
-                                      {isDone && logEntry?.actualDuration && (
-                                        <span className={cn("text-[11px] text-emerald-600 font-medium", !isLastExtra && "ml-auto")}>
-                                          {logEntry.actualDuration}s
-                                        </span>
-                                      )}
                                     </div>
 
-                                    {/* Inputs — hidden when done */}
-                                    {!isDone && (
-                                      <div className="flex flex-wrap gap-2 items-end">
+                                    {/* Inputs */}
+                                    <div className="flex flex-wrap gap-2 items-end">
                                         {/* Reps: always show for extra sets; for prescribed show when target reps or no duration */}
                                         {(isExtra || setDef?.targetReps != null || !setDef?.targetDuration) && (
                                           <div className="space-y-0.5">
                                             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                                              Actual reps
+                                              Reps completed
                                             </Label>
                                             <Input
                                               type="number"
@@ -765,7 +892,7 @@ export function WorkoutChecklistTracker({
                                         {(isExtra || setDef?.targetWeight != null) && (
                                           <div className="space-y-0.5">
                                             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                                              Weight (lbs)
+                                              Weight used
                                             </Label>
                                             <Input
                                               type="number"
@@ -779,11 +906,37 @@ export function WorkoutChecklistTracker({
                                             />
                                           </div>
                                         )}
+                                        <div className="space-y-0.5">
+                                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                                            RPE
+                                          </Label>
+                                          <Input
+                                            type="number"
+                                            min={0}
+                                            max={10}
+                                            placeholder={setDef?.targetRPE?.toString() ?? "—"}
+                                            value={pending.actualRPE ?? ""}
+                                            onChange={(e) =>
+                                              handleInputChange(ex.id, i, "actualRPE", e.target.value)
+                                            }
+                                            className="h-8 w-16 text-sm"
+                                          />
+                                        </div>
+                                        {setDef?.restAfter != null && (
+                                          <div className="space-y-0.5">
+                                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                                              Rest
+                                            </Label>
+                                            <p className="h-8 flex items-center text-sm text-muted-foreground">
+                                              {setDef.restAfter}s
+                                            </p>
+                                          </div>
+                                        )}
 
                                         <div className="flex gap-1.5 ml-auto">
                                           <Button
                                             size="sm"
-                                            className="h-8 gap-1 bg-emerald-500 hover:bg-emerald-600 text-white border-0 text-xs"
+                                            className="h-8 gap-1 text-xs"
                                             onClick={() => handleLogSet(block, ex, i)}
                                             disabled={isLogging}
                                           >
@@ -804,57 +957,88 @@ export function WorkoutChecklistTracker({
                                             disabled={isLogging || inputKey(ex.id, i) in pendingSkips}
                                           >
                                             <AlertCircle className="h-3 w-3" />
-                                            Can&apos;t do
+                                            Skip Exercise
                                           </Button>
                                         </div>
-                                      </div>
-                                    )}
-                                    {inputKey(ex.id, i) in pendingSkips && (
-                                      <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/50 p-2.5 space-y-2">
-                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-700">
-                                          Why can&apos;t you do this? (optional)
-                                        </p>
-                                        <Textarea
-                                          className="h-16 text-xs resize-none bg-white"
-                                          placeholder="Pain, equipment issue, form concern…"
-                                          value={pendingSkips[inputKey(ex.id, i)] ?? ""}
-                                          onChange={(e) =>
-                                            setPendingSkips((prev) => ({
-                                              ...prev,
-                                              [inputKey(ex.id, i)]: e.target.value,
-                                            }))
-                                          }
-                                        />
-                                        <div className="flex gap-1.5">
-                                          <Button
-                                            size="sm"
-                                            className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white border-0"
-                                            onClick={() => {
-                                              const key = inputKey(ex.id, i);
-                                              const reason = pendingSkips[key] || undefined;
-                                              handleLogSet(block, ex, i, true, reason, key);
-                                            }}
-                                            disabled={isLogging}
-                                          >
-                                            Skip this set
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="h-7 text-xs"
-                                            onClick={() =>
-                                              setPendingSkips((prev) => {
-                                                const next = { ...prev };
-                                                delete next[inputKey(ex.id, i)];
-                                                return next;
-                                              })
-                                            }
-                                          >
-                                            Cancel
-                                          </Button>
+                                    </div>
+                                    {inputKey(ex.id, i) in pendingSkips && (() => {
+                                      const skipKey = inputKey(ex.id, i);
+                                      const choice = skipReasonChoice[skipKey];
+                                      const canSkip = !!choice && (choice !== "Other" || pendingSkips[skipKey].trim().length > 0);
+                                      return (
+                                        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/50 p-2.5 space-y-2">
+                                          <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-700">
+                                            Why?
+                                          </p>
+                                          <div className="space-y-1.5">
+                                            {SKIP_REASONS.map((reason) => (
+                                              <label
+                                                key={reason}
+                                                className="flex items-center gap-2 text-xs text-amber-800 cursor-pointer"
+                                              >
+                                                <input
+                                                  type="radio"
+                                                  name={`skip-reason-${skipKey}`}
+                                                  checked={choice === reason}
+                                                  onChange={() =>
+                                                    setSkipReasonChoice((prev) => ({ ...prev, [skipKey]: reason }))
+                                                  }
+                                                  className="accent-amber-600"
+                                                />
+                                                {reason}
+                                              </label>
+                                            ))}
+                                          </div>
+                                          {choice === "Other" && (
+                                            <Textarea
+                                              className="h-14 text-xs resize-none bg-white"
+                                              placeholder="Tell your trainer more…"
+                                              value={pendingSkips[skipKey] ?? ""}
+                                              onChange={(e) =>
+                                                setPendingSkips((prev) => ({ ...prev, [skipKey]: e.target.value }))
+                                              }
+                                            />
+                                          )}
+                                          <div className="flex gap-1.5">
+                                            <Button
+                                              size="sm"
+                                              className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white border-0"
+                                              onClick={() => {
+                                                const reason = choice === "Other" ? pendingSkips[skipKey] : choice;
+                                                handleLogSet(block, ex, i, true, reason, skipKey);
+                                                setSkipReasonChoice((prev) => {
+                                                  const next = { ...prev };
+                                                  delete next[skipKey];
+                                                  return next;
+                                                });
+                                              }}
+                                              disabled={isLogging || !canSkip}
+                                            >
+                                              Skip this set
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-7 text-xs"
+                                              onClick={() => {
+                                                setPendingSkips((prev) => {
+                                                  const next = { ...prev };
+                                                  delete next[skipKey];
+                                                  return next;
+                                                });
+                                                setSkipReasonChoice((prev) => {
+                                                  const next = { ...prev };
+                                                  delete next[skipKey];
+                                                  return next;
+                                                });
+                                              }}
+                                            >
+                                              Cancel
+                                            </Button>
+                                          </div>
                                         </div>
-                                      </div>
-                                    )}
+                                      );
+                                    })()}
                                   </div>
                                 );
                               }
@@ -874,8 +1058,8 @@ export function WorkoutChecklistTracker({
                           </div>
 
                           {/* Client note */}
-                          <div className="space-y-1.5">
-                            <Label htmlFor={`client-note-${ex.id}`} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          <div className="space-y-1.5 rounded-xl bg-violet-50/30 p-3">
+                            <Label htmlFor={`client-note-${ex.id}`} className="text-xs font-semibold uppercase tracking-wider text-violet-600/80">
                               Your Notes
                             </Label>
                             <Textarea
@@ -883,7 +1067,7 @@ export function WorkoutChecklistTracker({
                               placeholder="Anything you want your trainer to know about this exercise..."
                               value={clientNotes[ex.id] ?? ""}
                               onChange={(e) => handleClientNoteChange(ex.id, e.target.value)}
-                              className="min-h-[64px] text-sm resize-none bg-background"
+                              className="min-h-16 text-sm italic resize-none bg-background/70 border-violet-100"
                             />
                           </div>
                         </div>

@@ -13,6 +13,18 @@ export async function sendMessage(data: {
   });
 }
 
+export async function sendVoiceMessage(data: {
+  senderId: string;
+  recipientId: string;
+  audioUrl: string;
+  audioDurationSec: number;
+}) {
+  return prisma.message.create({
+    data: { ...data, content: "" },
+    include: { sender: true, recipient: true },
+  });
+}
+
 export async function getThread(userId1: string, userId2: string) {
   return prisma.message.findMany({
     where: {

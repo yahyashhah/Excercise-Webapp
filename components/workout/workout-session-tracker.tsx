@@ -26,8 +26,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Check, SkipForward, X, Play, Loader2, Timer, ChevronRight, ChevronLeft, Trophy, RotateCcw, ClipboardList } from "lucide-react";
+import { Check, SkipForward, X, PlayCircle, Loader2, Timer, ChevronRight, ChevronLeft, Trophy, RotateCcw, ClipboardList, Dumbbell } from "lucide-react";
 import type { SetLogEntry, SetLogCache } from "./types";
+import { instructionsToBullets } from "./format-instructions";
+import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
 import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
 import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
 import type { VoiceMemoData } from "@/actions/voice-memo-actions";
@@ -40,8 +42,8 @@ type BaseExercise = {
   bodyRegion?: string | null; instructions?: string | null;
   media: MediaItem[];
 };
-type SetLog = { id: string; setIndex: number; actualReps?: number | null; actualWeight?: number | null; actualDuration?: number | null };
-type BlockExerciseSet = { id: string; orderIndex: number; targetReps?: number | null; targetDuration?: number | null; targetWeight?: number | null; restAfter?: number | null };
+type SetLog = { id: string; setIndex: number; actualReps?: number | null; actualWeight?: number | null; actualDuration?: number | null; actualRPE?: number | null };
+type BlockExerciseSet = { id: string; orderIndex: number; targetReps?: number | null; targetDuration?: number | null; targetWeight?: number | null; targetRPE?: number | null; restAfter?: number | null };
 type SessionExerciseLog = { id: string; blockExerciseId: string; status: string; clientNote?: string | null; setLogs: SetLog[] };
 type BlockExercise = { id: string; exerciseId: string; notes?: string | null; exercise: BaseExercise; sets: BlockExerciseSet[] };
 type WorkoutBlock = {
@@ -138,7 +140,7 @@ function buildFlatItems(blocks: WorkoutBlock[]): FlatItem[] {
   return items;
 }
 
-type SetLogState = { actualReps?: number; actualWeight?: number; actualDuration?: number; completed: boolean };
+type SetLogState = { actualReps?: number; actualWeight?: number; actualDuration?: number; actualRPE?: number; completed: boolean };
 
 interface WorkoutSessionTrackerProps {
   session: WorkoutSessionV2;
@@ -241,6 +243,10 @@ export function WorkoutSessionTracker({
 
   const totalItems = flatItems.length;
   const totalExerciseItems = exerciseItems.length;
+  const equipment = useMemo(
+    () => aggregateProgramEquipment([session.workout]),
+    [session.workout]
+  );
 
   const doneCount = useMemo(() => {
     return exerciseItems.filter(
@@ -305,6 +311,7 @@ export function WorkoutSessionTracker({
         actualReps: cacheEntry?.actualReps ?? existing?.actualReps ?? targetSet?.targetReps ?? undefined,
         actualWeight: cacheEntry?.actualWeight ?? existing?.actualWeight ?? targetSet?.targetWeight ?? undefined,
         actualDuration: cacheEntry?.actualDuration ?? existing?.actualDuration ?? targetSet?.targetDuration ?? undefined,
+        actualRPE: cacheEntry?.actualRPE ?? existing?.actualRPE ?? targetSet?.targetRPE ?? undefined,
         completed: cacheEntry?.completed ?? (!!existing || completedKeys.has(key)),
       };
     } else {
@@ -315,6 +322,7 @@ export function WorkoutSessionTracker({
           actualReps: cacheEntry?.actualReps ?? existing?.actualReps ?? set.targetReps ?? undefined,
           actualWeight: cacheEntry?.actualWeight ?? existing?.actualWeight ?? set.targetWeight ?? undefined,
           actualDuration: cacheEntry?.actualDuration ?? existing?.actualDuration ?? set.targetDuration ?? undefined,
+          actualRPE: cacheEntry?.actualRPE ?? existing?.actualRPE ?? set.targetRPE ?? undefined,
           completed: cacheEntry?.completed ?? (!!existing || completedKeys.has(key)),
         };
       });
@@ -363,6 +371,7 @@ export function WorkoutSessionTracker({
         actualReps: logData?.actualReps,
         actualWeight: logData?.actualWeight,
         actualDuration: logData?.actualDuration,
+        actualRPE: logData?.actualRPE,
       });
       setActiveSetLogs((prev) => ({ ...prev, [setIdx]: { ...prev[setIdx], completed: true } }));
       setCompletedKeys((prev) => new Set(prev).add(key));
@@ -371,6 +380,7 @@ export function WorkoutSessionTracker({
         actualReps: logData?.actualReps,
         actualWeight: logData?.actualWeight,
         actualDuration: logData?.actualDuration,
+        actualRPE: logData?.actualRPE,
         completed: true,
       });
 
@@ -408,6 +418,7 @@ export function WorkoutSessionTracker({
           actualReps: activeSetLogs[0]?.actualReps,
           actualWeight: activeSetLogs[0]?.actualWeight,
           actualDuration: activeSetLogs[0]?.actualDuration,
+          actualRPE: activeSetLogs[0]?.actualRPE,
           completed: true,
         });
       } else {
@@ -416,6 +427,7 @@ export function WorkoutSessionTracker({
             actualReps: activeSetLogs[i]?.actualReps,
             actualWeight: activeSetLogs[i]?.actualWeight,
             actualDuration: activeSetLogs[i]?.actualDuration,
+            actualRPE: activeSetLogs[i]?.actualRPE,
             completed: true,
           });
         }
@@ -448,13 +460,21 @@ export function WorkoutSessionTracker({
       <div className="mx-auto max-w-lg">
         <div className="overflow-hidden rounded-2xl border-0 shadow-xl ring-1 ring-border/50">
           <div className="bg-muted p-8 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-background">
-              <Play className="h-8 w-8 fill-current text-foreground" />
-            </div>
+            <PlayCircle className="mx-auto mb-4 h-14 w-14 text-primary" strokeWidth={1.5} />
             <h2 className="text-2xl font-bold text-foreground">{session.workout.name}</h2>
-            <p className="mt-1 text-muted-foreground">
+            <p className="mt-3 text-muted-foreground">
               {session.workout.blocks.reduce((n, b) => n + b.exercises.length, 0)} exercises · Let&apos;s go!
             </p>
+            {equipment.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
+                <Dumbbell className="h-3.5 w-3.5 text-muted-foreground/70" />
+                {equipment.map((item) => (
+                  <Badge key={item} variant="secondary" className="text-[11px] font-medium">
+                    {item}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
           <div className="bg-card p-6">
             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -481,7 +501,7 @@ export function WorkoutSessionTracker({
               onClick={handleStart}
               disabled={isLoading}
             >
-              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Play className="mr-2 h-5 w-5 fill-current" />}
+              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlayCircle className="mr-2 h-5 w-5" />}
               Start Session
             </Button>
           </div>
@@ -626,30 +646,42 @@ export function WorkoutSessionTracker({
                 )}
               </div>
 
-              {/* Image */}
-              <ExerciseImageLightbox
-                src={blockExercise.exercise.imageUrl ?? undefined}
-                videoUrl={blockExercise.exercise.videoUrl ?? undefined}
-                alt={blockExercise.exercise.name}
-                bodyRegion={blockExercise.exercise.bodyRegion ?? ""}
-                label={blockExercise.exercise.name.split(" ").slice(0, 2).join(" ")}
-                thumbnailClassName="relative h-52 w-full overflow-hidden rounded-xl"
-              />
+              {/* Video (preferred) or image — one compact box, no separate thumbnail below */}
+              {blockExercise.exercise.videoUrl || blockExercise.exercise.media.length > 0 ? (
+                <div className="mx-auto w-full max-w-xs">
+                  <ExerciseVideoPlayer
+                    videoUrl={blockExercise.exercise.videoUrl ?? undefined}
+                    mediaItems={blockExercise.exercise.media.map((m) => ({ id: m.id, url: m.url, mediaType: m.type }))}
+                  />
+                </div>
+              ) : (
+                <ExerciseImageLightbox
+                  src={blockExercise.exercise.imageUrl ?? undefined}
+                  alt={blockExercise.exercise.name}
+                  bodyRegion={blockExercise.exercise.bodyRegion ?? ""}
+                  label={blockExercise.exercise.name.split(" ").slice(0, 2).join(" ")}
+                  thumbnailClassName="relative h-40 w-full overflow-hidden rounded-xl"
+                />
+              )}
 
               {/* Instructions */}
               {blockExercise.exercise.instructions && (
                 <div className="rounded-xl bg-muted/40 px-4 py-3">
-                  <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
-                    {blockExercise.exercise.instructions}
-                  </p>
+                  <ul className="space-y-1 text-sm leading-relaxed text-muted-foreground list-disc pl-4">
+                    {instructionsToBullets(blockExercise.exercise.instructions).map((line, idx) => (
+                      <li key={idx}>{line}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
 
               {/* Trainer notes */}
               {blockExercise.notes && (
-                <div className="flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
-                  <span className="mt-0.5 text-xs font-bold uppercase tracking-widest text-blue-500">Note</span>
-                  <p className="text-sm italic text-blue-700">{blockExercise.notes}</p>
+                <div className="rounded-xl bg-muted/60 px-3 py-2.5">
+                  <p className="text-sm text-blue-700">
+                    <span className="font-semibold">Tip:</span>{" "}
+                    <span className="italic">{blockExercise.notes}</span>
+                  </p>
                 </div>
               )}
 
@@ -666,7 +698,7 @@ export function WorkoutSessionTracker({
                     <div className="flex flex-1 flex-wrap gap-2">
                       {targetSet.targetReps != null && (
                         <div className="space-y-0.5">
-                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Reps</Label>
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Reps completed</Label>
                           <Input type="number" placeholder={targetSet.targetReps.toString()} value={activeSetLogs[0]?.actualReps ?? ""} onChange={(e) => handleSetInputChange(0, "actualReps", e.target.value)} className="h-8 w-20 text-sm" disabled={activeSetLogs[0]?.completed} />
                         </div>
                       )}
@@ -682,8 +714,24 @@ export function WorkoutSessionTracker({
                           <Input type="number" placeholder={targetSet.targetDuration.toString()} value={activeSetLogs[0]?.actualDuration ?? ""} onChange={(e) => handleSetInputChange(0, "actualDuration", e.target.value)} className="h-8 w-20 text-sm" disabled={activeSetLogs[0]?.completed} />
                         </div>
                       )}
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">RPE</Label>
+                        <Input type="number" min={0} max={10} placeholder={targetSet.targetRPE?.toString() ?? "—"} value={activeSetLogs[0]?.actualRPE ?? ""} onChange={(e) => handleSetInputChange(0, "actualRPE", e.target.value)} className="h-8 w-16 text-sm" disabled={activeSetLogs[0]?.completed} />
+                      </div>
+                      {targetSet.restAfter != null && (
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Rest</Label>
+                          <p className="h-8 flex items-center text-sm text-muted-foreground">{targetSet.restAfter}s</p>
+                        </div>
+                      )}
                     </div>
-                    <Button size="icon" variant={activeSetLogs[0]?.completed ? "secondary" : "default"} className="h-8 w-8 shrink-0 rounded-full" onClick={() => handleLogSet(0)} disabled={activeSetLogs[0]?.completed || loggingSet === 0}>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className={`h-8 w-8 shrink-0 rounded-full border-2 ${activeSetLogs[0]?.completed ? "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-500" : "border-muted-foreground/30 bg-transparent"}`}
+                      onClick={() => handleLogSet(0)}
+                      disabled={activeSetLogs[0]?.completed || loggingSet === 0}
+                    >
                       {loggingSet === 0 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                     </Button>
                   </div>
@@ -705,7 +753,7 @@ export function WorkoutSessionTracker({
                         <div className="flex flex-1 flex-wrap gap-2">
                           {set.targetReps != null && (
                             <div className="space-y-0.5">
-                              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Reps</Label>
+                              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Reps completed</Label>
                               <Input type="number" placeholder={set.targetReps.toString()} value={logData.actualReps ?? ""} onChange={(e) => handleSetInputChange(i, "actualReps", e.target.value)} className="h-8 w-20 text-sm" disabled={isSetDone} />
                             </div>
                           )}
@@ -721,8 +769,24 @@ export function WorkoutSessionTracker({
                               <Input type="number" placeholder={set.targetDuration.toString()} value={logData.actualDuration ?? ""} onChange={(e) => handleSetInputChange(i, "actualDuration", e.target.value)} className="h-8 w-20 text-sm" disabled={isSetDone} />
                             </div>
                           )}
+                          <div className="space-y-0.5">
+                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">RPE</Label>
+                            <Input type="number" min={0} max={10} placeholder={set.targetRPE?.toString() ?? "—"} value={logData.actualRPE ?? ""} onChange={(e) => handleSetInputChange(i, "actualRPE", e.target.value)} className="h-8 w-16 text-sm" disabled={isSetDone} />
+                          </div>
+                          {set.restAfter != null && (
+                            <div className="space-y-0.5">
+                              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Rest</Label>
+                              <p className="h-8 flex items-center text-sm text-muted-foreground">{set.restAfter}s</p>
+                            </div>
+                          )}
                         </div>
-                        <Button size="icon" variant={isSetDone ? "secondary" : "default"} className="h-8 w-8 shrink-0 rounded-full" onClick={() => handleLogSet(i)} disabled={isSetDone || loggingSet === i}>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className={`h-8 w-8 shrink-0 rounded-full border-2 ${isSetDone ? "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-500" : "border-muted-foreground/30 bg-transparent"}`}
+                          onClick={() => handleLogSet(i)}
+                          disabled={isSetDone || loggingSet === i}
+                        >
                           {loggingSet === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                         </Button>
                       </div>
@@ -732,8 +796,8 @@ export function WorkoutSessionTracker({
               )}
 
               {/* Client note */}
-              <div className="space-y-1.5">
-                <Label htmlFor={`client-note-${blockExercise.id}`} className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <div className="space-y-1.5 rounded-xl bg-violet-50/30 p-3">
+                <Label htmlFor={`client-note-${blockExercise.id}`} className="text-xs font-semibold uppercase tracking-widest text-violet-600/80">
                   Your Notes
                 </Label>
                 <Textarea
@@ -741,20 +805,9 @@ export function WorkoutSessionTracker({
                   placeholder="Anything you want your trainer to know about this exercise..."
                   value={clientNotes[blockExercise.id] ?? ""}
                   onChange={(e) => handleClientNoteChange(blockExercise.id, e.target.value)}
-                  className="min-h-[64px] text-sm resize-none"
+                  className="min-h-14 text-xs italic resize-none bg-background/70 border-violet-100"
                 />
               </div>
-
-              {/* Video */}
-              {(blockExercise.exercise.videoUrl || blockExercise.exercise.media.length > 0) && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Tutorial Video</p>
-                  <ExerciseVideoPlayer
-                    videoUrl={blockExercise.exercise.videoUrl ?? undefined}
-                    mediaItems={blockExercise.exercise.media.map((m) => ({ id: m.id, url: m.url, mediaType: m.type }))}
-                  />
-                </div>
-              )}
 
               {/* Action buttons */}
               <div className="flex gap-3 pt-1">
