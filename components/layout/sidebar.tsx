@@ -61,7 +61,6 @@ const clientLinks: NavLink[] = [
   { href: "/programs",    label: "My Programs",  icon: ClipboardList },
   // { href: "/habits",      label: "Habits",       icon: Flame },
   // { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
-  { href: "/exercises",   label: "Exercises",    icon: Dumbbell },
   // { href: "/assessments", label: "Assessments",  icon: TrendingUp },
   { href: "/messages",    label: "Messages",     icon: MessageSquare },
 ];

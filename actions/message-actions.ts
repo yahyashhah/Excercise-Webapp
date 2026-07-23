@@ -11,12 +11,14 @@ import { threadChannel, inboxChannel } from "@/lib/pusher-channels";
 
 type DeliveredMessage = Awaited<ReturnType<typeof messageService.sendMessage>>;
 
-function broadcastNewMessage(message: DeliveredMessage) {
+export async function broadcastNewMessage(message: DeliveredMessage) {
   const payload = {
     id: message.id,
     senderId: message.senderId,
     recipientId: message.recipientId,
     content: message.content,
+    audioUrl: message.audioUrl,
+    audioDurationSec: message.audioDurationSec,
     createdAt: message.createdAt.toISOString(),
     sender: {
       firstName: message.sender.firstName,

@@ -6,6 +6,7 @@ import * as sessionService from "@/lib/services/session.service";
 import * as messageService from "@/lib/services/message.service";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import { getDashboardInsights } from "@/lib/services/dashboard-insights.service";
+import { computeCurrentStreak } from "@/lib/utils/streak";
 import { startOfWeek, endOfWeek, startOfDay } from "date-fns";
 
 export default async function DashboardPage() {
@@ -83,13 +84,18 @@ export default async function DashboardPage() {
   const calendarStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const calendarEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59);
 
-  const [recentAssessments, unreadMessages, calendarSessions, completedThisWeek] = await Promise.all([
+  const [
+    recentAssessments,
+    calendarSessions,
+    completedThisWeek,
+    completedSessionDates,
+    exercisesCompleted,
+  ] = await Promise.all([
     prisma.assessment.findMany({
       where: { clientId: user.id },
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
-    prisma.message.count({ where: { recipientId: user.id, isRead: false } }),
     prisma.workoutSessionV2.findMany({
       where: {
         clientId: user.id,
@@ -119,6 +125,13 @@ export default async function DashboardPage() {
         completedAt: { gte: weekStart, lte: weekEnd },
       },
     }),
+    prisma.workoutSessionV2.findMany({
+      where: { clientId: user.id, status: "COMPLETED" },
+      select: { startedAt: true, completedAt: true },
+    }),
+    prisma.sessionExerciseLog.count({
+      where: { session: { clientId: user.id }, status: "COMPLETED" },
+    }),
   ]);
 
   // The hero "next workout" uses the first upcoming session
@@ -126,13 +139,27 @@ export default async function DashboardPage() {
     (s) => (s.status === "SCHEDULED" || s.status === "IN_PROGRESS") && new Date(s.scheduledDate) >= startOfDay(now)
   );
 
+  const currentStreak = computeCurrentStreak(
+    completedSessionDates.map((s) => s.completedAt ?? new Date()).filter(Boolean) as Date[],
+    now
+  );
+  const minutesExercised = Math.round(
+    completedSessionDates.reduce((total, s) => {
+      if (!s.startedAt || !s.completedAt) return total;
+      return total + (s.completedAt.getTime() - s.startedAt.getTime()) / 60000;
+    }, 0)
+  );
+
   return (
     <ClientDashboard
+      firstName={user.firstName}
       upcomingSessions={upcomingSessions as any}
       calendarSessions={calendarSessions as any}
       weeklyCompliance={completedThisWeek}
       recentAssessments={recentAssessments}
-      unreadMessages={unreadMessages}
+      currentStreak={currentStreak}
+      exercisesCompleted={exercisesCompleted}
+      minutesExercised={minutesExercised}
     />
   );
 }
